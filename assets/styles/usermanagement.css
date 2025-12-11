@@ -1,0 +1,137 @@
+
+.inline-form {
+    display: inline-block;
+    margin: 2px;
+}
+
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+}
+
+.btn-sm {
+    padding: 6px 8px;
+    font-size: 0.8rem;
+}
+
+.btn-warning {
+    background: #f59e0b;
+    color: white;
+    border: none;
+}
+
+.btn-warning:hover {
+    background: #d97706;
+}
+
+.btn-success {
+    background: #10b981;
+    color: white;
+    border: none;
+}
+
+.btn-success:hover {
+    background: #047857;
+}
+
+.btn-danger {
+    background: #dc2626;
+    color: white;
+    border: none;
+}
+
+.btn-danger:hover {
+    background: #b91c1c;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-active {
+    background: #d1fae5;
+    color: #047857;
+}
+
+.status-inactive {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.notification-form textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.current-notification {
+    font-size: 0.9rem;
+}
+
+.data-table {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .action-buttons {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .inline-form {
+        display: block;
+        margin: 5px 0;
+    }
+    
+    .data-table {
+        font-size: 0.8rem;
+    }
+}
+
+/*ADDITIONAL STYLES*/
+
+.user-row:hover {
+    background: #f8fafc !important;
+}
+
+.pagination {
+    margin-top: 20px;
+}
+
+.loading-spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #0060df;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.filter-form .form-group {
+    margin-bottom: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .filter-form div {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
+}
+

@@ -1,0 +1,202 @@
+/* Notification Banner Styles */
+.notifications-container {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    width: 90%;
+    max-width: 600px;
+}
+
+.notification-banner {
+    background: linear-gradient(135deg, #0060df, #004db5);
+    color: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 15px;
+    box-shadow: 0 10px 30px rgba(0, 96, 223, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    animation: slideDown 0.5s ease-out;
+}
+
+.notification-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    flex: 1;
+}
+
+.notification-icon {
+    font-size: 1.5rem;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.notification-message h4 {
+    margin: 0 0 5px 0;
+    font-size: 1.1rem;
+}
+
+.notification-message p {
+    margin: 0 0 8px 0;
+    font-size: 1rem;
+    line-height: 1.4;
+}
+
+.notification-message small {
+    opacity: 0.8;
+    font-size: 0.85rem;
+}
+
+.notification-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.notification-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Message Grid Styles */
+.admin-message-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.message-card {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border-left: 4px solid #0060df;
+    transition: all 0.3s ease;
+}
+
+.message-card.unread {
+    border-left-color: #ef4444;
+    background: #fef2f2;
+}
+
+.message-card.expired {
+    opacity: 0.7;
+    background: #f8f9fa;
+}
+
+.message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.message-sender {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #1a202c;
+}
+
+.message-date {
+    color: #718096;
+    font-size: 0.9rem;
+}
+
+.expired-badge {
+    background: #e53e3e;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    margin-left: 8px;
+}
+
+.message-content {
+    color: #4a5568;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+.message-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-top: 15px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.message-meta small {
+    color: #a0aec0;
+}
+
+.mark-read-btn {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+}
+
+.read-badge {
+    color: #38a169;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.no-messages {
+    text-align: center;
+    padding: 60px 20px;
+    color: #718096;
+}
+
+.no-messages i {
+    font-size: 4rem;
+    margin-bottom: 20px;
+    color: #cbd5e0;
+}
+
+.no-messages h3 {
+    color: #4a5568;
+    margin-bottom: 10px;
+}
+
+/* Notification badge for nav */
+.nav-link-profile .notification-badge {
+    background: #ef4444;
+    color: white;
+    border-radius: 50%;
+    width: 10px;
+    height: 10px;
+    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 8px;
+}
