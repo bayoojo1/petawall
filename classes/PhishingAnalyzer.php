@@ -436,7 +436,7 @@ Provide detailed phishing assessment with:
     }
     
     private function formatEmailAnalysisResult($aiResult, $analysis) {
-    // Ensure we have a consistent structure
+    // Ensure we have a consistent structure//
         $phishingScore = $this->extractScore($aiResult);
         $riskLevel = $this->determineRiskLevel($phishingScore);
         $confidence = $this->extractConfidence($aiResult);
