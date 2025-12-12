@@ -462,6 +462,34 @@ try {
             }
             break;
 
+            case 'ollama':
+                try {
+                    $prompt = $_POST['prompt'] ?? '';
+                    $model = $_POST['model'] ?? OLLAMA_DEFAULT_MODEL;
+                    
+                    if (empty($prompt)) {
+                        throw new Exception('No prompt provided');
+                    }
+                    
+                    $ollama = new OllamaSearch($model);
+                    $response = $ollama->generateResponse($prompt);
+                    
+                    echo json_encode([
+                        'success' => true,
+                        'response' => $response,
+                        'model' => $model,
+                        'timestamp' => date('Y-m-d H:i:s')
+                    ]);
+                    
+                } catch (Exception $e) {
+                    echo json_encode([
+                        'success' => false,
+                        'error' => $e->getMessage(),
+                        'timestamp' => date('Y-m-d H:i:s')
+                    ]);
+                }
+                break;
+
             default:
                 echo json_encode(['error' => 'Unknown tool specified']);
                 exit;

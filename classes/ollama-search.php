@@ -484,7 +484,7 @@ class OllamaSearch {
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
             ],
-            CURLOPT_TIMEOUT => 1800,
+            CURLOPT_TIMEOUT => 3600,
             CURLOPT_CONNECTTIMEOUT => 20,
             CURLOPT_SSL_VERIFYPEER => false, // For local development
             CURLOPT_FOLLOWLOCATION => true,
