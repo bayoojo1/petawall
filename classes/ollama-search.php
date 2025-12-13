@@ -536,7 +536,7 @@ class OllamaSearch {
         // If no JSON found, return the raw content with some structure
         return [
             'raw_response' => $content,
-            'analysis' => $content,
+            // 'analysis' => $content,
             'recommendations' => $this->extractRecommendations($content)
         ];
     }
