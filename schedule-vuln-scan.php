@@ -212,7 +212,7 @@ require_once __DIR__ . '/includes/header.php';
                                         <option value="daily">Daily</option>
                                         <option value="weekly">Weekly</option>
                                         <option value="monthly">Monthly</option>
-                                        <option value="custom">Custom Interval</option>
+                                        <!-- <option value="custom">Custom Interval</option> -->
                                     </select>
                                 </div>
                             </div>
