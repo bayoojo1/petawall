@@ -26,7 +26,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                     <div class="contact-details">
                         <h3>Email Us</h3>
-                        <p>enquiries@terawall.co.uk</p>
+                        <p>enquiries@petawall.com</p>
                         <p>We'll respond within 24 hours</p>
                     </div>
                 </div>
@@ -54,17 +54,14 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 
                 <div class="social-links-contact">
-                    <a href="#" class="social-link-contact">
+                    <a href="https://www.x.com/petawall_ltd" class="social-link-contact">
                         <i class="fab fa-twitter"></i>
                     </a>
-                    <a href="#" class="social-link-contact">
+                    <a href="https://www.linkedin.com/company/petawall" class="social-link-contact">
                         <i class="fab fa-linkedin"></i>
                     </a>
-                    <a href="#" class="social-link-contact">
-                        <i class="fab fa-github"></i>
-                    </a>
-                    <a href="#" class="social-link-contact">
-                        <i class="fab fa-youtube"></i>
+                    <a href="https://www.facebook.com/petawalldotcom" class="social-link-contact">
+                        <i class="fab fa-facebook"></i>
                     </a>
                 </div>
             </div>

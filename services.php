@@ -19,7 +19,7 @@ require_once __DIR__ . '/includes/header.php';
             </div>
             <div class="service-body">
                 <div class="service-description">
-                    <p>At Terawall Limited, we provide end-to-end Governance, Risk, and Compliance (GRC) services designed to help organizations effectively manage regulatory obligations, mitigate risk, and build trust with customers and stakeholders.</p>
+                    <p>At Petawall Limited, we provide end-to-end Governance, Risk, and Compliance (GRC) services designed to help organizations effectively manage regulatory obligations, mitigate risk, and build trust with customers and stakeholders.</p>
                 </div>
                 <div class="service-features">
                     <h3>Our GRC services include:</h3>
@@ -40,7 +40,7 @@ require_once __DIR__ . '/includes/header.php';
             </div>
             <div class="service-body">
                 <div class="service-description">
-                    <p>At Terawall Limited, we offer comprehensive penetration testing services designed to simulate real-world cyberattacks and uncover vulnerabilities before malicious actors can exploit them.</p>
+                    <p>At Petawall Limited, we offer comprehensive penetration testing services designed to simulate real-world cyberattacks and uncover vulnerabilities before malicious actors can exploit them.</p>
                 </div>
                 <div class="service-features">
                     <h3>Our penetration testing capabilities include:</h3>
@@ -64,7 +64,7 @@ require_once __DIR__ . '/includes/header.php';
             </div>
             <div class="service-body">
                 <div class="service-description">
-                    <p>At Terawall Limited, our Vulnerability Assessment services help organizations identify, prioritize, and address security weaknesses across their digital environment before they can be exploited.</p>
+                    <p>At Petawall Limited, our Vulnerability Assessment services help organizations identify, prioritize, and address security weaknesses across their digital environment before they can be exploited.</p>
                 </div>
                 <div class="service-features">
                     <h3>Our comprehensive approach includes:</h3>

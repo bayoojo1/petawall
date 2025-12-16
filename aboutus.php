@@ -10,7 +10,7 @@ require_once __DIR__ . '/includes/header.php';
     <div class="container">
         <div class="hero-content">
             <h1>Protecting Digital Frontiers with AI-Powered Security</h1>
-            <p>TeraWall Security is a leading cybersecurity platform that leverages artificial intelligence to provide comprehensive protection against evolving digital threats.</p>
+            <p>Petawall is a leading cybersecurity platform that leverages artificial intelligence to provide comprehensive protection against evolving digital threats.</p>
             <div class="hero-stats">
                 <div class="stat">
                     <h3>500+</h3>
@@ -62,7 +62,7 @@ require_once __DIR__ . '/includes/header.php';
         <div class="story-content">
             <div class="story-text">
                 <h2>Our Story</h2>
-                <p>Founded in 2018 by a team of cybersecurity experts and AI researchers, TeraWall Security emerged from a simple observation: traditional security solutions were struggling to keep pace with sophisticated cyber threats.</p>
+                <p>Founded in 2018 by a team of cybersecurity experts and AI researchers, Petawall Security emerged from a simple observation: traditional security solutions were struggling to keep pace with sophisticated cyber threats.</p>
                 
                 <p>We recognized that artificial intelligence could revolutionize threat detection and prevention. What started as a research project in a university lab has evolved into a comprehensive security platform trusted by organizations worldwide.</p>
                 
@@ -96,7 +96,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="timeline-year">2019</div>
                         <div class="timeline-content">
                             <h4>Platform Launch</h4>
-                            <p>Launched first version of TeraWall Security Platform</p>
+                            <p>Launched first version of Petawall Security Platform</p>
                         </div>
                     </div>
                     <div class="timeline-item">
@@ -239,10 +239,9 @@ require_once __DIR__ . '/includes/header.php';
     <div class="container">
         <div class="cta-content">
             <h2>Ready to Strengthen Your Security?</h2>
-            <p>Join hundreds of organizations that trust TeraWall to protect their digital assets</p>
+            <p>Join hundreds of organizations that trust Petawall to protect their digital assets</p>
             <div class="cta-buttons">
-                <a href="#" class="btn-about btn-about-primary">Start Free Trial</a>
-                <a href="contact.php" class="btn-about btn-about-outline">Contact Sales</a>
+                <a href="contactus.php" class="btn-about btn-about-outline">Contact Sales</a>
             </div>
         </div>
     </div>
