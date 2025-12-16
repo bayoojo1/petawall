@@ -4,13 +4,8 @@
         <div class="logo-section">
             <a href="index.php" class="logo-link">
                 <div class="logo-icon">
-                    <i class="fas fa-shield-alt"></i>
+                     <img src="assets/img/logo.svg" alt="Petawall Logo">
                 </div>
-                <div class="logo-text">
-                    <h1 class="logo-title">PetaWall</h1>
-                    <p class="logo-subtitle"></p>
-                </div>
-            </a>
         </div>
 
         <!-- Navigation Links -->
