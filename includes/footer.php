@@ -4,25 +4,21 @@
         <div class="footer-content">
             <div class="footer-section">
                 <div class="footer-logo">
-                    <i class="fas fa-shield-alt"></i>
-                    <span class="logo-text">PetaWall</span>
+                    <img src="assets/img/logo.svg" alt="Petawall Logo">
                 </div>
                 <p class="footer-description">
                     Comprehensive cybersecurity platform providing advanced threat detection, 
                     vulnerability assessment, and security analytics powered by AI.
                 </p>
                 <div class="footer-social">
-                    <a href="#" class="social-link" aria-label="GitHub">
-                        <i class="fab fa-github"></i>
+                    <a href="https://www.facebook.com/petawalldotcom" class="social-link" aria-label="Facebook">
+                        <i class="fab fa-facebook"></i>
                     </a>
-                    <a href="#" class="social-link" aria-label="Twitter">
+                    <a href="https://www.x.com/petawall_ltd" class="social-link" aria-label="Twitter">
                         <i class="fab fa-twitter"></i>
                     </a>
-                    <a href="#" class="social-link" aria-label="LinkedIn">
+                    <a href="https://www.linkedin.com/company/petawall" class="social-link" aria-label="LinkedIn">
                         <i class="fab fa-linkedin"></i>
-                    </a>
-                    <a href="#" class="social-link" aria-label="Discord">
-                        <i class="fab fa-discord"></i>
                     </a>
                 </div>
             </div>
@@ -51,15 +47,13 @@
             </div>
             
             <div class="footer-section">
-                <h4 class="footer-heading">Support & Resources</h4>
+                <h4 class="footer-heading">Links</h4>
                 <ul class="footer-links">
-                    <li><a href="#">Documentation</a></li>
-                    <li><a href="#">Security Blog</a></li>
-                    <li><a href="#">Help Center</a></li>
-                    <li><a href="#">Community Forum</a></li>
-                    <li><a href="#">API Documentation</a></li>
-                    <li><a href="#">Tool Integrations</a></li>
-                    <li><a href="#">Contact Support</a></li>
+                    <li><a href="index.php">Home</a></li>
+                    <li><a href="contactus.php">Contact Us</a></li>
+                    <li><a href="services.php">Services</a></li>
+                    <li><a href="aboutus.php">About Us</a></li>
+                    <li><a href="pricing.php">Pricing</a></li>
                 </ul>
             </div>
             

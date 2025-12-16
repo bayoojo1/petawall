@@ -412,15 +412,6 @@ header {
     margin-bottom: 1rem;
 }
 
-.footer-logo i {
-    font-size: 1.75rem;
-    color: #0060df;
-    background: linear-gradient(135deg, #0060df, #004db5);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
 .logo-text {
     font-size: 1.5rem;
     font-weight: 700;
