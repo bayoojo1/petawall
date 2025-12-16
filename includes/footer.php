@@ -72,7 +72,7 @@
         <div class="footer-bottom">
             <div class="footer-bottom-content">
                 <div class="footer-copyright">
-                    <p>&copy; <?php echo date("Y"); ?> PetaWall. All rights reserved.</p>
+                    <p>&copy; <?php echo date("Y"); ?> Petawall. All rights reserved.</p>
                 </div>
             </div>
         </div>
