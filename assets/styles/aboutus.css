@@ -245,7 +245,7 @@
     
     .team-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(2, 1fr);
         gap: 30px;
     }
     
@@ -279,6 +279,15 @@
         color: #0060df;
         margin-bottom: 8px;
         font-size: 20px;
+    }
+
+    .container-team {
+        padding-left: 1rem;
+        padding-right: 1rem;
+        margin: 0 auto;
+        max-width: 1000px;
+        position: relative;
+
     }
     
     .member-role {

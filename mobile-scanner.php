@@ -7,11 +7,11 @@ $accessControl = new AccessControl();
 $toolName = 'mobile-scanner';
 
 if (!$auth->isLoggedIn()) {
-    header('Location: upgrade.php');
+    header('Location: plan.php');
     exit;
 }
 
-$accessControl->requireToolAccess($toolName, 'upgrade.php');
+$accessControl->requireToolAccess($toolName, 'plan.php');
 
 require_once __DIR__ . '/includes/header.php';
 ?>

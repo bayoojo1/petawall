@@ -126,7 +126,7 @@ body {
     background-color: var(--blue-dark);
 }
 
-.service-card:nth-child(3n) .service-header {
+.service-card:nth-child(2n) .service-header {
     background-color: var(--blue-light);
 }
 

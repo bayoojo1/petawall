@@ -8,7 +8,7 @@ require_once __DIR__ . '/includes/header.php';
 <div class="services-container">
     <div class="page-header">
         <h1>Our Cybersecurity Services</h1>
-        <p>Comprehensive security solutions to protect your organization from evolving cyber threats</p>
+        <p>Comprehensive security services to protect your organization from evolving cyber threats</p>
     </div>
     
     <div class="services-grid">

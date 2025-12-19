@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 // Navigate to pricing page or show pricing modal
                 //console.log('Pricing clicked');
-                window.location.href = 'upgrade.php';
+                window.location.href = 'plan.php';
             });
         }
     });

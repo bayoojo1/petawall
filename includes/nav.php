@@ -98,9 +98,9 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="upgrade.php" class="nav-link" id="pricing-nav-link">
+                    <a href="plan.php" class="nav-link" id="pricing-nav-link">
                         <i class="fas fa-tag"></i>
-                        <span>Pricing</span>
+                        <span>Plans</span>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -210,15 +210,15 @@
                     </div>
                 </div>
                 
-                <a href="upgrade.php" class="mobile-nav-link" id="mobile-pricing-link">
+                <a href="pricing.php" class="mobile-nav-link" id="mobile-pricing-link">
                     <i class="fas fa-tag"></i>
                     Pricing
                 </a>
-                <a href="#" class="mobile-nav-link" id="mobile-about-link">
+                <a href="aboutus.php" class="mobile-nav-link" id="mobile-about-link">
                     <i class="fas fa-info-circle"></i>
                     About Us
                 </a>
-                <a href="#" class="mobile-nav-link" id="mobile-contact-link">
+                <a href="contactus.php" class="mobile-nav-link" id="mobile-contact-link">
                     <i class="fas fa-envelope"></i>
                     Contact
                 </a>

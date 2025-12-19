@@ -8,12 +8,12 @@ $toolName = 'code-analyzer';
 
 // Check if user is logged in
 if (!$auth->isLoggedIn()) {
-    header('Location: upgrade.php');
+    header('Location: plan.php');
     exit;
 }
 
 // Check if user has permission to access this tool
-$accessControl->requireToolAccess($toolName, 'upgrade.php');
+$accessControl->requireToolAccess($toolName, 'plan.php');
 
 require_once __DIR__ . '/includes/header.php';
 ?>

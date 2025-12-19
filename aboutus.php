@@ -188,7 +188,7 @@ require_once __DIR__ . '/includes/header.php';
 
 <!-- Team Section -->
 <section class="team-section">
-    <div class="container">
+    <div class="container-team">
         <div class="section-header">
             <h2>Leadership Team</h2>
             <p>Meet the experts driving our security innovation</p>
@@ -199,36 +199,18 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="member-photo">
                     <i class="fas fa-user"></i>
                 </div>
-                <h3>Dr. Sarah Chen</h3>
-                <p class="member-role">CEO & Co-Founder</p>
-                <p class="member-bio">Former cybersecurity researcher with 15+ years experience in AI and threat intelligence.</p>
+                <h3>Adebayo Ojo</h3>
+                <p class="member-role">CEO/CTO & Co-Founder</p>
+                <p class="member-bio">Expert in Cybersecurity, IT, Telecommunications, Internet of Things, and Networking with 20+ years experience.    </p>
             </div>
             
             <div class="team-member">
                 <div class="member-photo">
                     <i class="fas fa-user"></i>
                 </div>
-                <h3>Michael Rodriguez</h3>
-                <p class="member-role">CTO & Co-Founder</p>
-                <p class="member-bio">Expert in machine learning applications for cybersecurity and distributed systems.</p>
-            </div>
-            
-            <div class="team-member">
-                <div class="member-photo">
-                    <i class="fas fa-user"></i>
-                </div>
-                <h3>Dr. Emily Watson</h3>
-                <p class="member-role">Chief Security Officer</p>
-                <p class="member-bio">Cybersecurity veteran with background in government intelligence and enterprise security.</p>
-            </div>
-            
-            <div class="team-member">
-                <div class="member-photo">
-                    <i class="fas fa-user"></i>
-                </div>
-                <h3>James Thompson</h3>
-                <p class="member-role">Head of Research</p>
-                <p class="member-bio">Leads our AI research team in developing next-generation threat detection algorithms.</p>
+                <h3>Oluwatoyin Adeniji</h3>
+                <p class="member-role">CSO & Co-Founder</p>
+                <p class="member-bio">Expert in governance, risk, and compliance with 15+ years experience.</p>
             </div>
         </div>
     </div>

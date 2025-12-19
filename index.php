@@ -41,7 +41,7 @@ if (isset($isLoggedIn) && $isLoggedIn) {
                     <h1 class="welcome-title">Welcome to Petawall Security Platform</h1>
                     <p class="welcome-message">
                         Your comprehensive suite of AI-powered security tools designed to protect and analyze digital assets. 
-                        Explore our advanced security tools to strengthen your cybersecurity posture.
+                        Explore our advanced security <a class="links" href="#links">tools</a> and <a class="links" href="services.php">services</a> to strengthen your cybersecurity posture.
                     </p>
                     <div class="responsibility-notice">
                         <i class="fas fa-exclamation-triangle"></i>
@@ -50,7 +50,7 @@ if (isset($isLoggedIn) && $isLoggedIn) {
                 </div>
             </div>
 
-            <div class="tools-grid" style="margin-top: 40px;">
+            <div id="links" class="tools-grid" style="margin-top: 40px;">
                 <a href="vulnerability-scanner.php" class="tool-card">
                     <div class="tool-icon">
                         <i class="fas fa-bug"></i>

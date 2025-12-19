@@ -42,7 +42,7 @@ require_once __DIR__ . '/includes/nav.php';
         <p>Get access to all our premium security tools</p>
         <p class="current-plan-indicator">Your current plan: <strong><?= ucfirst($currentUserRole) ?></strong></p>
     <?php else: ?>
-        <h1>Pricing</h1>
+        <h1>Subscription Plans</h1>
         <p>Create an account to access and use our free tools</p>
     <?php endif; ?>
     </div>

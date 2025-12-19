@@ -473,6 +473,11 @@ header {
     border-radius: 2px;
 }
 
+.links {
+    text-decoration: underline;
+    color: white;
+}
+
 .footer-links {
     list-style: none;
     padding: 0;
@@ -1120,6 +1125,8 @@ header {
 html, body {
     overflow-x: hidden;
     max-width: 100%;
+    scroll-behavior: smooth;
+    
 }
 
 .container {

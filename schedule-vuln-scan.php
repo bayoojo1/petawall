@@ -10,7 +10,7 @@ $userId = $_SESSION['user_id'] ?? '';
 
 // Check if user is logged in
 if (!$auth->isLoggedIn()) {
-    header('Location: upgrade.php');
+    header('Location: pricing.php');
     exit;
 }
 
@@ -211,7 +211,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <select class="form-control" id="schedule_type" name="schedule_type" required>
                                         <option value="daily">Daily</option>
                                         <option value="weekly">Weekly</option>
-                                        <option value="monthly">Monthly</option>
+                                        <!-- <option value="monthly">Monthly</option> -->
                                         <!-- <option value="custom">Custom Interval</option> -->
                                     </select>
                                 </div>
