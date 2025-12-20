@@ -1638,8 +1638,21 @@ class ThreatModelingTool {
 
     private function parseAIThreats($aiResponse, $systemData) {
         try {
-            $responseText = is_string($aiResponse) ? $aiResponse : 
-                        (is_array($aiResponse) ? implode(' ', $aiResponse) : strval($aiResponse));
+            // Safe conversion handling all cases
+            if (is_string($aiResponse)) {
+                $responseText = $aiResponse;
+            } elseif (is_array($aiResponse)) {
+                // Convert only scalar values to string
+                $textParts = [];
+                array_walk_recursive($aiResponse, function($item) use (&$textParts) {
+                    if (is_scalar($item) && !is_bool($item)) {
+                        $textParts[] = (string)$item;
+                    }
+                });
+                $responseText = implode(' ', $textParts);
+            } else {
+                $responseText = strval($aiResponse);
+            }
             
             $threats = [];
             
