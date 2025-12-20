@@ -17,9 +17,9 @@ class ZeptoMailGateway {
         ];
         
         // Add attachments if any
-        if (!empty($attachments)) {
-            $emailData["attachments"] = $this->processAttachments($attachments);
-        }
+        // if (!empty($attachments)) {
+        //     $emailData["attachments"] = $this->processAttachments($attachments);
+        // }
         
         return $this->makeApiRequest($emailData);
     }
@@ -45,35 +45,35 @@ class ZeptoMailGateway {
         return $formatted;
     }
     
-    private function processAttachments($attachments) {
-        $processed = [];
+    // private function processAttachments($attachments) {
+    //     $processed = [];
         
-        foreach ($attachments as $attachment) {
-            if (is_string($attachment)) {
-                // Just file path provided
-                $filePath = $attachment;
-                $contentType = "application/octet-stream";
-            } else {
-                // Array with details
-                $filePath = $attachment['path'];
-                $contentType = $attachment['content_type'] ?? "application/octet-stream";
-            }
+    //     foreach ($attachments as $attachment) {
+    //         if (is_string($attachment)) {
+    //             // Just file path provided
+    //             $filePath = $attachment;
+    //             $contentType = "application/octet-stream";
+    //         } else {
+    //             // Array with details
+    //             $filePath = $attachment['path'];
+    //             $contentType = $attachment['content_type'] ?? "application/octet-stream";
+    //         }
             
-            if (file_exists($filePath)) {
-                $fileContent = file_get_contents($filePath);
-                $base64File = base64_encode($fileContent);
-                $filename = basename($filePath);
+    //         if (file_exists($filePath)) {
+    //             $fileContent = file_get_contents($filePath);
+    //             $base64File = base64_encode($fileContent);
+    //             $filename = basename($filePath);
                 
-                $processed[] = [
-                    "name" => $filename,
-                    "content" => $base64File,
-                    "content_type" => $contentType
-                ];
-            }
-        }
+    //             $processed[] = [
+    //                 "name" => $filename,
+    //                 "content" => $base64File,
+    //                 "content_type" => $contentType
+    //             ];
+    //         }
+    //     }
         
-        return $processed;
-    }
+    //     return $processed;
+    // }
     
     private function makeApiRequest($emailData) {
         $curl = curl_init();
