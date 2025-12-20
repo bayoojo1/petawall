@@ -54,7 +54,7 @@ class Auth {
             // Send verification email
             $this->sendVerificationEmail($email, $verificationToken);
 
-            return ['success' => true, 'message' => 'Registration successful. Please check your email for verification.'];
+            return ['success' => true, 'message' => 'Registration successful. Please check your mailbox or junk email for verification link.'];
 
         } catch (Exception $e) {
             $this->pdo->rollBack();
