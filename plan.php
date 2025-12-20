@@ -89,6 +89,8 @@ require_once __DIR__ . '/includes/nav.php';
                         <button class="btn btn-outline" disabled>Free</button>
                     <?php elseif ($isCurrentPlan && $isLoggedIn): ?>
                         <button class="btn btn-outline" disabled>Current Plan</button>
+                    <?php elseif ($isLoggedIn && $auth->hasRole('admin')): ?>
+                        <button class="btn btn-outline signup-btn" disabled>Sign Up</button>
                     <?php elseif (!$isLoggedIn): ?>
                         <button class="btn btn-outline signup-btn">Sign Up</button>
                     <?php else: ?>

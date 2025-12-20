@@ -10,12 +10,12 @@ $userId = $_SESSION['user_id'] ?? '';
 
 // Check if user is logged in
 if (!$auth->isLoggedIn()) {
-    header('Location: pricing.php');
+    header('Location: plan.php');
     exit;
 }
 
 // Check if user has permission
-$accessControl->requireToolAccess($toolName, 'upgrade.php');
+$accessControl->requireToolAccess($toolName, 'plan.php');
 
 // Initialize database
 $db = new Database();
@@ -127,10 +127,6 @@ function calculateInitialNextRun($scheduleType, $postData) {
             $nextMonth = date('Y-m-', strtotime('first day of next month')) . str_pad($dayOfMonth, 2, '0', STR_PAD_LEFT);
             return $nextMonth . ' ' . $time;
             
-        case 'custom':
-            $interval = $postData['custom_interval'] ?? 24;
-            return date('Y-m-d H:i:s', strtotime("+{$interval} hours"));
-            
         default:
             return date('Y-m-d H:i:s', strtotime('+1 day'));
     }
@@ -211,75 +207,8 @@ require_once __DIR__ . '/includes/header.php';
                                     <select class="form-control" id="schedule_type" name="schedule_type" required>
                                         <option value="daily">Daily</option>
                                         <option value="weekly">Weekly</option>
-                                        <!-- <option value="monthly">Monthly</option> -->
-                                        <!-- <option value="custom">Custom Interval</option> -->
+                                        <option value="monthly">Monthly</option>
                                     </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Dynamic Schedule Options -->
-                        <div id="schedule_options">
-                            <!-- Daily Options -->
-                            <div class="schedule-option daily-options">
-                                <div class="form-group">
-                                    <label for="daily_time">Daily Time</label>
-                                    <input type="time" class="form-control" id="daily_time" name="daily_time" value="02:00">
-                                </div>
-                            </div>
-
-                            <!-- Weekly Options -->
-                            <div class="schedule-option weekly-options" style="display: none;">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="weekly_day">Day of Week</label>
-                                            <select class="form-control" id="weekly_day" name="weekly_day">
-                                                <option value="0">Sunday</option>
-                                                <option value="1">Monday</option>
-                                                <option value="2">Tuesday</option>
-                                                <option value="3">Wednesday</option>
-                                                <option value="4">Thursday</option>
-                                                <option value="5">Friday</option>
-                                                <option value="6">Saturday</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="weekly_time">Time</label>
-                                            <input type="time" class="form-control" id="weekly_time" name="weekly_time" value="02:00">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Monthly Options -->
-                            <div class="schedule-option monthly-options" style="display: none;">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="monthly_day">Day of Month (1-28)</label>
-                                            <input type="number" class="form-control" id="monthly_day" name="monthly_day" 
-                                                   min="1" max="28" value="1">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="monthly_time">Time</label>
-                                            <input type="time" class="form-control" id="monthly_time" name="monthly_time" value="02:00">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Custom Options -->
-                            <div class="schedule-option custom-options" style="display: none;">
-                                <div class="form-group">
-                                    <label for="custom_interval">Interval (Hours)</label>
-                                    <input type="number" class="form-control" id="custom_interval" name="custom_interval" 
-                                           min="1" max="720" value="24" placeholder="24">
-                                    <small class="form-text text-muted">Scan will run every specified number of hours</small>
                                 </div>
                             </div>
                         </div>
@@ -320,7 +249,6 @@ require_once __DIR__ . '/includes/header.php';
                                         <th>Schedule</th>
                                         <th>Recipients</th>
                                         <th>Status</th>
-                                        <th>Next Run</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
@@ -350,9 +278,6 @@ require_once __DIR__ . '/includes/header.php';
                                                 <span class="badge <?php echo $scan['is_active'] ? 'badge-success' : 'badge-secondary'; ?>">
                                                     <?php echo $scan['is_active'] ? 'Active' : 'Paused'; ?>
                                                 </span>
-                                            </td>
-                                            <td>
-                                                <small><?php echo $scan['next_run'] ? date('M j, Y H:i', strtotime($scan['next_run'])) : 'Not scheduled'; ?></small>
                                             </td>
                                             <td>
                                                 <div class="btn-group btn-group-sm">
@@ -429,7 +354,6 @@ require_once __DIR__ . '/includes/header.php';
                                         <option value="daily">Daily</option>
                                         <option value="weekly">Weekly</option>
                                         <option value="monthly">Monthly</option>
-                                        <option value="custom">Custom Interval</option>
                                     </select>
                                 </div>
                             </div>

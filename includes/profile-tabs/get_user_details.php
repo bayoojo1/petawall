@@ -2,23 +2,6 @@
 require_once __DIR__ . '/../../classes/Auth.php';
 require_once __DIR__ . '/../../classes/AccessControl.php';
 
-// Check if user is staff
-// if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_roles'])) {
-//     die('<div class="alert alert-error">Access denied</div>');
-// }
-
-// $isStaff = false;
-// foreach ($_SESSION['user_roles'] as $role) {
-//     if (in_array($role['role'], ['admin', 'moderator'])) {
-//         $isStaff = true;
-//         break;
-//     }
-// }
-
-// if (!$isStaff) {
-//     die('<div class="alert alert-error">Access denied</div>');
-// }
-
 $userId = $_GET['user_id'] ?? 0;
 
 if (!$userId) {
