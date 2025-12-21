@@ -509,6 +509,38 @@ class OllamaSearch {
     /**
      * Parse chat response from Ollama
      */
+    // private function parseChatResponse($response) {
+    //     if ($response['code'] !== 200) {
+    //         throw new Exception('Ollama request failed with code: ' . $response['code']);
+    //     }
+        
+    //     $data = json_decode($response['body'], true);
+
+    //     // Check for Ollama error message
+    //     if (isset($data['error'])) {
+    //         throw new Exception('Ollama Error: ' . $data['error']);
+    //     }
+        
+    //     if (!isset($data['message']['content'])) {
+    //         throw new Exception('Invalid response format from Ollama');
+    //     }
+        
+    //     $content = $data['message']['content'];
+        
+    //     // Try to extract JSON from response
+    //     $jsonData = $this->extractJson($content);
+    //     if ($jsonData !== null) {
+    //         return $jsonData;
+    //     }
+        
+    //     // If no JSON found, return the raw content with some structure
+    //     return [
+    //         'raw_response' => $content,
+    //         // 'analysis' => $content,
+    //         'recommendations' => $this->extractRecommendations($content)
+    //     ];
+    // }
+
     private function parseChatResponse($response) {
         if ($response['code'] !== 200) {
             throw new Exception('Ollama request failed with code: ' . $response['code']);
@@ -527,18 +559,51 @@ class OllamaSearch {
         
         $content = $data['message']['content'];
         
-        // Try to extract JSON from response
+        // Return both structured and raw response
         $jsonData = $this->extractJson($content);
+        
         if ($jsonData !== null) {
-            return $jsonData;
+            return array_merge($jsonData, [
+                'raw_response' => $content,
+                'formatted' => $this->formatForDisplay($content)
+            ]);
         }
         
-        // If no JSON found, return the raw content with some structure
+        // Format for display
         return [
             'raw_response' => $content,
-            // 'analysis' => $content,
+            'formatted' => $this->formatForDisplay($content),
             'recommendations' => $this->extractRecommendations($content)
         ];
+    }
+
+    private function formatForDisplay($content) {
+        // Basic markdown to HTML conversion
+        $formatted = htmlspecialchars($content);
+        
+        // Convert code blocks
+        $formatted = preg_replace('/```(\w+)?\n([\s\S]*?)```/', 
+            '<pre><code class="language-$1">$2</code></pre>', 
+            $formatted);
+        
+        // Convert inline code
+        $formatted = preg_replace('/`([^`]+)`/', '<code>$1</code>', $formatted);
+        
+        // Convert bold
+        $formatted = preg_replace('/\*\*([^*]+)\*\*/', '<strong>$1</strong>', $formatted);
+        
+        // Convert italics
+        $formatted = preg_replace('/\*([^*]+)\*/', '<em>$1</em>', $formatted);
+        
+        // Convert lists
+        $formatted = preg_replace('/^\s*[-*]\s+(.+)$/m', '<li>$1</li>', $formatted);
+        $formatted = preg_replace('/(<li>.*<\/li>)/s', '<ul>$1</ul>', $formatted);
+        
+        // Convert numbered lists
+        $formatted = preg_replace('/^\s*(\d+)\.\s+(.+)$/m', '<li>$1. $2</li>', $formatted);
+        $formatted = preg_replace('/(<li>\d+\..*<\/li>)/s', '<ol>$1</ol>', $formatted);
+        
+        return nl2br($formatted);
     }
     
     /**
