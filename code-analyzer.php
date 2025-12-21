@@ -196,6 +196,7 @@ require_once __DIR__ . '/includes/header.php';
     <?php require_once __DIR__ . '/includes/footer.php'; ?>
 
     <script src="assets/js/code-analyzer.js"></script>
+    <script src="assets/js/auth.js"></script>
     <link rel="stylesheet" href="assets/styles/code-analyzer.css">
     <link rel="stylesheet" href="assets/styles/modal.css">
 </body>

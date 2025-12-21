@@ -69,28 +69,455 @@ async function analyzeNetwork() {
 }
 
 function displayDynamicResults(data) {
-    console.log('Received data:', data);
+    console.log('Full API response for display:', data);
     
     const resultsContainer = document.getElementById('network-results');
     resultsContainer.innerHTML = '';
     
+    // Check for errors first
+    if (data.error || (data.success === false)) {
+        const errorMsg = data.error || 'Unknown error occurred';
+        resultsContainer.innerHTML = `
+            <div class="error-card">
+                <h3><i class="fas fa-exclamation-triangle"></i> Analysis Error</h3>
+                <p>${escapeHtml(errorMsg)}</p>
+                ${data.details ? `<p><small>Details: ${escapeHtml(data.details)}</small></p>` : ''}
+            </div>
+        `;
+        return;
+    }
+    
+    // Extract the actual analysis data
+    const analysisData = data.data || data;
+    
     // Create main header
     const mainHeader = document.createElement('div');
     mainHeader.className = 'results-header';
+    
+    // Determine analysis type from data
+    const analysisType = data.analysis_type || analysisData.analysis_type || 'COMPREHENSIVE';
+    const timestamp = data.timestamp || analysisData.timestamp || new Date().toLocaleString();
+    
     mainHeader.innerHTML = `
-        <h3>Network Analysis Results</h3>
+        <h3><i class="fas fa-network-wired"></i> Network Analysis Report</h3>
         <div class="analysis-meta">
-            <span class="analysis-type-badge">${data.analysis_type?.toUpperCase() || 'NETWORK'} ANALYSIS</span>
-            <span class="timestamp">${data.timestamp || 'Unknown time'}</span>
+            <span class="analysis-type-badge">${analysisType.toUpperCase()} ANALYSIS</span>
+            <span class="timestamp"><i class="far fa-clock"></i> ${timestamp}</span>
+            ${analysisData.data_source ? `<span class="data-source"><i class="fas fa-database"></i> ${escapeHtml(analysisData.data_source)}</span>` : ''}
         </div>
     `;
     resultsContainer.appendChild(mainHeader);
     
-    // Get the actual analysis data
-    const analysisData = data.data || data;
+    // Use the existing displayEnhancedAnalysis function for compatibility
+    // But first check if the data is valid
+    if (!analysisData || (typeof analysisData === 'object' && Object.keys(analysisData).length === 0)) {
+        resultsContainer.appendChild(createNoDataSection('No analysis data available. The PCAP file may be empty or corrupted.'));
+        return;
+    }
     
-    // Display enhanced analysis
-    displayEnhancedAnalysis(analysisData, data.analysis_type, resultsContainer);
+    // Check if this is raw JSON that needs parsing
+    if (typeof analysisData === 'string' && analysisData.trim().startsWith('{')) {
+        try {
+            const parsedData = JSON.parse(analysisData);
+            displayEnhancedAnalysis(parsedData, analysisType, resultsContainer);
+        } catch (e) {
+            // If JSON parsing fails, treat as text
+            const textCard = createResultCard('Analysis Results', 'text-analysis');
+            textCard.innerHTML = `
+                <div class="text-content">
+                    <p>${formatTextAnalysis(analysisData)}</p>
+                </div>
+            `;
+            resultsContainer.appendChild(textCard);
+        }
+    } else {
+        // Use the original display logic for structured data
+        displayEnhancedAnalysis(analysisData, analysisType, resultsContainer);
+    }
+}
+
+function displayStructuredAnalysis(data, container) {
+    // 1. Executive Summary (if available)
+    if (data.executive_summary || data.summary) {
+        const summaryCard = createResultCard('Executive Summary', 'summary-card');
+        summaryCard.innerHTML = `
+            <div class="summary-content">
+                ${formatTextAnalysis(data.executive_summary || data.summary)}
+            </div>
+            ${data.threat_level ? `
+                <div class="threat-level ${getSeverityClass(data.threat_level)}">
+                    <i class="fas fa-shield-alt"></i>
+                    <strong>Threat Level:</strong> ${data.threat_level.toUpperCase()}
+                </div>
+            ` : ''}
+        `;
+        container.appendChild(summaryCard);
+    }
+    
+    // 2. Key Findings
+    const keyFindings = extractKeyFindings(data);
+    if (keyFindings.length > 0) {
+        const findingsCard = createResultCard('Key Findings', 'findings-card');
+        findingsCard.innerHTML = `
+            <div class="findings-grid">
+                ${keyFindings.map((finding, index) => `
+                    <div class="finding-item ${finding.severity}">
+                        <div class="finding-number">${index + 1}</div>
+                        <div class="finding-content">
+                            <div class="finding-title">
+                                <i class="fas ${finding.icon}"></i>
+                                <strong>${finding.title}</strong>
+                                ${finding.severity ? `<span class="risk-badge risk-${finding.severity}">${finding.severity.toUpperCase()}</span>` : ''}
+                            </div>
+                            <div class="finding-description">${formatTextAnalysis(finding.description)}</div>
+                            ${finding.recommendation ? `<div class="finding-recommendation"><strong>Recommendation:</strong> ${formatTextAnalysis(finding.recommendation)}</div>` : ''}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        container.appendChild(findingsCard);
+    }
+    
+    // 3. Network Statistics
+    const stats = extractNetworkStats(data);
+    if (stats.length > 0) {
+        const statsCard = createResultCard('Network Statistics', 'stats-card');
+        statsCard.innerHTML = `
+            <div class="stats-grid">
+                ${stats.map(stat => `
+                    <div class="stat-item">
+                        <div class="stat-label">${stat.label}</div>
+                        <div class="stat-value">${stat.value}</div>
+                        ${stat.trend ? `<div class="stat-trend ${stat.trend}"><i class="fas fa-arrow-${stat.trend}"></i></div>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        container.appendChild(statsCard);
+    }
+    
+    // 4. Top Talkers (if available)
+    if (data.top_talkers && Array.isArray(data.top_talkers) && data.top_talkers.length > 0) {
+        const talkersCard = createResultCard('Top Talkers', 'talkers-card');
+        talkersCard.innerHTML = `
+            <div class="talkers-table-container">
+                <table class="talkers-table">
+                    <thead>
+                        <tr>
+                            <th>IP Address</th>
+                            <th>Packets</th>
+                            <th>Bytes</th>
+                            <th>Risk Level</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.top_talkers.map(talker => `
+                            <tr class="risk-${talker.risk_level || 'low'}">
+                                <td><i class="fas fa-server"></i> ${escapeHtml(talker.ip_address)}</td>
+                                <td>${talker.packet_count?.toLocaleString() || 'N/A'}</td>
+                                <td>${talker.byte_count ? formatBytes(talker.byte_count) : 'N/A'}</td>
+                                <td><span class="risk-badge risk-${talker.risk_level || 'low'}">${(talker.risk_level || 'LOW').toUpperCase()}</span></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        container.appendChild(talkersCard);
+    }
+    
+    // 5. Raw Data View (collapsible for debugging)
+    const rawDataCard = createResultCard('Raw Analysis Data', 'raw-data-card');
+    rawDataCard.innerHTML = `
+        <details class="raw-data-details">
+            <summary>View Raw JSON Data</summary>
+            <pre class="raw-json">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
+        </details>
+    `;
+    container.appendChild(rawDataCard);
+}
+
+function extractKeyFindings(data) {
+    const findings = [];
+    
+    console.log("Extracting key findings from:", data);
+    
+    // Method 1: Check for direct key_findings array
+    if (data.key_findings && Array.isArray(data.key_findings)) {
+        data.key_findings.forEach((finding, index) => {
+            if (typeof finding === 'string') {
+                findings.push({
+                    title: `Finding ${index + 1}`,
+                    description: finding,
+                    severity: 'info',
+                    icon: 'fa-info-circle'
+                });
+            } else if (finding && typeof finding === 'object') {
+                findings.push({
+                    title: finding.title || `Finding ${index + 1}`,
+                    description: finding.description || finding.details || '',
+                    severity: finding.severity || finding.risk_level || 'info',
+                    recommendation: finding.recommendation || finding.action,
+                    icon: getFindingIcon(finding.severity || 'info')
+                });
+            }
+        });
+    }
+    
+    // Method 2: Extract from malicious_activity_indicators
+    if (data.malicious_activity_indicators && Array.isArray(data.malicious_activity_indicators)) {
+        data.malicious_activity_indicators.forEach(indicator => {
+            if (typeof indicator === 'string') {
+                findings.push({
+                    title: 'Malicious Activity Indicator',
+                    description: indicator,
+                    severity: 'high',
+                    icon: 'fa-exclamation-triangle'
+                });
+            } else if (indicator && typeof indicator === 'object') {
+                findings.push({
+                    title: indicator.type || 'Security Indicator',
+                    description: indicator.description || indicator.details || '',
+                    severity: indicator.severity || 'high',
+                    recommendation: indicator.recommendation,
+                    icon: 'fa-shield-alt'
+                });
+            }
+        });
+    }
+    
+    // Method 3: Extract from suspicious patterns in DPI
+    if (data.deep_packet_inspection && 
+        data.deep_packet_inspection.suspicious_patterns && 
+        Array.isArray(data.deep_packet_inspection.suspicious_patterns)) {
+        
+        data.deep_packet_inspection.suspicious_patterns.forEach(pattern => {
+            findings.push({
+                title: pattern.pattern_type || 'Suspicious Pattern',
+                description: pattern.description || '',
+                severity: pattern.severity || 'medium',
+                recommendation: pattern.recommendation,
+                icon: 'fa-search'
+            });
+        });
+    }
+    
+    // Method 4: Extract from top talkers with risk assessment
+    if (data.top_talkers && Array.isArray(data.top_talkers)) {
+        const highRiskTalkers = data.top_talkers.filter(t => 
+            t.risk_level && t.risk_level.toLowerCase().includes('high')
+        );
+        
+        if (highRiskTalkers.length > 0) {
+            findings.push({
+                title: 'High-Risk Communication Detected',
+                description: `${highRiskTalkers.length} IP addresses flagged as high risk`,
+                severity: 'high',
+                icon: 'fa-server',
+                recommendation: 'Investigate these IP addresses for malicious activity'
+            });
+        }
+    }
+    
+    // Method 5: Create findings from protocol anomalies
+    if (data.protocols && typeof data.protocols === 'object') {
+        const suspiciousProtocols = ['tftp', 'telnet', 'ftp', 'snmp'];
+        const foundProtocols = [];
+        
+        suspiciousProtocols.forEach(proto => {
+            if (data.protocols[proto] && data.protocols[proto] > 0) {
+                foundProtocols.push(proto.toUpperCase());
+            }
+        });
+        
+        if (foundProtocols.length > 0) {
+            findings.push({
+                title: 'Insecure Protocols Detected',
+                description: `The following insecure protocols were found: ${foundProtocols.join(', ')}`,
+                severity: 'medium',
+                icon: 'fa-lock-open',
+                recommendation: 'Consider replacing with secure alternatives (SSH for Telnet, SFTP/FTPS for FTP)'
+            });
+        }
+    }
+    
+    // Method 6: If no findings extracted, create some from basic data
+    if (findings.length === 0) {
+        // Create from overall risk
+        if (data.overall_risk || data.threat_severity) {
+            const risk = data.overall_risk || data.threat_severity;
+            findings.push({
+                title: 'Overall Risk Assessment',
+                description: `Analysis indicates ${risk} risk level`,
+                severity: risk,
+                icon: 'fa-chart-line'
+            });
+        }
+        
+        // Create from connection volume
+        if (data.connections && data.connections.total_packets) {
+            const packetCount = data.connections.total_packets;
+            let severity = 'low';
+            if (packetCount > 10000) severity = 'high';
+            else if (packetCount > 1000) severity = 'medium';
+            
+            findings.push({
+                title: 'Traffic Volume',
+                description: `${packetCount.toLocaleString()} packets analyzed`,
+                severity: severity,
+                icon: 'fa-tachometer-alt'
+            });
+        }
+    }
+    
+    console.log(`Extracted ${findings.length} key findings`);
+    return findings.slice(0, 8); // Return top 8 findings
+}
+
+function getFindingIcon(severity) {
+    const icons = {
+        'critical': 'fa-skull-crossbones',
+        'high': 'fa-exclamation-triangle',
+        'medium': 'fa-exclamation-circle',
+        'low': 'fa-info-circle',
+        'info': 'fa-info-circle',
+        'unknown': 'fa-question-circle'
+    };
+    return icons[severity.toLowerCase()] || 'fa-info-circle';
+}
+
+function extractNetworkStats(data) {
+    const stats = [];
+    
+    // 1. Packet Statistics
+    if (data.connections) {
+        if (data.connections.total_packets !== undefined) {
+            stats.push({
+                label: 'Total Packets',
+                value: data.connections.total_packets.toLocaleString(),
+                trend: 'up'
+            });
+        }
+        
+        if (data.connections.unique_ips !== undefined) {
+            stats.push({
+                label: 'Unique IPs',
+                value: data.connections.unique_ips.toLocaleString(),
+                trend: data.connections.unique_ips > 50 ? 'up' : 'neutral'
+            });
+        }
+        
+        if (data.connections.tcp_packets !== undefined && data.connections.udp_packets !== undefined) {
+            const tcp = data.connections.tcp_packets;
+            const udp = data.connections.udp_packets;
+            if (udp > 0) {
+                stats.push({
+                    label: 'TCP/UDP Ratio',
+                    value: `${(tcp/udp).toFixed(2)}:1`,
+                    trend: 'neutral'
+                });
+            }
+        }
+    }
+    
+    // 2. Data Volume
+    if (data.data_volume) {
+        if (data.data_volume.total_bytes !== undefined) {
+            stats.push({
+                label: 'Total Data',
+                value: formatBytes(data.data_volume.total_bytes),
+                trend: 'up'
+            });
+        }
+        
+        if (data.data_volume.average_packet_size !== undefined) {
+            stats.push({
+                label: 'Avg Packet Size',
+                value: formatBytes(data.data_volume.average_packet_size),
+                trend: 'neutral'
+            });
+        }
+    }
+    
+    // 3. Timeline
+    if (data.timeline) {
+        if (data.timeline.duration_seconds !== undefined) {
+            const hours = Math.floor(data.timeline.duration_seconds / 3600);
+            const minutes = Math.floor((data.timeline.duration_seconds % 3600) / 60);
+            const seconds = Math.floor(data.timeline.duration_seconds % 60);
+            
+            let duration = '';
+            if (hours > 0) duration += `${hours}h `;
+            if (minutes > 0) duration += `${minutes}m `;
+            if (seconds > 0 || duration === '') duration += `${seconds}s`;
+            
+            stats.push({
+                label: 'Capture Duration',
+                value: duration.trim(),
+                trend: 'neutral'
+            });
+        }
+        
+        if (data.timeline.start_time && data.timeline.end_time) {
+            stats.push({
+                label: 'Time Range',
+                value: `${data.timeline.start_time.split(' ')[0]} to ${data.timeline.end_time.split(' ')[0]}`,
+                trend: 'neutral'
+            });
+        }
+    }
+    
+    // 4. Protocol Diversity
+    if (data.protocols && typeof data.protocols === 'object') {
+        const protocolCount = Object.keys(data.protocols).length;
+        stats.push({
+            label: 'Protocols Detected',
+            value: protocolCount.toString(),
+            trend: protocolCount > 10 ? 'up' : 'neutral'
+        });
+    }
+    
+    // 5. Security Metrics
+    if (data.deep_packet_inspection && data.deep_packet_inspection.suspicious_patterns) {
+        const suspiciousCount = data.deep_packet_inspection.suspicious_patterns.length;
+        if (suspiciousCount > 0) {
+            stats.push({
+                label: 'Suspicious Patterns',
+                value: suspiciousCount.toString(),
+                trend: suspiciousCount > 5 ? 'up' : 'neutral'
+            });
+        }
+    }
+    
+    // Ensure we have at least some stats
+    if (stats.length === 0) {
+        stats.push(
+            { label: 'Analysis Complete', value: '✓', trend: 'neutral' },
+            { label: 'Data Processed', value: 'Yes', trend: 'up' }
+        );
+    }
+    
+    return stats;
+}
+
+// Helper function to format bytes
+function formatBytes(bytes, decimals = 2) {
+    if (bytes === 0 || bytes === undefined || bytes === null) return '0 Bytes';
+    
+    try {
+        bytes = Number(bytes);
+        if (isNaN(bytes)) return 'N/A';
+        
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    } catch (e) {
+        return 'N/A';
+    }
 }
 
 function displayEnhancedAnalysis(data, analysisType, container) {
@@ -1326,9 +1753,15 @@ function createResultCard(title, className = '') {
 }
 
 function createNoDataSection(message) {
-    const card = createResultCard('Information', 'no-data-section');
-    card.innerHTML = `<div class="no-data">${message}</div>`;
-    return card;
+    const section = document.createElement('div');
+    section.className = 'no-data-section';
+    section.innerHTML = `
+        <div class="no-data-content">
+            <i class="fas fa-info-circle"></i>
+            <p>${escapeHtml(message)}</p>
+        </div>
+    `;
+    return section;
 }
 
 function createFallbackSection(title, content) {
@@ -1491,10 +1924,18 @@ function formatKey(key) {
 
 function getSeverityClass(severity) {
     if (!severity) return 'severity-unknown';
-    const lowerSeverity = String(severity).toLowerCase();
-    if (lowerSeverity.includes('critical') || lowerSeverity.includes('high')) return 'severity-high';
-    if (lowerSeverity.includes('medium')) return 'severity-medium';
-    if (lowerSeverity.includes('low')) return 'severity-low';
+    
+    const severityStr = String(severity).toLowerCase();
+    
+    if (severityStr.includes('critical') || severityStr.includes('high')) {
+        return 'severity-high';
+    }
+    if (severityStr.includes('medium')) {
+        return 'severity-medium';
+    }
+    if (severityStr.includes('low')) {
+        return 'severity-low';
+    }
     return 'severity-unknown';
 }
 

@@ -150,12 +150,14 @@ try {
                 $analysisType = $_POST['analysis_type'] ?? 'comprehensive';
                 
                 try {
+                    $pcapData = null;
+                    
                     // Handle different PCAP sources
                     if ($pcapSource === 'local') {
                         // Handle local file upload
                         if (isset($_FILES['pcap_file']) && $_FILES['pcap_file']['error'] === UPLOAD_ERR_OK) {
                             $pcapFile = $_FILES['pcap_file']['tmp_name'];
-                            $results = $analyzer->analyzePcap($pcapFile, $analysisType);
+                            $pcapData = $analyzer->analyzePcap($pcapFile, $analysisType);
                         } else {
                             throw new Exception('No PCAP file uploaded or file upload error');
                         }
@@ -165,13 +167,11 @@ try {
                             $remoteUrl = $_POST['remote_url'];
                             $timeout = intval($_POST['timeout'] ?? 30);
                             
-                            // Validate URL
                             if (!filter_var($remoteUrl, FILTER_VALIDATE_URL)) {
                                 throw new Exception('Invalid remote URL provided');
                             }
                             
-                            // Download and analyze remote PCAP file
-                            $results = $analyzer->analyzeRemotePcap($remoteUrl, $analysisType, $timeout);
+                            $pcapData = $analyzer->analyzeRemotePcap($remoteUrl, $analysisType, $timeout);
                         } else {
                             throw new Exception('No remote URL provided');
                         }
@@ -179,10 +179,49 @@ try {
                         throw new Exception('Invalid PCAP source specified');
                     }
                     
+                    // CRITICAL FIX: Handle Ollama response properly
+                    if (is_string($pcapData)) {
+                        // Try to decode as JSON first
+                        $decoded = json_decode($pcapData, true);
+                        
+                        if (json_last_error() === JSON_ERROR_NONE && $decoded !== null) {
+                            // Successfully decoded JSON
+                            $results = $decoded;
+                        } else {
+                            // Not JSON, wrap as analysis result
+                            $results = [
+                                'analysis_type' => $analysisType,
+                                'executive_summary' => $pcapData,
+                                'raw_analysis' => $pcapData,
+                                'timestamp' => date('Y-m-d H:i:s'),
+                                'data_source' => $pcapSource === 'local' ? 'Uploaded file' : 'Remote URL: ' . ($remoteUrl ?? '')
+                            ];
+                        }
+                    } elseif (is_array($pcapData)) {
+                        // Already an array (should be the case with proper Ollama response)
+                        $results = $pcapData;
+                    } else {
+                        // Unknown format
+                        $results = [
+                            'error' => 'Invalid analysis result format',
+                            'raw_result' => $pcapData,
+                            'analysis_type' => $analysisType
+                        ];
+                    }
+                    
+                    // Ensure we have a proper structure
+                    if (!isset($results['analysis_type'])) {
+                        $results['analysis_type'] = $analysisType;
+                    }
+                    if (!isset($results['timestamp'])) {
+                        $results['timestamp'] = date('Y-m-d H:i:s');
+                    }
+                    
                 } catch (Exception $e) {
                     $results = [
                         'success' => false,
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
+                        'analysis_type' => $analysisType
                     ];
                 }
                 break;
