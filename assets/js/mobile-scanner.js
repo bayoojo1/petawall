@@ -69,27 +69,59 @@ class MobileScanner {
         }
     }
 
-    async startMobileScan() {
-        const formData = new FormData();
+    // async startMobileScan() {
+    //     const formData = new FormData();
         
+    //     // Get platform-specific data
+    //     const platformData = this.getPlatformData();
+    //     if (!platformData) return;
+
+    //     // Add scan options
+    //     const scanOptions = this.getScanOptions();
+    //     Object.keys(scanOptions).forEach(key => {
+    //         formData.append(key, scanOptions[key]);
+    //     });
+
+    //     // Show loading
+    //     this.showLoading(true);
+
+    //     try {
+    //         const response = await fetch('api.php', {
+    //             method: 'POST',
+    //             body: formData
+    //         });
+
+    //         const results = await response.json();
+    //         this.displayResults(results);
+
+    //     } catch (error) {
+    //         console.error('Scan failed:', error);
+    //         this.showError('Scan failed: ' + error.message);
+    //     } finally {
+    //         this.showLoading(false);
+    //     }
+    // }
+
+    async startMobileScan() {
         // Get platform-specific data
         const platformData = this.getPlatformData();
         if (!platformData) return;
-
-        // Add scan options
-        const scanOptions = this.getScanOptions();
-        Object.keys(scanOptions).forEach(key => {
-            formData.append(key, scanOptions[key]);
-        });
 
         // Show loading
         this.showLoading(true);
 
         try {
+            // IMPORTANT: Make sure we're using FormData correctly
+            // The platformData should already be a FormData object
             const response = await fetch('api.php', {
                 method: 'POST',
-                body: formData
+                body: platformData, // This should be the FormData object
+                // Don't set Content-Type header for FormData - let browser set it
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
             const results = await response.json();
             this.displayResults(results);
@@ -437,8 +469,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Global function for the scan button
-function startMobileScan() {
+window.startMobileScan = function() {
     if (window.mobileScanner) {
         window.mobileScanner.startMobileScan();
     }
-}
+};

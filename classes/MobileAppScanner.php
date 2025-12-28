@@ -132,29 +132,88 @@ class MobileAppScanner {
      * Validate input parameters
      */
     private function validateInput($filePath, $platform) {
+        error_log("validateInput called with:");
+        error_log("  File path: " . $filePath);
+        error_log("  Platform: " . $platform);
+        
         if (!file_exists($filePath)) {
+            error_log("  ERROR: File does not exist at path");
             throw new Exception('App file not found: ' . $filePath);
         }
         
-        $allowedPlatforms = ['android', 'ios', 'hybrid'];
-        if (!in_array($platform, $allowedPlatforms)) {
-            throw new Exception('Invalid platform. Supported: ' . implode(', ', $allowedPlatforms));
+        $fileSize = filesize($filePath);
+        error_log("  File size: " . $fileSize . " bytes");
+        
+        if ($fileSize === false || $fileSize === 0) {
+            error_log("  ERROR: Invalid file size");
+            throw new Exception('Invalid app file');
         }
         
-        // Check file size (max 100MB)
-        $fileSize = filesize($filePath);
         if ($fileSize > MAX_APP_FILE_SIZE) {
+            error_log("  ERROR: File too large");
             throw new Exception('App file too large. Maximum size is ' . (MAX_APP_FILE_SIZE / 1024 / 1024) . 'MB');
         }
         
-        // Check file type
+        // Get file extension from the temporary name, not original name
         $fileExtension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-        if ($platform === 'android' && $fileExtension !== 'apk') {
-            throw new Exception('Android apps must be APK files');
+        error_log("  File extension from path: " . $fileExtension);
+        
+        // Also check original filename if available
+        if (isset($_FILES['app_file']['name'])) {
+            $originalExt = strtolower(pathinfo($_FILES['app_file']['name'], PATHINFO_EXTENSION));
+            error_log("  Original file extension: " . $originalExt);
         }
-        if ($platform === 'ios' && $fileExtension !== 'ipa') {
-            throw new Exception('iOS apps must be IPA files');
+        
+        // Check if it's a valid APK/IPA file by checking if it's a ZIP
+        $isZip = false;
+        $zip = new ZipArchive();
+        if ($zip->open($filePath) === TRUE) {
+            $isZip = true;
+            $zip->close();
+            error_log("  File is a valid ZIP archive");
+        } else {
+            error_log("  File is NOT a valid ZIP archive");
         }
+        
+        if ($platform === 'android') {
+            // For Android, accept APK files (which are ZIP files)
+            if (!$isZip) {
+                error_log("  ERROR: Android app must be a valid ZIP/APK file");
+                throw new Exception('Android apps must be APK files (valid ZIP archives)');
+            }
+            
+            // Check for AndroidManifest.xml in the APK
+            $zip = new ZipArchive();
+            if ($zip->open($filePath) === TRUE) {
+                $hasManifest = false;
+                for ($i = 0; $i < $zip->numFiles; $i++) {
+                    $entry = $zip->getNameIndex($i);
+                    if (strpos($entry, 'AndroidManifest.xml') !== false) {
+                        $hasManifest = true;
+                        break;
+                    }
+                }
+                $zip->close();
+                
+                if (!$hasManifest) {
+                    error_log("  WARNING: No AndroidManifest.xml found in APK");
+                    // Don't throw exception, just log warning
+                } else {
+                    error_log("  AndroidManifest.xml found in APK");
+                }
+            }
+        }
+        
+        if ($platform === 'ios') {
+            // For iOS, accept IPA files (which are also ZIP files)
+            if (!$isZip) {
+                error_log("  ERROR: iOS app must be a valid ZIP/IPA file");
+                throw new Exception('iOS apps must be IPA files (valid ZIP archives)');
+            }
+        }
+        
+        error_log("  validateInput: PASSED");
+        return true;
     }
     
     /**
@@ -198,47 +257,225 @@ class MobileAppScanner {
      * Extract APK file contents using apktool
      */
     private function extractAPK($apkPath, $tempDir) {
+        error_log("extractAPK called");
+        
         $apkData = [];
         
         try {
             $outputDir = $tempDir . 'apk_contents/';
             mkdir($outputDir, 0755, true);
+            error_log("Output dir created: " . $outputDir);
             
-            // Use apktool for extraction
-            $command = escapeshellcmd($this->apktoolPath) . ' d ' . 
-                      escapeshellarg($apkPath) . ' -o ' . 
-                      escapeshellarg($outputDir) . ' -f';
+            // First verify it's a valid ZIP
+            $zip = new ZipArchive();
+            if ($zip->open($apkPath) !== TRUE) {
+                error_log("ERROR: Not a valid ZIP file");
+                throw new Exception('Invalid APK file (not a valid ZIP archive)');
+            }
+            $zip->close();
+            error_log("File is valid ZIP");
             
-            $output = [];
-            $returnCode = 0;
-            exec($command . ' 2>&1', $output, $returnCode);
-            
-            if ($returnCode !== 0) {
-                throw new Exception('APK extraction failed: ' . implode("\n", $output));
+            // Check if apktool is available and try to use it
+            if ($this->apktoolPath && file_exists($this->apktoolPath) && is_executable($this->apktoolPath)) {
+                error_log("apktool available, attempting extraction");
+                
+                $command = escapeshellcmd($this->apktoolPath) . ' d ' . 
+                        escapeshellarg($apkPath) . ' -o ' . 
+                        escapeshellarg($outputDir) . ' -f 2>&1';
+                
+                error_log("Executing: " . $command);
+                $output = [];
+                $returnCode = 0;
+                exec($command, $output, $returnCode);
+                $commandOutput = implode("\n", $output);
+                
+                if ($returnCode === 0) {
+                    error_log("apktool extraction successful");
+                    
+                    // Parse AndroidManifest.xml
+                    $apkData['manifest'] = $this->parseAndroidManifest($outputDir);
+                    
+                    // Extract and analyze DEX files
+                    $apkData['dex_files'] = $this->extractDexFiles($apkPath, $tempDir);
+                    
+                    // Analyze resources
+                    $apkData['resources'] = $this->analyzeAndroidResources($outputDir);
+                    
+                    // Extract certificates
+                    $apkData['certificates'] = $this->extractCertificates($apkPath);
+                    
+                    // Extract source code if jadx is available
+                    if ($this->jadxPath && file_exists($this->jadxPath) && is_executable($this->jadxPath)) {
+                        $apkData['source_code'] = $this->extractSourceCode($apkPath, $tempDir);
+                    }
+                    
+                    $apkData['extraction_dir'] = $outputDir;
+                    $apkData['apktool_used'] = true;
+                    
+                } else {
+                    error_log("apktool failed with code $returnCode, using basic extraction");
+                    error_log("apktool output: " . $commandOutput);
+                    
+                    // Fall back to basic extraction
+                    return $this->extractAPKBasic($apkPath, $outputDir);
+                }
+                
+            } else {
+                error_log("apktool not available, using basic extraction");
+                return $this->extractAPKBasic($apkPath, $outputDir);
             }
             
-            // Parse AndroidManifest.xml
-            $apkData['manifest'] = $this->parseAndroidManifest($outputDir);
-            
-            // Extract and analyze DEX files
-            $apkData['dex_files'] = $this->extractDexFiles($apkPath, $tempDir);
-            
-            // Analyze resources
-            $apkData['resources'] = $this->analyzeAndroidResources($outputDir);
-            
-            // Extract certificates
-            $apkData['certificates'] = $this->extractCertificates($apkPath);
-            
-            // Extract source code
-            $apkData['source_code'] = $this->extractSourceCode($apkPath, $tempDir);
-            
-            $apkData['extraction_dir'] = $outputDir;
-            
         } catch (Exception $e) {
-            throw new Exception('APK extraction failed: ' . $e->getMessage());
+            error_log("extractAPK error: " . $e->getMessage());
+            
+            // Try basic extraction as last resort
+            try {
+                error_log("Trying basic extraction as fallback");
+                return $this->extractAPKBasic($apkPath, $tempDir . 'apk_basic/');
+            } catch (Exception $e2) {
+                error_log("Basic extraction also failed: " . $e2->getMessage());
+                throw new Exception('APK extraction failed: ' . $e->getMessage());
+            }
         }
         
         return $apkData;
+    }
+
+    /**
+     * Basic APK extraction using ZIP (fallback when apktool fails)
+     */
+    private function extractAPKBasic($apkPath, $outputDir) {
+        error_log("extractAPKBasic called");
+        
+        $apkData = [];
+        
+        try {
+            mkdir($outputDir, 0755, true);
+            error_log("Created output dir: " . $outputDir);
+            
+            $zip = new ZipArchive();
+            if ($zip->open($apkPath) === TRUE) {
+                error_log("Opening APK as ZIP...");
+                $zip->extractTo($outputDir);
+                $zip->close();
+                error_log("APK extracted to: " . $outputDir);
+                
+                // Try to find and parse AndroidManifest.xml
+                $manifestData = $this->extractManifestBasic($outputDir);
+                $apkData['manifest'] = $manifestData;
+                
+                // Extract DEX files
+                $apkData['dex_files'] = $this->extractDexFilesBasic($apkPath, dirname($outputDir));
+                
+                // Extract certificates
+                $apkData['certificates'] = $this->extractCertificates($apkPath);
+                
+                // Simple resource analysis
+                $apkData['resources'] = [
+                    'basic_extraction' => true,
+                    'extraction_dir' => $outputDir
+                ];
+                
+                $apkData['extraction_dir'] = $outputDir;
+                $apkData['basic_extraction'] = true;
+                
+            } else {
+                error_log("Failed to open APK as ZIP");
+                throw new Exception('Failed to extract APK file');
+            }
+            
+        } catch (Exception $e) {
+            error_log("extractAPKBasic error: " . $e->getMessage());
+            throw $e;
+        }
+        
+        return $apkData;
+    }
+
+    /**
+     * Extract manifest from basic APK extraction
+     */
+    private function extractManifestBasic($extractionDir) {
+        $manifestPath = $extractionDir . '/AndroidManifest.xml';
+        
+        if (!file_exists($manifestPath)) {
+            error_log("AndroidManifest.xml not found in basic extraction");
+            return [
+                'package' => 'unknown',
+                'uses-permission' => [],
+                'application' => []
+            ];
+        }
+        
+        try {
+            // For binary AndroidManifest.xml, we can use aapt or other tools
+            // For now, return basic info
+            return [
+                'package' => 'extracted_basic',
+                'uses-permission' => $this->extractPermissionsBasic($manifestPath),
+                'application' => [
+                    '@android:debuggable' => 'unknown',
+                    '@android:allowBackup' => 'unknown',
+                    '@android:usesCleartextTraffic' => 'unknown'
+                ]
+            ];
+        } catch (Exception $e) {
+            error_log("Failed to parse manifest: " . $e->getMessage());
+            return [
+                'package' => 'parse_error',
+                'uses-permission' => [],
+                'application' => []
+            ];
+        }
+    }
+
+    /**
+     * Extract permissions from binary manifest (basic attempt)
+     */
+    private function extractPermissionsBasic($manifestPath) {
+        $permissions = [];
+        
+        // Try to read binary manifest and look for permission strings
+        $content = file_get_contents($manifestPath);
+        
+        // Simple regex to find permission-like strings
+        if (preg_match_all('/android\.permission\.[A-Z_]+/', $content, $matches)) {
+            foreach ($matches[0] as $permission) {
+                $permissions[] = ['@android:name' => $permission];
+            }
+        }
+        
+        return array_unique($permissions, SORT_REGULAR);
+    }
+
+    /**
+     * Extract DEX files basic version
+     */
+    private function extractDexFilesBasic($apkPath, $tempDir) {
+        $dexFiles = [];
+        $dexDir = $tempDir . 'dex_files_basic/';
+        mkdir($dexDir, 0755, true);
+        
+        $zip = new ZipArchive();
+        if ($zip->open($apkPath) === TRUE) {
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $entry = $zip->getNameIndex($i);
+                if (pathinfo($entry, PATHINFO_EXTENSION) === 'dex') {
+                    $dexContent = $zip->getFromIndex($i);
+                    $dexPath = $dexDir . basename($entry);
+                    file_put_contents($dexPath, $dexContent);
+                    
+                    $dexFiles[] = [
+                        'dex_path' => $dexPath,
+                        'name' => basename($entry),
+                        'size' => strlen($dexContent)
+                    ];
+                }
+            }
+            $zip->close();
+        }
+        
+        return $dexFiles;
     }
     
     /**
@@ -293,21 +530,69 @@ class MobileAppScanner {
         $manifestPath = $extractionDir . 'AndroidManifest.xml';
         
         if (!file_exists($manifestPath)) {
-            throw new Exception('AndroidManifest.xml not found');
+            error_log("AndroidManifest.xml not found at: " . $manifestPath);
+            return [
+                'package' => 'unknown',
+                'versionCode' => '1',
+                'versionName' => '1.0',
+                'uses-permission' => [],
+                'application' => []
+            ];
         }
         
-        // Use AXMLParser or similar to parse binary XML
-        $manifestContent = file_get_contents($manifestPath);
+        // Try different parsing methods
+        $manifest = [];
         
-        // For binary AndroidManifest.xml, we need special parsing
-        // This is a simplified version - in production you'd use a proper parser
-        $manifest = [
-            'package' => $this->extractPackageName($manifestContent),
-            'versionCode' => $this->extractVersionCode($manifestContent),
-            'versionName' => $this->extractVersionName($manifestContent),
-            'uses-permission' => $this->extractPermissions($manifestContent),
-            'application' => $this->extractApplicationInfo($manifestContent)
-        ];
+        // Method 1: Try to use aapt if available
+        $aaptOutput = [];
+        exec("aapt dump badging " . escapeshellarg($extractionDir . '../original.apk') . " 2>/dev/null", $aaptOutput, $aaptReturn);
+        
+        if ($aaptReturn === 0) {
+            foreach ($aaptOutput as $line) {
+                if (strpos($line, 'package: name=') === 0) {
+                    preg_match("/name='([^']+)'/", $line, $matches);
+                    $manifest['package'] = $matches[1] ?? 'unknown';
+                    
+                    preg_match("/versionCode='([^']+)'/", $line, $matches);
+                    $manifest['versionCode'] = $matches[1] ?? '1';
+                    
+                    preg_match("/versionName='([^']+)'/", $line, $matches);
+                    $manifest['versionName'] = $matches[1] ?? '1.0';
+                }
+                
+                if (strpos($line, 'uses-permission:') === 0) {
+                    preg_match("/name='([^']+)'/", $line, $matches);
+                    if (!empty($matches[1])) {
+                        $manifest['uses-permission'][] = ['@android:name' => $matches[1]];
+                    }
+                }
+            }
+        }
+        
+        // Method 2: Simple XML parsing (if apktool decoded it to text XML)
+        $content = file_get_contents($manifestPath);
+        if (strpos($content, '<?xml') === 0) {
+            // It's text XML, parse it
+            $xml = simplexml_load_string($content);
+            if ($xml) {
+                $manifest = json_decode(json_encode($xml), true);
+            }
+        }
+        
+        // Method 3: Fallback to basic info
+        if (empty($manifest)) {
+            $manifest = [
+                'package' => 'extracted',
+                'versionCode' => '1',
+                'versionName' => '1.0',
+                'uses-permission' => $this->extractPermissionsBasic($manifestPath),
+                'application' => [
+                    '@android:debuggable' => 'unknown',
+                    '@android:allowBackup' => 'unknown',
+                    '@android:usesCleartextTraffic' => 'unknown'
+                ]
+            ];
+        }
         
         return $manifest;
     }

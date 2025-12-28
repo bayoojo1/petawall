@@ -286,93 +286,106 @@ class OllamaSearch {
                     \"recommendations\": [\"improvement suggestions\"]
                 }"
             ],
-            
             'network' => [
-                'system' => "You are an expert network security analyst with deep knowledge of network protocols, threat detection, and forensic analysis. Analyze network traffic patterns comprehensively, detect anomalies, identify security threats, and provide actionable recommendations.",
-                'user' => "Analyze this network traffic data: {target}
+                'system' => "You are an expert network security analyst. Analyze ONLY the network data provided. DO NOT invent or assume any data not present in the analysis. If information is missing from the data, state 'Data not available' instead of making assumptions. Create an engaging but ACCURATE report based solely on the provided network analysis.",
                 
-            Context: {context}
+                'user' => "ANALYZE THIS NETWORK TRAFFIC DATA FROM PCAP ANALYSIS:
 
-            Provide a comprehensive network analysis in this structured JSON format:
+            {target}
+
+            CONTEXT FROM DEEP ANALYSIS: {context}
+
+            CRITICAL INSTRUCTIONS:
+            1. Use ONLY the data provided above - DO NOT invent, assume, or add fictional data
+            2. If a data point is missing (e.g., no country info, no packet counts), state 'Not available in analysis'
+            3. Base ALL findings on actual numbers and patterns from the data
+            4. If the data shows 0 malicious activity, report 'No security threats detected' honestly
+            5. Use emojis and visual indicators only when supported by actual data severity
+
+            GENERATE A NETWORK ANALYSIS REPORT IN THIS STRUCTURE (ALL FIELDS MUST BE DERIVED FROM PROVIDED DATA):
 
             {
-                \"summary\": \"Brief overall assessment of the network traffic\",
-                \"overview\": {
-                    \"totalPackets\": 0,
-                    \"totalBytes\": 0,
-                    \"duration\": \"human readable duration\",
-                    \"packetRate\": \"packets/second\",
-                    \"dataVolume\": \"total data transferred\",
-                    \"protocols\": {\"TCP\": 1500, \"UDP\": 300, \"HTTP\": 450, \"HTTPS\": 600, \"DNS\": 120, \"ICMP\": 50},
-                    \"topTalkers\": [
-                        {\"ip_address\": \"192.168.1.100\", \"packet_count\": 450, \"byte_count\": 1024000, \"country\": \"optional\"}
-                    ]
+                \"executive_summary\": \"Brief 2-3 sentence summary based ONLY on actual packet counts and findings. Example format: 'Analysis of [ACTUAL_PACKET_COUNT] packets reveals [ACTUAL_FINDINGS]. [ACTUAL_THREAT_COUNT] security issues detected.'\",
+                
+                \"data_quality\": {
+                    \"packets_analyzed\": \"[ACTUAL_NUMBER_FROM_DATA or 'Data not available']\",
+                    \"unique_ips\": \"[ACTUAL_COUNT or 'Data not available']\",
+                    \"analysis_completeness\": \"percentage based on successful IP resolutions vs attempted\",
+                    \"tls_decryption\": \"[Available/Not available based on actual data]\"
                 },
-                \"protocol_distribution\": [
-                    {\"protocol\": \"TCP\", \"percentage\": 45, \"count\": 1500, \"risk_level\": \"low\"}
-                ],
-                \"security_threats\": [
+                
+                \"actual_findings\": [
                     {
-                        \"category\": \"threat category\",
-                        \"severity\": \"critical|high|medium|low\",
-                        \"description\": \"detailed threat description\",
-                        \"source_ip\": \"source address if known\",
-                        \"destination_ip\": \"destination address if known\",
-                        \"evidence\": \"supporting evidence\",
-                        \"confidence\": \"high|medium|low\"
+                        \"title\": \"Finding title based on ACTUAL data patterns\",
+                        \"description\": \"Description using ONLY numbers and facts from data\",
+                        \"severity\": \"[critical/high/medium/low/info] based on ACTUAL threat intelligence scores\",
+                        \"evidence\": \"EXACT data points supporting finding\",
+                        \"data_source\": \"Which field in the provided data supports this (e.g., 'ip_resolution.xxx')\",
+                        \"confidence\": \"[high/medium/low] based on data completeness\"
                     }
                 ],
-                \"anomalies\": [
+                
+                \"protocol_analysis\": [
                     {
-                        \"type\": \"specific anomaly type\",
-                        \"severity\": \"critical|high|medium|low\",
-                        \"details\": \"detailed anomaly description\",
-                        \"timestamp\": \"when detected\",
-                        \"source\": \"source of anomaly\",
-                        \"impact\": \"potential impact\",
-                        \"recommendation\": \"specific mitigation steps\"
+                        \"protocol\": \"[ACTUAL protocol name from data]\",
+                        \"packet_count\": \"[ACTUAL count from data]\",
+                        \"percentage\": \"calculated from total packets if available\",
+                        \"risk_assessment\": \"[low/medium/high] based on protocol characteristics\",
+                        \"notes\": \"Observations about this protocol's usage\"
                     }
                 ],
-                \"top_talkers\": [
+                
+                \"ip_resolution_summary\": [
                     {
-                        \"ip_address\": \"IP address\",
-                        \"packet_count\": 0,
-                        \"byte_count\": 0,
-                        \"country\": \"geolocation if available\",
-                        \"risk_assessment\": \"suspicious|normal|unknown\",
-                        \"ports_used\": [80, 443]
+                        \"ip\": \"[ACTUAL IP from data]\",
+                        \"organization\": \"[ACTUAL org from geolocation or 'Not resolved']\",
+                        \"country\": \"[ACTUAL country or 'Unknown']\",
+                        \"threat_score\": \"[ACTUAL score from threat_intelligence or 'No data']\",
+                        \"risk_level\": \"[calculated from actual threat_score]\",
+                        \"packets_to_from\": \"[ACTUAL count from top_talkers if available]\"
                     }
                 ],
-                \"performance_metrics\": {
-                    \"bandwidth_utilization\": \"percentage\",
-                    \"peak_traffic_time\": \"timestamp\",
-                    \"average_packet_size\": \"bytes\",
-                    \"retransmission_rate\": \"percentage if available\"
+                
+                \"security_assessment\": {
+                    \"total_threats\": \"Count of IPs with threat_score > 50 or risk_level = high/critical\",
+                    \"encryption_ratio\": \"TLS packets / total packets if data available\",
+                    \"suspicious_patterns\": \"Count of ACTUAL suspicious patterns from deep_packet_inspection\",
+                    \"data_exfiltration_risk\": \"[high/medium/low/none] based on large outbound transfers\",
+                    \"recommended_actions\": \"Based ONLY on actual findings\"
                 },
-                \"recommendations\": [
-                    {
-                        \"priority\": \"high|medium|low\",
-                        \"category\": \"security|performance|compliance\",
-                        \"suggestion\": \"specific recommendation\",
-                        \"action\": \"concrete steps to implement\",
-                        \"impact\": \"expected outcome\"
-                    }
+                
+                \"data_volume_analysis\": {
+                    \"total_bytes\": \"[ACTUAL number from data or 'Not available']\",
+                    \"average_packet_size\": \"[ACTUAL number or 'Not available']\",
+                    \"largest_transfers\": \"Top 3 IPs by byte_count from top_talkers\",
+                    \"throughput_estimate\": \"bytes/duration if timeline available\"
+                },
+                
+                \"missing_data\": [
+                    \"List of important analysis points that couldn't be determined from the data\"
                 ],
-                \"iocs\": {
-                    \"suspicious_ips\": [\"list of suspicious IPs\"],
-                    \"malicious_domains\": [\"list of suspicious domains\"],
-                    \"unusual_ports\": [\"list of unusual ports observed\"],
-                    \"patterns\": [\"notable behavioral patterns\"]
-                }
+                
+                \"next_steps\": [
+                    {
+                        \"action\": \"Based on gaps in current analysis\",
+                        \"reason\": \"Why this would improve accuracy\",
+                        \"priority\": \"[high/medium/low]\"
+                    }
+                ]
             }
 
-            Focus on:
-            - Security threat detection and classification
-            - Performance bottlenecks and optimization opportunities
-            - Forensic evidence and attack chain reconstruction
-            - Actionable recommendations with priority levels
-            - Indicators of Compromise (IOCs) for further investigation"
-                ],
+            REPORTING RULES:
+            1. NEVER use example data like '192.168.1.100' - use ACTUAL IPs from the data
+            2. If threat_intelligence shows abuseConfidenceScore: 0, report as 'No known threats'
+            3. If geolocation data is missing for an IP, state 'Geolocation unavailable'
+            4. Calculate percentages ONLY when both numerator and denominator are available
+            5. Flag any inconsistencies in the data (e.g., packet counts don't match)
+            6. Use 'N/A' or 'Data not available' for missing information
+            7. Do NOT create fictional ports, protocols, or connections
+            8. If all IPs have low threat scores, report 'No high-risk threats detected'
+
+            FOCUS ON ACCURACY OVER CREATIVITY. This report will be used for security decisions."
+            ],
         'iot' => [
         'system' => "You are an expert IoT security analyst specializing in Internet of Things device security. 
         Analyze IoT devices for security vulnerabilities, configuration issues, and compliance with IoT security standards.

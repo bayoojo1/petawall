@@ -2,6 +2,7 @@
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/RoleManager.php';
 require_once __DIR__ . '/SessionManager.php';
+require_once __DIR__ . '/ZeptoMailGateway.php';
 
 class Auth {
     private $pdo;

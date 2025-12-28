@@ -1,1992 +1,2306 @@
-async function analyzeNetwork() {
-    const pcapSource = document.querySelector('input[name="pcap-source"]:checked').value;
-    const analysisType = document.getElementById('analysis-type').value;
+class NetworkAnalyzer {
+    constructor() {
+        this.currentAnalysisId = null;
+        this.analysisResults = null;
+        this.isAnalyzing = false;
+        this.aiModal = null;
+        this.currentAIIssue = null;
+        this.OLLAMA_MODEL = 'gemma3:4b';
+        
+        // Initialize AI modal
+        this.initAIModal();
+        this.addAnalysisStyles();
+        this.setupEventListeners();
+    }
     
-    // Validate inputs based on source type
-    if (pcapSource === 'local') {
-        const fileInput = document.getElementById('pcap-file');
-        if (!fileInput.files.length) {
-            alert('Please upload a PCAP file');
-            return;
+    initAIModal() {
+        // Create modal container
+        this.aiModal = document.createElement('div');
+        this.aiModal.id = 'ai-analysis-modal';
+        this.aiModal.className = 'modal hidden';
+        
+        // Create modal content
+        this.aiModal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-robot"></i> AI-Powered Threat Analysis</h3>
+                    <span class="close-modal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="threat-info">
+                        <h4 id="threat-title"></h4>
+                        <div class="threat-details" id="threat-details"></div>
+                        <div class="threat-evidence" id="threat-evidence"></div>
+                    </div>
+                    
+                    <div class="ai-analysis-container">
+                        <div class="ai-response" id="ai-analysis-response">
+                            <div class="loading" id="ai-analysis-loading">
+                                <div class="spinner"></div>
+                                <p>Generating AI-powered threat analysis...</p>
+                            </div>
+                            <div id="ai-analysis-content"></div>
+                        </div>
+                        
+                        <div class="ai-actions">
+                            <button class="btn-na btn-primary" id="generate-threat-analysis">
+                                <i class="fas fa-magic"></i> Analyze Threat
+                            </button>
+                            <button class="btn-na btn-secondary" id="copy-analysis">
+                                <i class="fas fa-copy"></i> Copy Analysis
+                            </button>
+                            <button class="btn-na btn-outline" id="close-analysis">
+                                <i class="fas fa-times"></i> Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add modal to body
+        document.body.appendChild(this.aiModal);
+        
+        // Setup event listeners
+        this.setupAIModalEvents();
+    }
+    
+    setupEventListeners() {
+        // PCAP source toggle
+        const localMode = document.getElementById('local-mode');
+        const remoteMode = document.getElementById('remote-mode');
+        const localInput = document.getElementById('local-input');
+        const remoteInput = document.getElementById('remote-input');
+        
+        localMode.addEventListener('change', () => {
+            localInput.classList.remove('hidden');
+            remoteInput.classList.add('hidden');
+        });
+        
+        remoteMode.addEventListener('change', () => {
+            remoteInput.classList.remove('hidden');
+            localInput.classList.add('hidden');
+        });
+        
+        // Analyze button
+        const analyzeBtn = document.getElementById('network-btn');
+        if (analyzeBtn) {
+            analyzeBtn.addEventListener('click', () => this.startAnalysis());
         }
-    } else if (pcapSource === 'remote') {
-        const remoteUrl = document.getElementById('remote-url').value;
-        if (!remoteUrl) {
-            alert('Please enter a remote PCAP URL');
-            return;
-        }
-        if (!isValidUrl(remoteUrl)) {
-            alert('Please enter a valid URL');
-            return;
+        
+        // Export buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('export-json')) {
+                this.exportResults('json');
+            } else if (e.target.classList.contains('export-pdf')) {
+                this.exportResults('pdf');
+            } else if (e.target.classList.contains('export-csv')) {
+                this.exportResults('csv');
+            }
+        });
+    }
+    
+    setupAIModalEvents() {
+        // Close modal when clicking X
+        this.aiModal.querySelector('.close-modal').addEventListener('click', () => this.hideAIModal());
+        
+        // Close modal when clicking outside
+        this.aiModal.addEventListener('click', (e) => {
+            if (e.target === this.aiModal) {
+                this.hideAIModal();
+            }
+        });
+        
+        // Generate analysis button
+        this.aiModal.querySelector('#generate-threat-analysis').addEventListener('click', () => this.generateThreatAnalysis());
+        
+        // Copy analysis button
+        this.aiModal.querySelector('#copy-analysis').addEventListener('click', () => this.copyAnalysis());
+        
+        // Close button
+        this.aiModal.querySelector('#close-analysis').addEventListener('click', () => this.hideAIModal());
+        
+        // Escape key to close
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !this.aiModal.classList.contains('hidden')) {
+                this.hideAIModal();
+            }
+        });
+    }
+    
+    showAIModal(threat, severity, evidence) {
+        this.currentAIIssue = { threat, severity, evidence };
+        
+        // Populate threat info
+        const threatTitle = this.aiModal.querySelector('#threat-title');
+        const threatDetails = this.aiModal.querySelector('#threat-details');
+        const threatEvidence = this.aiModal.querySelector('#threat-evidence');
+        const aiContent = this.aiModal.querySelector('#ai-analysis-content');
+        
+        // Clear previous content
+        aiContent.innerHTML = '';
+        this.aiModal.querySelector('#ai-analysis-loading').style.display = 'none';
+        
+        // Populate threat info
+        threatTitle.textContent = `${severity.toUpperCase()} THREAT: ${threat}`;
+        
+        threatDetails.innerHTML = `
+            <p><strong>Severity:</strong> <span class="threat-severity-badge ${severity}">${severity}</span></p>
+            <p><strong>Detection Time:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Analysis ID:</strong> ${this.currentAnalysisId || 'N/A'}</p>
+        `;
+        
+        threatEvidence.textContent = evidence || 'No additional evidence available';
+        
+        // Show modal
+        this.aiModal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        
+        // Focus on generate button
+        setTimeout(() => {
+            this.aiModal.querySelector('#generate-threat-analysis').focus();
+        }, 100);
+    }
+    
+    hideAIModal() {
+        this.aiModal.classList.add('hidden');
+        document.body.style.overflow = '';
+        this.currentAIIssue = null;
+    }
+    
+    async generateThreatAnalysis() {
+        const aiContent = this.aiModal.querySelector('#ai-analysis-content');
+        const loading = this.aiModal.querySelector('#ai-analysis-loading');
+        
+        // Show loading
+        loading.style.display = 'block';
+        aiContent.innerHTML = '';
+        
+        try {
+            const response = await this.callAIAnalysisAPI();
+            loading.style.display = 'none';
+            aiContent.innerHTML = this.formatAIAnalysis(response);
+        } catch (error) {
+            loading.style.display = 'none';
+            aiContent.innerHTML = `
+                <div class="error-container">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <h4>Analysis Failed</h4>
+                    <p>${error.message}</p>
+                    <button class="btn-na btn-primary" onclick="networkAnalyzer.generateThreatAnalysis()">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
         }
     }
     
-    // Show loading
-    document.getElementById('network-loading').style.display = 'block';
-    document.getElementById('network-results').style.display = 'none';
-    
-    try {
-        const formData = new FormData();
-        
-        if (pcapSource === 'local') {
-            const fileInput = document.getElementById('pcap-file');
-            formData.append('pcap_file', fileInput.files[0]);
-        } else {
-            const remoteUrl = document.getElementById('remote-url').value;
-            const timeout = document.getElementById('timeout').value;
-            formData.append('remote_url', remoteUrl);
-            formData.append('timeout', timeout);
+    async callAIAnalysisAPI() {
+        if (!this.currentAIIssue) {
+            throw new Error('No threat selected for analysis');
         }
         
-        formData.append('pcap_source', pcapSource);
-        formData.append('analysis_type', analysisType);
-        formData.append('tool', 'network');
+        const prompt = this.buildAIAnalysisPrompt();
         
         const response = await fetch('api.php', {
             method: 'POST',
-            body: formData
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                'tool': 'ollama',
+                'prompt': prompt,
+                'model': this.OLLAMA_MODEL
+            })
         });
         
-        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
         
-        document.getElementById('network-loading').style.display = 'none';
+        const result = await response.json();
         
-        if (data.error) {
-            alert('Error: ' + data.error);
+        if (!result.success) {
+            throw new Error(result.error || 'AI analysis failed');
+        }
+        
+        return result.response || result.data || result;
+    }
+    
+    buildAIAnalysisPrompt() {
+        const issue = this.currentAIIssue;
+        
+        return `Analyze this network security threat:
+
+    THREAT TYPE: ${issue.threat}
+    SEVERITY: ${issue.severity}
+    EVIDENCE: ${issue.evidence}
+
+    Please provide:
+    1. Detailed threat analysis
+    2. Potential impact on the organization
+    3. Immediate mitigation steps
+    4. Long-term prevention strategies
+    5. Related threat intelligence
+    6. Compliance implications
+
+    Provide specific, actionable recommendations.`;
+    }
+    
+    formatAIAnalysis(response) {
+        let analysisText = '';
+        
+        if (typeof response === 'string') {
+            analysisText = response;
+        } else if (response && typeof response === 'object') {
+            analysisText = response.raw_response || response.analysis || response.formatted || 
+                          response.message || JSON.stringify(response, null, 2);
+        }
+        
+        // Process markdown
+        analysisText = this.processMarkdown(analysisText);
+        
+        return `
+            <div class="threat-analysis">
+                <h4><i class="fas fa-robot"></i> AI Threat Analysis</h4>
+                <div class="analysis-content">${analysisText}</div>
+            </div>
+        `;
+    }
+    
+    processMarkdown(text) {
+        // Convert code blocks
+        text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+            return `<pre><code>${this.escapeHtml(code.trim())}</code></pre>`;
+        });
+        
+        // Convert inline code
+        text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+        
+        // Convert headers
+        text = text.replace(/^### (.*$)/gm, '<h5>$1</h5>');
+        text = text.replace(/^## (.*$)/gm, '<h4>$1</h4>');
+        text = text.replace(/^# (.*$)/gm, '<h3>$1</h3>');
+        
+        // Convert bold and italic
+        text = text.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
+        text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        
+        // Convert lists
+        text = text.replace(/^(\d+)\.\s+(.*)$/gm, '<li>$1. $2</li>');
+        text = text.replace(/(<li>\d+\..*<\/li>)/gs, '<ol class="steps-list">$1</ol>');
+        
+        text = text.replace(/^[-*]\s+(.*)$/gm, '<li>$1</li>');
+        text = text.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+        
+        // Convert line breaks
+        text = text.replace(/\n\n/g, '</p><p>');
+        text = text.replace(/\n/g, '<br>');
+        
+        return `<p>${text}</p>`;
+    }
+    
+    async startAnalysis() {
+        // Get analysis parameters
+        const pcapSource = document.querySelector('input[name="pcap-source"]:checked').value;
+        const analysisType = document.getElementById('analysis-type').value;
+        
+        // Validate inputs
+        if (pcapSource === 'local') {
+            const fileInput = document.getElementById('pcap-file');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                this.showError('Please select a PCAP file to analyze');
+                return;
+            }
+        } else {
+            const urlInput = document.getElementById('remote-url');
+            if (!urlInput.value.trim()) {
+                this.showError('Please enter a remote PCAP URL');
+                return;
+            }
+            
+            if (!this.isValidUrl(urlInput.value.trim())) {
+                this.showError('Please enter a valid URL');
+                return;
+            }
+        }
+        
+        this.isAnalyzing = true;
+        this.showLoading(true);
+        
+        try {
+            const formData = new FormData();
+            formData.append('tool', 'network');
+            formData.append('analysis_type', analysisType);
+            formData.append('pcap_source', pcapSource);
+            
+            if (pcapSource === 'local') {
+                formData.append('pcap_file', document.getElementById('pcap-file').files[0]);
+            } else {
+                formData.append('remote_url', document.getElementById('remote-url').value.trim());
+                formData.append('timeout', document.getElementById('timeout').value || 30);
+            }
+            
+            const response = await fetch('api.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Analysis failed: ${response.status} ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                this.analysisResults = result.data;
+                this.currentAnalysisId = result.data.analysis_metadata?.analysis_id || 
+                                        `NET-${Date.now()}`;
+                this.displayResults();
+            } else {
+                throw new Error(result.error || 'Analysis returned invalid data');
+            }
+            
+        } catch (error) {
+            console.error('Analysis error:', error);
+            this.showError('Analysis failed: ' + error.message);
+        } finally {
+            this.isAnalyzing = false;
+            this.showLoading(false);
+        }
+    }
+    
+    showLoading(show) {
+        const loading = document.getElementById('network-loading');
+        const results = document.getElementById('network-results');
+        
+        if (show) {
+            loading.style.display = 'flex';
+            results.style.display = 'none';
+        } else {
+            loading.style.display = 'none';
+            results.style.display = 'block';
+        }
+    }
+    
+    displayResults() {
+        if (!this.analysisResults) {
+            this.showError('No results to display');
             return;
         }
         
-        document.getElementById('network-results').style.display = 'block';
+        // DEBUG: See what data you're getting
+        this.debugDataStructure(this.analysisResults);
         
-        // Display dynamic results based on analysis type
-        displayDynamicResults(data);
+        const resultsContainer = document.getElementById('network-results');
+        resultsContainer.innerHTML = this.generateResultsHTML();
         
-    } catch (error) {
-        document.getElementById('network-loading').style.display = 'none';
-        alert('Request failed: ' + error.message);
-        console.error('Network analysis error:', error);
-    }
-}
-
-function displayDynamicResults(data) {
-    console.log('Full API response for display:', data);
-    
-    const resultsContainer = document.getElementById('network-results');
-    resultsContainer.innerHTML = '';
-    
-    // Check for errors first
-    if (data.error || (data.success === false)) {
-        const errorMsg = data.error || 'Unknown error occurred';
-        resultsContainer.innerHTML = `
-            <div class="error-card">
-                <h3><i class="fas fa-exclamation-triangle"></i> Analysis Error</h3>
-                <p>${escapeHtml(errorMsg)}</p>
-                ${data.details ? `<p><small>Details: ${escapeHtml(data.details)}</small></p>` : ''}
-            </div>
-        `;
-        return;
+        this.setupResultsInteractions();
     }
     
-    // Extract the actual analysis data
-    const analysisData = data.data || data;
-    
-    // Create main header
-    const mainHeader = document.createElement('div');
-    mainHeader.className = 'results-header';
-    
-    // Determine analysis type from data
-    const analysisType = data.analysis_type || analysisData.analysis_type || 'COMPREHENSIVE';
-    const timestamp = data.timestamp || analysisData.timestamp || new Date().toLocaleString();
-    
-    mainHeader.innerHTML = `
-        <h3><i class="fas fa-network-wired"></i> Network Analysis Report</h3>
-        <div class="analysis-meta">
-            <span class="analysis-type-badge">${analysisType.toUpperCase()} ANALYSIS</span>
-            <span class="timestamp"><i class="far fa-clock"></i> ${timestamp}</span>
-            ${analysisData.data_source ? `<span class="data-source"><i class="fas fa-database"></i> ${escapeHtml(analysisData.data_source)}</span>` : ''}
-        </div>
-    `;
-    resultsContainer.appendChild(mainHeader);
-    
-    // Use the existing displayEnhancedAnalysis function for compatibility
-    // But first check if the data is valid
-    if (!analysisData || (typeof analysisData === 'object' && Object.keys(analysisData).length === 0)) {
-        resultsContainer.appendChild(createNoDataSection('No analysis data available. The PCAP file may be empty or corrupted.'));
-        return;
-    }
-    
-    // Check if this is raw JSON that needs parsing
-    if (typeof analysisData === 'string' && analysisData.trim().startsWith('{')) {
-        try {
-            const parsedData = JSON.parse(analysisData);
-            displayEnhancedAnalysis(parsedData, analysisType, resultsContainer);
-        } catch (e) {
-            // If JSON parsing fails, treat as text
-            const textCard = createResultCard('Analysis Results', 'text-analysis');
-            textCard.innerHTML = `
-                <div class="text-content">
-                    <p>${formatTextAnalysis(analysisData)}</p>
-                </div>
-            `;
-            resultsContainer.appendChild(textCard);
-        }
-    } else {
-        // Use the original display logic for structured data
-        displayEnhancedAnalysis(analysisData, analysisType, resultsContainer);
-    }
-}
-
-function displayStructuredAnalysis(data, container) {
-    // 1. Executive Summary (if available)
-    if (data.executive_summary || data.summary) {
-        const summaryCard = createResultCard('Executive Summary', 'summary-card');
-        summaryCard.innerHTML = `
-            <div class="summary-content">
-                ${formatTextAnalysis(data.executive_summary || data.summary)}
-            </div>
-            ${data.threat_level ? `
-                <div class="threat-level ${getSeverityClass(data.threat_level)}">
-                    <i class="fas fa-shield-alt"></i>
-                    <strong>Threat Level:</strong> ${data.threat_level.toUpperCase()}
-                </div>
-            ` : ''}
-        `;
-        container.appendChild(summaryCard);
-    }
-    
-    // 2. Key Findings
-    const keyFindings = extractKeyFindings(data);
-    if (keyFindings.length > 0) {
-        const findingsCard = createResultCard('Key Findings', 'findings-card');
-        findingsCard.innerHTML = `
-            <div class="findings-grid">
-                ${keyFindings.map((finding, index) => `
-                    <div class="finding-item ${finding.severity}">
-                        <div class="finding-number">${index + 1}</div>
-                        <div class="finding-content">
-                            <div class="finding-title">
-                                <i class="fas ${finding.icon}"></i>
-                                <strong>${finding.title}</strong>
-                                ${finding.severity ? `<span class="risk-badge risk-${finding.severity}">${finding.severity.toUpperCase()}</span>` : ''}
-                            </div>
-                            <div class="finding-description">${formatTextAnalysis(finding.description)}</div>
-                            ${finding.recommendation ? `<div class="finding-recommendation"><strong>Recommendation:</strong> ${formatTextAnalysis(finding.recommendation)}</div>` : ''}
+    generateResultsHTML() {
+        const results = this.analysisResults;
+        const metadata = results.report_metadata || {};
+        const summary = results.executive_summary || {};
+        const technical = results.technical_analysis || {};
+        const security = technical.security_scan || {};
+        const ai = results.ai_insights || {};
+        
+        return `
+            <div class="network-analysis-report">
+                <!-- Report Header -->
+                <div class="report-header">
+                    <div class="report-title">
+                        <h3><i class="fas fa-file-alt"></i> Network Analysis Report</h3>
+                        <div class="report-meta">
+                            <span>ID: ${metadata.report_id || 'N/A'}</span>
+                            <span>Generated: ${metadata.generated || new Date().toLocaleString()}</span>
+                            <span>Type: ${metadata.analysis_type || 'Comprehensive'}</span>
                         </div>
                     </div>
-                `).join('')}
-            </div>
-        `;
-        container.appendChild(findingsCard);
-    }
-    
-    // 3. Network Statistics
-    const stats = extractNetworkStats(data);
-    if (stats.length > 0) {
-        const statsCard = createResultCard('Network Statistics', 'stats-card');
-        statsCard.innerHTML = `
-            <div class="stats-grid">
-                ${stats.map(stat => `
-                    <div class="stat-item">
-                        <div class="stat-label">${stat.label}</div>
-                        <div class="stat-value">${stat.value}</div>
-                        ${stat.trend ? `<div class="stat-trend ${stat.trend}"><i class="fas fa-arrow-${stat.trend}"></i></div>` : ''}
-                    </div>
-                `).join('')}
-            </div>
-        `;
-        container.appendChild(statsCard);
-    }
-    
-    // 4. Top Talkers (if available)
-    if (data.top_talkers && Array.isArray(data.top_talkers) && data.top_talkers.length > 0) {
-        const talkersCard = createResultCard('Top Talkers', 'talkers-card');
-        talkersCard.innerHTML = `
-            <div class="talkers-table-container">
-                <table class="talkers-table">
-                    <thead>
-                        <tr>
-                            <th>IP Address</th>
-                            <th>Packets</th>
-                            <th>Bytes</th>
-                            <th>Risk Level</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${data.top_talkers.map(talker => `
-                            <tr class="risk-${talker.risk_level || 'low'}">
-                                <td><i class="fas fa-server"></i> ${escapeHtml(talker.ip_address)}</td>
-                                <td>${talker.packet_count?.toLocaleString() || 'N/A'}</td>
-                                <td>${talker.byte_count ? formatBytes(talker.byte_count) : 'N/A'}</td>
-                                <td><span class="risk-badge risk-${talker.risk_level || 'low'}">${(talker.risk_level || 'LOW').toUpperCase()}</span></td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
-        container.appendChild(talkersCard);
-    }
-    
-    // 5. Raw Data View (collapsible for debugging)
-    const rawDataCard = createResultCard('Raw Analysis Data', 'raw-data-card');
-    rawDataCard.innerHTML = `
-        <details class="raw-data-details">
-            <summary>View Raw JSON Data</summary>
-            <pre class="raw-json">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
-        </details>
-    `;
-    container.appendChild(rawDataCard);
-}
-
-function extractKeyFindings(data) {
-    const findings = [];
-    
-    console.log("Extracting key findings from:", data);
-    
-    // Method 1: Check for direct key_findings array
-    if (data.key_findings && Array.isArray(data.key_findings)) {
-        data.key_findings.forEach((finding, index) => {
-            if (typeof finding === 'string') {
-                findings.push({
-                    title: `Finding ${index + 1}`,
-                    description: finding,
-                    severity: 'info',
-                    icon: 'fa-info-circle'
-                });
-            } else if (finding && typeof finding === 'object') {
-                findings.push({
-                    title: finding.title || `Finding ${index + 1}`,
-                    description: finding.description || finding.details || '',
-                    severity: finding.severity || finding.risk_level || 'info',
-                    recommendation: finding.recommendation || finding.action,
-                    icon: getFindingIcon(finding.severity || 'info')
-                });
-            }
-        });
-    }
-    
-    // Method 2: Extract from malicious_activity_indicators
-    if (data.malicious_activity_indicators && Array.isArray(data.malicious_activity_indicators)) {
-        data.malicious_activity_indicators.forEach(indicator => {
-            if (typeof indicator === 'string') {
-                findings.push({
-                    title: 'Malicious Activity Indicator',
-                    description: indicator,
-                    severity: 'high',
-                    icon: 'fa-exclamation-triangle'
-                });
-            } else if (indicator && typeof indicator === 'object') {
-                findings.push({
-                    title: indicator.type || 'Security Indicator',
-                    description: indicator.description || indicator.details || '',
-                    severity: indicator.severity || 'high',
-                    recommendation: indicator.recommendation,
-                    icon: 'fa-shield-alt'
-                });
-            }
-        });
-    }
-    
-    // Method 3: Extract from suspicious patterns in DPI
-    if (data.deep_packet_inspection && 
-        data.deep_packet_inspection.suspicious_patterns && 
-        Array.isArray(data.deep_packet_inspection.suspicious_patterns)) {
-        
-        data.deep_packet_inspection.suspicious_patterns.forEach(pattern => {
-            findings.push({
-                title: pattern.pattern_type || 'Suspicious Pattern',
-                description: pattern.description || '',
-                severity: pattern.severity || 'medium',
-                recommendation: pattern.recommendation,
-                icon: 'fa-search'
-            });
-        });
-    }
-    
-    // Method 4: Extract from top talkers with risk assessment
-    if (data.top_talkers && Array.isArray(data.top_talkers)) {
-        const highRiskTalkers = data.top_talkers.filter(t => 
-            t.risk_level && t.risk_level.toLowerCase().includes('high')
-        );
-        
-        if (highRiskTalkers.length > 0) {
-            findings.push({
-                title: 'High-Risk Communication Detected',
-                description: `${highRiskTalkers.length} IP addresses flagged as high risk`,
-                severity: 'high',
-                icon: 'fa-server',
-                recommendation: 'Investigate these IP addresses for malicious activity'
-            });
-        }
-    }
-    
-    // Method 5: Create findings from protocol anomalies
-    if (data.protocols && typeof data.protocols === 'object') {
-        const suspiciousProtocols = ['tftp', 'telnet', 'ftp', 'snmp'];
-        const foundProtocols = [];
-        
-        suspiciousProtocols.forEach(proto => {
-            if (data.protocols[proto] && data.protocols[proto] > 0) {
-                foundProtocols.push(proto.toUpperCase());
-            }
-        });
-        
-        if (foundProtocols.length > 0) {
-            findings.push({
-                title: 'Insecure Protocols Detected',
-                description: `The following insecure protocols were found: ${foundProtocols.join(', ')}`,
-                severity: 'medium',
-                icon: 'fa-lock-open',
-                recommendation: 'Consider replacing with secure alternatives (SSH for Telnet, SFTP/FTPS for FTP)'
-            });
-        }
-    }
-    
-    // Method 6: If no findings extracted, create some from basic data
-    if (findings.length === 0) {
-        // Create from overall risk
-        if (data.overall_risk || data.threat_severity) {
-            const risk = data.overall_risk || data.threat_severity;
-            findings.push({
-                title: 'Overall Risk Assessment',
-                description: `Analysis indicates ${risk} risk level`,
-                severity: risk,
-                icon: 'fa-chart-line'
-            });
-        }
-        
-        // Create from connection volume
-        if (data.connections && data.connections.total_packets) {
-            const packetCount = data.connections.total_packets;
-            let severity = 'low';
-            if (packetCount > 10000) severity = 'high';
-            else if (packetCount > 1000) severity = 'medium';
-            
-            findings.push({
-                title: 'Traffic Volume',
-                description: `${packetCount.toLocaleString()} packets analyzed`,
-                severity: severity,
-                icon: 'fa-tachometer-alt'
-            });
-        }
-    }
-    
-    console.log(`Extracted ${findings.length} key findings`);
-    return findings.slice(0, 8); // Return top 8 findings
-}
-
-function getFindingIcon(severity) {
-    const icons = {
-        'critical': 'fa-skull-crossbones',
-        'high': 'fa-exclamation-triangle',
-        'medium': 'fa-exclamation-circle',
-        'low': 'fa-info-circle',
-        'info': 'fa-info-circle',
-        'unknown': 'fa-question-circle'
-    };
-    return icons[severity.toLowerCase()] || 'fa-info-circle';
-}
-
-function extractNetworkStats(data) {
-    const stats = [];
-    
-    // 1. Packet Statistics
-    if (data.connections) {
-        if (data.connections.total_packets !== undefined) {
-            stats.push({
-                label: 'Total Packets',
-                value: data.connections.total_packets.toLocaleString(),
-                trend: 'up'
-            });
-        }
-        
-        if (data.connections.unique_ips !== undefined) {
-            stats.push({
-                label: 'Unique IPs',
-                value: data.connections.unique_ips.toLocaleString(),
-                trend: data.connections.unique_ips > 50 ? 'up' : 'neutral'
-            });
-        }
-        
-        if (data.connections.tcp_packets !== undefined && data.connections.udp_packets !== undefined) {
-            const tcp = data.connections.tcp_packets;
-            const udp = data.connections.udp_packets;
-            if (udp > 0) {
-                stats.push({
-                    label: 'TCP/UDP Ratio',
-                    value: `${(tcp/udp).toFixed(2)}:1`,
-                    trend: 'neutral'
-                });
-            }
-        }
-    }
-    
-    // 2. Data Volume
-    if (data.data_volume) {
-        if (data.data_volume.total_bytes !== undefined) {
-            stats.push({
-                label: 'Total Data',
-                value: formatBytes(data.data_volume.total_bytes),
-                trend: 'up'
-            });
-        }
-        
-        if (data.data_volume.average_packet_size !== undefined) {
-            stats.push({
-                label: 'Avg Packet Size',
-                value: formatBytes(data.data_volume.average_packet_size),
-                trend: 'neutral'
-            });
-        }
-    }
-    
-    // 3. Timeline
-    if (data.timeline) {
-        if (data.timeline.duration_seconds !== undefined) {
-            const hours = Math.floor(data.timeline.duration_seconds / 3600);
-            const minutes = Math.floor((data.timeline.duration_seconds % 3600) / 60);
-            const seconds = Math.floor(data.timeline.duration_seconds % 60);
-            
-            let duration = '';
-            if (hours > 0) duration += `${hours}h `;
-            if (minutes > 0) duration += `${minutes}m `;
-            if (seconds > 0 || duration === '') duration += `${seconds}s`;
-            
-            stats.push({
-                label: 'Capture Duration',
-                value: duration.trim(),
-                trend: 'neutral'
-            });
-        }
-        
-        if (data.timeline.start_time && data.timeline.end_time) {
-            stats.push({
-                label: 'Time Range',
-                value: `${data.timeline.start_time.split(' ')[0]} to ${data.timeline.end_time.split(' ')[0]}`,
-                trend: 'neutral'
-            });
-        }
-    }
-    
-    // 4. Protocol Diversity
-    if (data.protocols && typeof data.protocols === 'object') {
-        const protocolCount = Object.keys(data.protocols).length;
-        stats.push({
-            label: 'Protocols Detected',
-            value: protocolCount.toString(),
-            trend: protocolCount > 10 ? 'up' : 'neutral'
-        });
-    }
-    
-    // 5. Security Metrics
-    if (data.deep_packet_inspection && data.deep_packet_inspection.suspicious_patterns) {
-        const suspiciousCount = data.deep_packet_inspection.suspicious_patterns.length;
-        if (suspiciousCount > 0) {
-            stats.push({
-                label: 'Suspicious Patterns',
-                value: suspiciousCount.toString(),
-                trend: suspiciousCount > 5 ? 'up' : 'neutral'
-            });
-        }
-    }
-    
-    // Ensure we have at least some stats
-    if (stats.length === 0) {
-        stats.push(
-            { label: 'Analysis Complete', value: '✓', trend: 'neutral' },
-            { label: 'Data Processed', value: 'Yes', trend: 'up' }
-        );
-    }
-    
-    return stats;
-}
-
-// Helper function to format bytes
-function formatBytes(bytes, decimals = 2) {
-    if (bytes === 0 || bytes === undefined || bytes === null) return '0 Bytes';
-    
-    try {
-        bytes = Number(bytes);
-        if (isNaN(bytes)) return 'N/A';
-        
-        const k = 1024;
-        const dm = decimals < 0 ? 0 : decimals;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-    } catch (e) {
-        return 'N/A';
-    }
-}
-
-function displayEnhancedAnalysis(data, analysisType, container) {
-    console.log('Enhanced analysis data:', data);
-    
-    if (!data || typeof data !== 'object') {
-        container.appendChild(createNoDataSection('No analysis data available'));
-        return;
-    }
-    
-    // Display summary information first
-    displaySummarySection(data, analysisType, container);
-    
-    // Display advanced features if available
-    if (data.ip_resolution || data.deep_packet_inspection || data.network_intelligence) {
-        displayAdvancedFeatures(data, analysisType, container);
-    }
-    
-    // Process all data properties with intelligent section detection
-    processDataSections(data, analysisType, container);
-}
-
-function displayAdvancedFeatures(data, analysisType, container) {
-    const advancedCard = createResultCard('Advanced Analysis Features', 'advanced-features');
-    let advancedHTML = '';
-    
-    console.log('Advanced features: ', data);
-
-    // IP Resolution & Threat Intelligence
-    if (data.ip_resolution) {
-        advancedHTML += createIPResolutionSection(data.ip_resolution);
-    }
-    
-    // Deep Packet Inspection
-    if (data.deep_packet_inspection) {
-        advancedHTML += createDPISection(data.deep_packet_inspection);
-    }
-    
-    // Network Intelligence
-    if (data.network_intelligence) {
-        advancedHTML += createNetworkIntelligenceSection(data.network_intelligence);
-    }
-    
-    advancedCard.innerHTML = advancedHTML || '<div class="no-data">Advanced analysis features not available</div>';
-    container.appendChild(advancedCard);
-}
-
-function createIPResolutionSection(ipResolution) {
-    const resolvedIPs = Object.values(ipResolution);
-    
-    if (!resolvedIPs.length) return '';
-    
-    return `
-        <div class="advanced-feature-section">
-            <h4><i class="fas fa-globe-americas"></i> IP Resolution & Threat Intelligence</h4>
-            <div class="ip-resolution-grid">
-                ${resolvedIPs.map(ipInfo => `
-                    <div class="ip-resolution-item ${ipInfo.risk_level || 'unknown'}">
-                        <div class="ip-resolution-header">
-                            <i class="fas fa-server"></i>
-                            <strong class="ip-address">${ipInfo.ip}</strong>
-                            <span class="risk-badge risk-${ipInfo.risk_level || 'unknown'}">
-                                ${(ipInfo.risk_level || 'UNKNOWN').toUpperCase()}
-                            </span>
-                        </div>
-                        <div class="ip-resolution-details">
-                            ${ipInfo.organization ? `<div class="ip-org"><strong>Organization:</strong> ${escapeHtml(ipInfo.organization)}</div>` : ''}
-                            ${ipInfo.country ? `<div class="ip-location"><strong>Location:</strong> ${escapeHtml(ipInfo.country)} ${ipInfo.city ? `- ${escapeHtml(ipInfo.city)}` : ''}</div>` : ''}
-                            ${ipInfo.asn ? `<div class="ip-asn"><strong>ASN:</strong> ${escapeHtml(ipInfo.asn)}</div>` : ''}
-                            ${ipInfo.threat_intelligence ? `
-                                <div class="ip-threat">
-                                    <strong>Threat Score:</strong> ${ipInfo.threat_intelligence.abuseConfidenceScore || 0}/100
-                                    ${ipInfo.threat_intelligence.totalReports ? ` | <strong>Reports:</strong> ${ipInfo.threat_intelligence.totalReports}` : ''}
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `;
-}
-
-function createDPISection(dpiData) {
-    let dpiHTML = '';
-    
-    // Protocol Analysis
-    if (dpiData.protocol_analysis && dpiData.protocol_analysis.length > 0) {
-        dpiHTML += `
-            <div class="dpi-category">
-                <h5><i class="fas fa-network-wired"></i> Protocol Analysis</h5>
-                <div class="dpi-insights">
-                    ${dpiData.protocol_analysis.map(insight => `
-                        <div class="dpi-insight ${insight.severity || 'info'}">
-                            <div class="dpi-header">
-                                <i class="fas ${getDPIIcon(insight.type)}"></i>
-                                <strong>${insight.title}</strong>
-                                ${insight.severity ? `<span class="risk-badge risk-${insight.severity}">${insight.severity.toUpperCase()}</span>` : ''}
-                            </div>
-                            <div class="dpi-content">
-                                ${formatTextAnalysis(insight.description)}
-                            </div>
-                            ${insight.recommendation ? `
-                                <div class="dpi-recommendation">
-                                    <strong>Recommendation:</strong> ${formatTextAnalysis(insight.recommendation)}
-                                </div>
-                            ` : ''}
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    }
-    
-    // Suspicious Patterns
-    if (dpiData.suspicious_patterns && dpiData.suspicious_patterns.length > 0) {
-        dpiHTML += `
-            <div class="dpi-category">
-                <h5><i class="fas fa-exclamation-triangle"></i> Suspicious Patterns</h5>
-                <div class="suspicious-patterns">
-                    ${dpiData.suspicious_patterns.map(pattern => `
-                        <div class="pattern-item ${pattern.severity}">
-                            <div class="pattern-header">
-                                <strong>${pattern.pattern_type}</strong>
-                                <span class="risk-badge risk-${pattern.severity}">${pattern.severity.toUpperCase()}</span>
-                            </div>
-                            <div class="pattern-details">
-                                <strong>Description:</strong> ${formatTextAnalysis(pattern.description)}<br>
-                                ${pattern.source_ip ? `<strong>Source IP:</strong> ${pattern.source_ip}<br>` : ''}
-                                ${pattern.recommendation ? `<strong>Action:</strong> ${formatTextAnalysis(pattern.recommendation)}` : ''}
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    }
-    
-    // Application Insights
-    if (dpiData.application_insights && dpiData.application_insights.length > 0) {
-        dpiHTML += `
-            <div class="dpi-category">
-                <h5><i class="fas fa-code"></i> Application Insights</h5>
-                <ul class="application-insights">
-                    ${dpiData.application_insights.map(insight => `
-                        <li>${formatTextAnalysis(insight)}</li>
-                    `).join('')}
-                </ul>
-            </div>
-        `;
-    }
-    
-    if (!dpiHTML) return '';
-    
-    return `
-        <div class="advanced-feature-section">
-            <h4><i class="fas fa-search-plus"></i> Deep Packet Inspection</h4>
-            ${dpiHTML}
-        </div>
-    `;
-}
-
-function createNetworkIntelligenceSection(intelligence) {
-    let intelHTML = '';
-    
-    // Traffic Patterns
-    if (intelligence.traffic_patterns) {
-        const patterns = intelligence.traffic_patterns;
-        intelHTML += `
-            <div class="intel-category">
-                <h5><i class="fas fa-chart-line"></i> Traffic Patterns</h5>
-                <div class="traffic-stats">
-                    ${patterns.unique_ips ? `<div class="traffic-stat"><strong>Unique IPs:</strong> ${patterns.unique_ips}</div>` : ''}
-                    ${patterns.total_packets ? `<div class="traffic-stat"><strong>Total Packets:</strong> ${patterns.total_packets.toLocaleString()}</div>` : ''}
-                    ${patterns.tcp_udp_ratio ? `<div class="traffic-stat"><strong>TCP/UDP Ratio:</strong> ${patterns.tcp_udp_ratio}</div>` : ''}
-                    ${patterns.average_packet_size ? `<div class="traffic-stat"><strong>Avg Packet Size:</strong> ${patterns.average_packet_size} bytes</div>` : ''}
-                </div>
-            </div>
-        `;
-    }
-    
-    // Security Assessment
-    if (intelligence.security_assessment) {
-        const security = intelligence.security_assessment;
-        intelHTML += `
-            <div class="intel-category">
-                <h5><i class="fas fa-shield-alt"></i> Security Assessment</h5>
-                <div class="security-stats">
-                    <div class="security-stat">
-                        <strong>Encrypted Traffic:</strong> ${security.encrypted_traffic ? 'Yes' : 'No'}
-                    </div>
-                    <div class="security-stat">
-                        <strong>Suspicious Patterns:</strong> ${security.suspicious_activity_count}
-                    </div>
-                    ${security.top_protocols ? `
-                        <div class="security-stat">
-                            <strong>Top Protocols:</strong> ${security.top_protocols}
-                        </div>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-    }
-    
-    if (!intelHTML) return '';
-    
-    return `
-        <div class="advanced-feature-section">
-            <h4><i class="fas fa-brain"></i> Network Intelligence</h4>
-            ${intelHTML}
-        </div>
-    `;
-}
-
-function displayUniversalAnalysis(data, analysisType, container) {
-    console.log('Analysis data:', data);
-    
-    if (!data || typeof data !== 'object') {
-        container.appendChild(createNoDataSection('No analysis data available'));
-        return;
-    }
-    
-    // Display summary information first
-    displaySummarySection(data, analysisType, container);
-    
-    // Process all data properties with intelligent section detection
-    processDataSections(data, analysisType, container);
-}
-
-function displaySummarySection(data, analysisType, container) {
-    const summary = data.executive_summary || data.analysis_summary || data.summary;
-    const severity = data.threat_severity || data.overall_severity || data.risk_level || data.overall_risk;
-    
-    if (summary || severity) {
-        const summaryCard = createResultCard(`${analysisType?.toUpperCase() || 'NETWORK'} Analysis Summary`, 'analysis-summary');
-        let summaryHTML = '';
-        
-        if (severity && typeof severity === 'object') {
-            // Handle object severity like threat_severity: {high: 0.6, medium: 0.5, low: 0.3}
-            summaryHTML += `
-                <div class="severity-breakdown">
-                    <h4>Risk Assessment</h4>
-                    <div class="severity-metrics">
-                        ${Object.entries(severity).map(([level, value]) => `
-                            <div class="severity-metric ${level}">
-                                <span class="metric-label">${level.toUpperCase()}</span>
-                                <span class="metric-value">${(value * 100).toFixed(1)}%</span>
-                            </div>
-                        `).join('')}
+                    <div class="report-actions">
+                        <button class="btn-na btn-outline export-json">
+                            <i class="fas fa-download"></i> JSON
+                        </button>
+                        <button class="btn-na btn-outline export-pdf">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button class="btn-na btn-outline export-csv">
+                            <i class="fas fa-file-csv"></i> CSV
+                        </button>
                     </div>
                 </div>
-            `;
-        } else if (severity) {
-            summaryHTML += `
-                <div class="severity-indicator ${getSeverityClass(severity)}">
-                    <i class="fas fa-shield-alt"></i>
-                    <strong>${analysisType === 'security' ? 'Threat Level' : 'Risk Level'}: ${severity}</strong>
-                </div>
-            `;
-        }
-        
-        if (summary) {
-            summaryHTML += `
-                <div class="summary-content">
-                    ${formatTextAnalysis(summary)}
-                </div>
-            `;
-        }
-        
-        // Add metadata if available
-        const metadata = [];
-        if (data.assessment_date) metadata.push(`<strong>Assessment Date:</strong> ${data.assessment_date}`);
-        if (data.analysis_date) metadata.push(`<strong>Analysis Date:</strong> ${data.analysis_date}`);
-        if (data.data_source) metadata.push(`<strong>Data Source:</strong> ${data.data_source}`);
-        
-        if (metadata.length > 0) {
-            summaryHTML += `
-                <div class="analysis-metadata">
-                    ${metadata.join(' | ')}
-                </div>
-            `;
-        }
-        
-        summaryCard.innerHTML = summaryHTML;
-        container.appendChild(summaryCard);
-    }
-}
-
-function processDataSections(data, analysisType, container) {
-    const processedKeys = new Set(['executive_summary', 'analysis_summary', 'summary', 'threat_severity', 'overall_severity', 'risk_level', 'assessment_date', 'analysis_date', 'data_source']);
-    
-    // Process main analysis sections first
-    const mainSections = {
-        security: ['analysis', 'security_assessment'],
-        performance: ['performance_analysis'],
-        forensic: ['forensic_analysis'],
-        comprehensive: ['pcap_data', 'security_assessment', 'performance_evaluation', 'forensic_insights']
-    };
-    
-    const analysisSections = mainSections[analysisType] || [];
-    
-    analysisSections.forEach(sectionKey => {
-        if (data[sectionKey] && typeof data[sectionKey] === 'object') {
-            processedKeys.add(sectionKey);
-            const sectionCard = createAnalysisSection(sectionKey, data[sectionKey], analysisType);
-            if (sectionCard) {
-                container.appendChild(sectionCard);
-            }
-        }
-    });
-    
-    // Process all other data properties
-    Object.entries(data).forEach(([key, value]) => {
-        if (!processedKeys.has(key) && value !== null && value !== undefined) {
-            try {
-                const section = createDynamicSection(key, value, analysisType);
-                if (section && typeof section === 'object' && section.nodeType) {
-                    container.appendChild(section);
-                } else {
-                    console.warn(`Invalid section returned for ${key}:`, section);
-                    const fallbackSection = createFallbackSection(key, value);
-                    container.appendChild(fallbackSection);
-                }
-            } catch (error) {
-                console.error(`Error creating section for ${key}:`, error);
-                const fallbackSection = createFallbackSection(key, value);
-                container.appendChild(fallbackSection);
-            }
-        }
-    });
-}
-
-function createAnalysisSection(title, data, analysisType) {
-    try {
-        const formattedTitle = formatKey(title);
-        const card = createResultCard(formattedTitle, `${title}-analysis`);
-        
-        if (typeof data === 'object' && !Array.isArray(data)) {
-            card.innerHTML = createObjectAnalysisDisplay(data, analysisType);
-        } else {
-            card.innerHTML = createGenericDisplay(data);
-        }
-        
-        return card;
-    } catch (error) {
-        console.error(`Error creating analysis section for ${title}:`, error);
-        return createFallbackSection(title, data);
-    }
-}
-
-function createDynamicSection(key, value, analysisType) {
-    try {
-        const formattedKey = formatKey(key);
-        
-        // Special handling for known important sections
-        const specialSections = {
-            // Security analysis
-            malicious_activity_indicators: (content) => createIndicatorsSection('Malicious Activity Indicators', content),
-            suspicious_ip_addresses_and_domains: (content) => createSuspiciousEntitiesSection('Suspicious IP Addresses & Domains', content),
-            recommended_investigation_steps: (content) => createStepsSection('Recommended Investigation Steps', content),
-            ioc_extraction: (content) => createIOCSection('Indicators of Compromise', content),
-            top_talkers: (content) => createTopTalkersSection('Top Talkers', content),
-            protocol_distribution: (content) => createProtocolDistributionSection('Protocol Distribution', content),
-            
-            // Performance analysis
-            data_summary: (content) => createDataSummarySection('Data Summary', content),
-            performance_optimization_recommendations: (content) => createRecommendationsSection('Performance Optimization Recommendations', content),
-            
-            // Forensic analysis
-            evidence_preservation_points: (content) => createEvidencePointsSection('Evidence Preservation Points', content),
-            attack_chain_reconstruction: (content) => createAttackChainSection('Attack Chain Reconstruction', content),
-            data_transfer_evidence: (content) => createDataTransferSection('Data Transfer Evidence', content),
-            
-            // Comprehensive analysis
-            actionable_recommendations: (content) => createActionableRecommendationsSection('Actionable Recommendations', content),
-            anomaly_detection: (content) => createAnomalyDetectionSection('Anomaly Detection', content),
-            risk_scoring: (content) => createRiskScoringSection('Risk Scoring', content),
-
-            top_talkers_assessment: (content) => createTopTalkersAssessmentSection('Top Talkers Assessment', content),
-            suspicious_ip_addresses_and_domains: (content) => createSuspiciousEntitiesSection('Suspicious IP Addresses & Domains', content),
-            connection_summary: (content) => createConnectionSummarySection('Connection Summary', content),
-            data_volume: (content) => createDataVolumeSection('Data Volume Analysis', content),
-            timeline: (content) => createTimelineSection('Timeline Analysis', content),
-            protocol_distribution_analysis: (content) => createProtocolAnalysisSection('Protocol Distribution Analysis', content)
-        };
-        
-        if (specialSections[key]) {
-            const section = specialSections[key](value);
-            return section || createFallbackSection(formattedKey, value);
-        }
-        
-        // Generic section creation based on data type
-        if (Array.isArray(value)) {
-            return createArraySection(formattedKey, value, key);
-        } else if (typeof value === 'object' && value !== null) {
-            return createObjectSection(formattedKey, value, key);
-        } else if (typeof value === 'string') {
-            return createTextSection(formattedKey, value);
-        }
-        
-        return createValueSection(formattedKey, value);
-    } catch (error) {
-        console.error(`Error in createDynamicSection for ${key}:`, error);
-        return createFallbackSection(formatKey(key), value);
-    }
-}
-
-function createTopTalkersAssessmentSection(title, assessment) {
-    try {
-        const card = createResultCard(title, 'top-talkers-assessment-section');
-        
-        if (typeof assessment === 'object' && !Array.isArray(assessment)) {
-            // Handle object with comment and top_talkers array
-            let html = '';
-            
-            if (assessment.comment) {
-                html += `
-                    <div class="assessment-comment">
-                        <h4>Assessment Summary</h4>
-                        <div class="comment-content">${formatTextAnalysis(assessment.comment)}</div>
-                    </div>
-                `;
-            }
-            
-            if (assessment.top_talkers && Array.isArray(assessment.top_talkers)) {
-                html += createTopTalkersAssessmentGrid(assessment.top_talkers);
-            }
-            
-            card.innerHTML = html || createGenericDisplay(assessment);
-        } else if (Array.isArray(assessment)) {
-            // Handle direct array of top talkers
-            card.innerHTML = createTopTalkersAssessmentGrid(assessment);
-        } else {
-            card.innerHTML = createGenericDisplay(assessment);
-        }
-        
-        return card;
-    } catch (error) {
-        console.error(`Error in createTopTalkersAssessmentSection:`, error);
-        return createFallbackSection(title, assessment);
-    }
-}
-
-function createTopTalkersAssessmentGrid(talkers) {
-    return `
-        <div class="talkers-assessment-grid">
-            ${talkers.map(talker => {
-                const ip = talker.ip_address || 'Unknown';
-                const packets = talker.packet_count;
-                const bytes = talker.byte_count;
-                const assessment = talker.assessment || talker.notes || 'No assessment available';
-                const risk = talker.risk_level || talker.potential_risk || 'medium';
                 
-                return `
-                    <div class="talker-assessment-item ${getSeverityClass(risk)}">
-                        <div class="talker-assessment-header">
-                            <i class="fas fa-desktop"></i>
-                            <strong class="talker-ip">${escapeHtml(ip)}</strong>
-                            <span class="risk-badge risk-${getRiskLevel(risk)}">
-                                ${(risk || 'Unknown').toUpperCase()}
-                            </span>
+                <!-- Executive Summary -->
+                <div class="section executive-summary">
+                    <h4><i class="fas fa-chart-line"></i> Executive Summary</h4>
+                    <div class="risk-scoreboard">
+                        <div class="risk-score ${summary.overall_risk?.toLowerCase() || 'medium'}">
+                            <div class="score-label">Overall Risk</div>
+                            <div class="score-value">${summary.overall_risk || 'Medium'}</div>
                         </div>
-                        <div class="talker-assessment-stats">
-                            ${packets ? `<div class="talker-stat"><strong>Packets:</strong> ${packets.toLocaleString()}</div>` : ''}
-                            ${bytes ? `<div class="talker-stat"><strong>Bytes:</strong> ${bytes?.toLocaleString() || 'N/A'}</div>` : ''}
-                        </div>
-                        <div class="talker-assessment-content">
-                            <strong>Assessment:</strong> ${formatTextAnalysis(assessment)}
-                        </div>
-                    </div>
-                `;
-            }).join('')}
-        </div>
-    `;
-}
-
-function createConnectionSummarySection(title, summary) {
-    try {
-        const card = createResultCard(title, 'connection-summary-section');
-        
-        if (typeof summary !== 'object') {
-            card.innerHTML = createGenericDisplay(summary);
-            return card;
-        }
-        
-        card.innerHTML = `
-            <div class="connection-summary-grid">
-                ${Object.entries(summary).map(([key, value]) => `
-                    <div class="connection-summary-item">
-                        <div class="connection-label">${formatKey(key)}</div>
-                        <div class="connection-value">
-                            ${typeof value === 'number' ? value.toLocaleString() : escapeHtml(String(value))}
+                        <div class="stats-grid">
+                            <div class="stat-card critical">
+                                <div class="stat-value">${summary.critical_findings || 0}</div>
+                                <div class="stat-label">Critical</div>
+                            </div>
+                            <div class="stat-card high">
+                                <div class="stat-value">${summary.high_findings || 0}</div>
+                                <div class="stat-label">High</div>
+                            </div>
+                            <div class="stat-card medium">
+                                <div class="stat-value">${summary.medium_findings || 0}</div>
+                                <div class="stat-label">Medium</div>
+                            </div>
+                            <div class="stat-card total">
+                                <div class="stat-value">${summary.total_threats || 0}</div>
+                                <div class="stat-label">Total Threats</div>
+                            </div>
                         </div>
                     </div>
-                `).join('')}
-            </div>
-        `;
-        return card;
-    } catch (error) {
-        console.error(`Error in createConnectionSummarySection:`, error);
-        return createFallbackSection(title, summary);
-    }
-}
-
-function createDataVolumeSection(title, dataVolume) {
-    try {
-        const card = createResultCard(title, 'data-volume-section');
-        
-        if (typeof dataVolume !== 'object') {
-            card.innerHTML = createGenericDisplay(dataVolume);
-            return card;
-        }
-        
-        card.innerHTML = `
-            <div class="data-volume-grid">
-                ${Object.entries(dataVolume).map(([key, value]) => `
-                    <div class="data-volume-item">
-                        <div class="data-volume-label">${formatKey(key)}</div>
-                        <div class="data-volume-value">
-                            ${typeof value === 'number' ? 
-                                (key.includes('size') || key.includes('bytes') ? 
-                                    `${value.toLocaleString()} bytes` : 
-                                    value.toLocaleString()) : 
-                                escapeHtml(String(value))
-                            }
+                    <div class="ai-summary">
+                        <h5><i class="fas fa-robot"></i> AI Analysis Summary</h5>
+                        <div class="ai-summary-content">
+                            ${(summary.ai_summary && summary.ai_summary.raw_response ? 
+                                this.formatAIText(summary.ai_summary.raw_response) : 
+                                'No AI summary available')}
                         </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-        return card;
-    } catch (error) {
-        console.error(`Error in createDataVolumeSection:`, error);
-        return createFallbackSection(title, dataVolume);
-    }
-}
-
-function createTimelineSection(title, timeline) {
-    try {
-        const card = createResultCard(title, 'timeline-section');
-        
-        if (typeof timeline !== 'object') {
-            card.innerHTML = createGenericDisplay(timeline);
-            return card;
-        }
-        
-        card.innerHTML = `
-            <div class="timeline-analysis">
-                <div class="timeline-grid">
-                    ${timeline.start_time ? `
-                        <div class="timeline-item">
-                            <div class="timeline-label">Start Time</div>
-                            <div class="timeline-value">${escapeHtml(timeline.start_time)}</div>
-                        </div>
-                    ` : ''}
-                    ${timeline.end_time ? `
-                        <div class="timeline-item">
-                            <div class="timeline-label">End Time</div>
-                            <div class="timeline-value">${escapeHtml(timeline.end_time)}</div>
-                        </div>
-                    ` : ''}
-                    ${timeline.duration_seconds ? `
-                        <div class="timeline-item">
-                            <div class="timeline-label">Duration</div>
-                            <div class="timeline-value">${timeline.duration_seconds.toFixed(2)} seconds</div>
-                        </div>
-                    ` : ''}
-                    ${timeline.duration ? `
-                        <div class="timeline-item">
-                            <div class="timeline-label">Duration</div>
-                            <div class="timeline-value">${escapeHtml(timeline.duration)}</div>
-                        </div>
-                    ` : ''}
-                </div>
-                ${timeline.observations ? `
-                    <div class="timeline-observations">
-                        <h4>Observations</h4>
-                        <div class="observations-content">${formatTextAnalysis(timeline.observations)}</div>
-                    </div>
-                ` : ''}
-            </div>
-        `;
-        return card;
-    } catch (error) {
-        console.error(`Error in createTimelineSection:`, error);
-        return createFallbackSection(title, timeline);
-    }
-}
-
-function createProtocolAnalysisSection(title, analysis) {
-    try {
-        const card = createResultCard(title, 'protocol-analysis-section');
-        
-        if (typeof analysis !== 'object') {
-            card.innerHTML = createGenericDisplay(analysis);
-            return card;
-        }
-        
-        let html = '';
-        
-        if (analysis.comment) {
-            html += `
-                <div class="protocol-analysis-comment">
-                    <h4>Protocol Analysis</h4>
-                    <div class="comment-content">${formatTextAnalysis(analysis.comment)}</div>
-                </div>
-            `;
-        }
-        
-        if (analysis.protocols && typeof analysis.protocols === 'object') {
-            const total = Object.values(analysis.protocols).reduce((sum, count) => sum + (count || 0), 0);
-            
-            html += `
-                <div class="protocol-analysis-distribution">
-                    <h4>Protocol Distribution</h4>
-                    <div class="protocols-detailed-grid">
-                        ${Object.entries(analysis.protocols).map(([protocol, count]) => {
-                            const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
-                            return `
-                                <div class="protocol-detailed-item">
-                                    <div class="protocol-detailed-info">
-                                        <span class="protocol-name">${escapeHtml(protocol.toUpperCase())}</span>
-                                        <span class="protocol-stats">${count?.toLocaleString() || 0} (${percentage}%)</span>
-                                    </div>
-                                    <div class="protocol-bar">
-                                        <div class="protocol-bar-fill" style="width: ${percentage}%"></div>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
                     </div>
                 </div>
-            `;
-        }
-        
-        card.innerHTML = html || createGenericDisplay(analysis);
-        return card;
-    } catch (error) {
-        console.error(`Error in createProtocolAnalysisSection:`, error);
-        return createFallbackSection(title, analysis);
-    }
-}
-
-// Specialized section creators - ALL MUST RETURN VALID DOM ELEMENTS
-function createIndicatorsSection(title, indicators) {
-    try {
-        const card = createResultCard(title, 'indicators-section');
-        
-        if (!Array.isArray(indicators)) {
-            card.innerHTML = createGenericDisplay(indicators);
-            return card;
-        }
-        
-        card.innerHTML = `
-            <div class="indicators-grid">
-                ${indicators.map((indicator, index) => {
-                    if (typeof indicator === 'string') {
-                        return `
-                            <div class="indicator-item indicator-string">
-                                <div class="indicator-number">${index + 1}</div>
-                                <div class="indicator-content">
-                                    <i class="fas fa-exclamation-circle"></i>
-                                    ${formatTextAnalysis(indicator)}
-                                </div>
-                            </div>
-                        `;
-                    } else if (typeof indicator === 'object') {
-                        const severity = indicator.severity || indicator.risk_level || 'medium';
-                        const type = indicator.indicator_type || indicator.type || 'Security Indicator';
-                        const description = indicator.description || indicator.details || 'No description available';
-                        
-                        return `
-                            <div class="indicator-item ${getSeverityClass(severity)}">
-                                <div class="indicator-header">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                    <strong>${escapeHtml(type)}</strong>
-                                    <span class="risk-badge risk-${getRiskLevel(severity)}">
-                                        ${(severity || 'Unknown').toUpperCase()}
-                                    </span>
-                                </div>
-                                <div class="indicator-description">
-                                    ${formatTextAnalysis(description)}
-                                </div>
-                            </div>
-                        `;
-                    }
-                    return '';
-                }).join('')}
-            </div>
-        `;
-        return card;
-    } catch (error) {
-        console.error(`Error in createIndicatorsSection:`, error);
-        return createFallbackSection(title, indicators);
-    }
-}
-
-function createSuspiciousEntitiesSection(title, entities) {
-    try {
-        const card = createResultCard(title, 'suspicious-entities-section');
-        
-        if (!Array.isArray(entities)) {
-            card.innerHTML = createGenericDisplay(entities);
-            return card;
-        }
-        
-        card.innerHTML = `
-            <div class="suspicious-entities-grid">
-                ${entities.map(entity => {
-                    const ip = entity.ip_address || entity.address || 'Unknown';
-                    const domain = entity.domain;
-                    const risk = entity.risk_level || entity.potential_risk || 'unknown';
-                    const reason = entity.reason || entity.notes || 'No reason provided';
-                    
-                    return `
-                        <div class="suspicious-entity-item ${getSeverityClass(risk)}">
-                            <div class="suspicious-entity-header">
-                                <i class="fas fa-server"></i>
-                                <div class="suspicious-entity-identity">
-                                    <strong class="suspicious-entity-ip">${escapeHtml(ip)}</strong>
-                                    ${domain ? `<div class="suspicious-entity-domain">${escapeHtml(domain)}</div>` : ''}
-                                </div>
-                                <span class="risk-badge risk-${getRiskLevel(risk)}">
-                                    ${(risk || 'Unknown').toUpperCase()}
-                                </span>
-                            </div>
-                            <div class="suspicious-entity-details">
-                                <div class="suspicious-entity-reason">
-                                    <strong>Risk Assessment:</strong> ${formatTextAnalysis(reason)}
-                                </div>
-                            </div>
+                
+                <!-- Packet Statistics -->
+                <div class="section packet-statistics">
+                    <h4><i class="fas fa-chart-bar"></i> Packet Statistics</h4>
+                    ${this.generatePacketStatsHTML(technical.packet_statistics || {})}
+                </div>
+                
+                <!-- Protocol Analysis -->
+                <div class="section protocol-analysis">
+                    <h4><i class="fas fa-network-wired"></i> Protocol Distribution</h4>
+                    ${this.generateProtocolAnalysisHTML(technical.protocol_analysis || {})}
+                </div>
+                
+                <!-- Security Findings -->
+                <div class="section security-findings">
+                    <h4><i class="fas fa-shield-alt"></i> Security Findings</h4>
+                    ${this.generateSecurityFindingsHTML(security.findings || {})}
+                </div>
+                
+                <!-- Performance Metrics -->
+                <div class="section performance-metrics">
+                    <h4><i class="fas fa-tachometer-alt"></i> Performance Metrics</h4>
+                    ${this.generatePerformanceMetricsHTML(technical.performance_metrics || {})}
+                </div>
+                
+                <!-- Anomalies & Threats -->
+                <div class="section anomalies-threats">
+                    <h4><i class="fas fa-exclamation-triangle"></i> Anomalies & Advanced Threats</h4>
+                    <div class="threats-container">
+                        ${this.generateAnomaliesHTML(technical.anomaly_detection || {})}
+                        ${this.generateThreatsHTML(technical.threat_hunting || {})}
+                    </div>
+                </div>
+                
+                <!-- AI Insights -->
+                <div class="section ai-insights">
+                    <h4><i class="fas fa-brain"></i> AI-Powered Insights</h4>
+                    <div class="ai-insights-content">
+                        <div class="insight-card">
+                            <h5><i class="fas fa-lightbulb"></i> Key Insights</h5>
+                            <p>${this.formatAIResponse(ai.executive_summary)}</p>
                         </div>
-                    `;
-                }).join('')}
+                        <div class="insight-card">
+                            <h5><i class="fas fa-bullseye"></i> Risk Assessment</h5>
+                            <p>${(ai.risk_assessment || 'Not assessed')}</p>
+                        </div>
+                        <div class="insight-card">
+                            <h5><i class="fas fa-cogs"></i> Recommendations</h5>
+                            <ul>
+                                ${this.formatAIRecommendations(ai.recommendations)}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Compliance Mapping -->
+                <div class="section compliance-mapping">
+                    <h4><i class="fas fa-clipboard-check"></i> Compliance Mapping</h4>
+                    ${this.generateComplianceHTML(results.compliance_mapping || {})}
+                </div>
+                
+                <!-- Actionable Recommendations -->
+                <div class="section recommendations">
+                    <h4><i class="fas fa-tasks"></i> Actionable Recommendations</h4>
+                    ${this.generateRecommendationsHTML(results.actionable_recommendations || {})}
+                </div>
             </div>
         `;
-        return card;
-    } catch (error) {
-        console.error(`Error in createSuspiciousEntitiesSection:`, error);
-        return createFallbackSection(title, entities);
     }
-}
 
-function createTopTalkersSection(title, talkers) {
-    try {
-        const card = createResultCard(title, 'top-talkers-section');
+    formatAIText(text) {
+        if (!text) return '';
         
-        if (!Array.isArray(talkers)) {
-            card.innerHTML = createGenericDisplay(talkers);
-            return card;
+        // Convert markdown-like formatting
+        let formatted = this.escapeHtml(text);
+        
+        // Convert **bold** to <strong>
+        formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        
+        // Convert *italic* to <em>
+        formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        
+        // Convert headings
+        formatted = formatted.replace(/^# (.*$)/gm, '<h5>$1</h5>');
+        formatted = formatted.replace(/^## (.*$)/gm, '<h6>$1</h6>');
+        
+        // Convert bullet points
+        formatted = formatted.replace(/^\* (.*$)/gm, '<li>$1</li>');
+        formatted = formatted.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+        
+        // Convert numbered lists
+        formatted = formatted.replace(/^\d+\. (.*$)/gm, '<li>$1</li>');
+        formatted = formatted.replace(/(<li>.*<\/li>)/gs, '<ol>$1</ol>');
+        
+        // Convert line breaks
+        formatted = formatted.replace(/\n\n/g, '</p><p>');
+        formatted = formatted.replace(/\n/g, '<br>');
+        
+        return '<p>' + formatted + '</p>';
+    }
+
+    formatAIResponse(response) {
+        if (!response) return 'No AI insights available';
+        
+        if (typeof response === 'string') {
+            return this.escapeHtml(response);
+        } else if (typeof response === 'object') {
+            // Handle object responses
+            if (response.executive_summary) {
+                return this.escapeHtml(response.executive_summary);
+            } else if (response.summary) {
+                return this.escapeHtml(response.summary);
+            } else if (response.raw_response) {
+                return this.escapeHtml(response.raw_response.substring(0, 500) + '...');
+            } else {
+                return this.escapeHtml(JSON.stringify(response, null, 2).substring(0, 500) + '...');
+            }
         }
         
-        card.innerHTML = `
-            <div class="talkers-grid">
-                ${talkers.map(talker => {
-                    const ip = talker.ip_address || 'Unknown';
-                    const packets = talker.packet_count;
-                    const bytes = talker.byte_count;
-                    const role = talker.potential_role || talker.role || 'Unknown';
-                    const risk = talker.risk_level || talker.potential_risk || 'medium';
-                    const notes = talker.notes;
-                    
-                    return `
-                        <div class="talker-item ${getSeverityClass(risk)}">
-                            <div class="talker-header">
-                                <i class="fas fa-desktop"></i>
-                                <strong class="talker-ip">${escapeHtml(ip)}</strong>
-                                <span class="risk-badge risk-${getRiskLevel(risk)}">
-                                    ${(risk || 'Unknown').toUpperCase()}
-                                </span>
-                            </div>
-                            <div class="talker-stats">
-                                ${packets ? `<div class="talker-stat"><strong>Packets:</strong> ${packets.toLocaleString()}</div>` : ''}
-                                ${bytes ? `<div class="talker-stat"><strong>Bytes:</strong> ${bytes?.toLocaleString() || 'N/A'}</div>` : ''}
-                            </div>
-                            ${role ? `<div class="talker-role"><strong>Role:</strong> ${escapeHtml(role)}</div>` : ''}
-                            ${notes ? `<div class="talker-notes">${formatTextAnalysis(notes)}</div>` : ''}
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-        `;
-        return card;
-    } catch (error) {
-        console.error(`Error in createTopTalkersSection:`, error);
-        return createFallbackSection(title, talkers);
+        return 'No AI insights available';
     }
-}
 
-function createProtocolDistributionSection(title, protocols) {
-    try {
-        const card = createResultCard(title, 'protocol-distribution-section');
-        
-        if (typeof protocols !== 'object') {
-            card.innerHTML = createGenericDisplay(protocols);
-            return card;
+    formatAIRecommendations(recommendations) {
+        if (!recommendations || !Array.isArray(recommendations)) {
+            return '<li>No recommendations available</li>';
         }
         
-        const total = Object.values(protocols).reduce((sum, count) => sum + (count || 0), 0);
+        return recommendations.map(rec => {
+            if (typeof rec === 'string') {
+                return `<li>${this.escapeHtml(rec)}</li>`;
+            } else if (typeof rec === 'object' && rec.recommendation) {
+                return `<li>${this.escapeHtml(rec.recommendation)}</li>`;
+            } else {
+                return `<li>${this.escapeHtml(JSON.stringify(rec))}</li>`;
+            }
+        }).join('');
+    }
+    
+    generatePacketStatsHTML(stats) {
+        const totalPackets = stats.total_packets || 0;
+        const timeRange = stats.time_range || {};
+        const packetSizes = stats.packet_sizes || {};
+        const packetRate = stats.packet_rate || {};
         
-        card.innerHTML = `
-            <div class="protocols-grid">
-                ${Object.entries(protocols).map(([protocol, count]) => {
-                    const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
-                    return `
-                        <div class="protocol-item">
-                            <div class="protocol-info">
-                                <span class="protocol-name">${escapeHtml(protocol.toUpperCase())}</span>
-                                <span class="protocol-stats">${count?.toLocaleString() || 0} (${percentage}%)</span>
-                            </div>
-                            <div class="protocol-bar">
-                                <div class="protocol-bar-fill" style="width: ${percentage}%"></div>
-                            </div>
-                        </div>
-                    `;
-                }).join('')}
+        return `
+            <div class="stats-container">
+                <div class="stat-row">
+                    <div class="stat-item">
+                        <span class="stat-label">Total Packets</span>
+                        <span class="stat-value">${totalPackets.toLocaleString()}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Capture Duration</span>
+                        <span class="stat-value">${timeRange.duration_seconds ? timeRange.duration_seconds + 's' : 'N/A'}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Average Packet Size</span>
+                        <span class="stat-value">${packetSizes.average_bytes ? packetSizes.average_bytes + ' bytes' : 'N/A'}</span>
+                    </div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-item">
+                        <span class="stat-label">Packets/Second</span>
+                        <span class="stat-value">${packetRate.packets_per_second || 'N/A'}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Data Rate</span>
+                        <span class="stat-value">${packetRate.megabits_per_second ? packetRate.megabits_per_second + ' Mbps' : 'N/A'}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Total Data</span>
+                        <span class="stat-value">${packetSizes.total_bytes ? this.formatBytes(packetSizes.total_bytes) : 'N/A'}</span>
+                    </div>
+                </div>
             </div>
         `;
-        return card;
-    } catch (error) {
-        console.error(`Error in createProtocolDistributionSection:`, error);
-        return createFallbackSection(title, protocols);
     }
-}
-
-function createIOCSection(title, ioc) {
-    try {
-        const card = createResultCard(title, 'ioc-section');
+    
+    generateProtocolAnalysisHTML(analysis) {
+        // Handle different data structures
+        let protocols = [];
         
-        if (Array.isArray(ioc)) {
-            // Simple array of IOCs
-            card.innerHTML = `
-                <div class="ioc-list">
-                    ${ioc.map(item => `
-                        <div class="ioc-item">
-                            <i class="fas fa-fingerprint"></i>
-                            <span>${escapeHtml(item)}</span>
+        if (analysis && analysis.protocols && Array.isArray(analysis.protocols)) {
+            protocols = analysis.protocols;
+        } else if (analysis && Array.isArray(analysis)) {
+            protocols = analysis;
+        }
+        
+        if (protocols.length === 0) {
+            return '<div class="no-data">No protocol data available</div>';
+        }
+        
+        const top5 = protocols.slice(0, 5);
+        
+        return `
+            <div class="protocol-container">
+                <div class="protocol-summary">
+                    <div class="top-protocol">
+                        <span class="label">Top Protocol:</span>
+                        <span class="value">${protocols[0]?.protocol || 'N/A'}</span>
+                        <span class="percentage">${protocols[0]?.packets_percent ? protocols[0].packets_percent + '%' : ''}</span>
+                    </div>
+                    <div class="unique-count">
+                        <span class="label">Unique Protocols:</span>
+                        <span class="value">${protocols.length}</span>
+                    </div>
+                </div>
+                
+                <div class="protocol-chart">
+                    ${top5.map(protocol => `
+                        <div class="protocol-bar">
+                            <div class="protocol-name">${protocol.protocol || 'Unknown'}</div>
+                            <div class="protocol-meter">
+                                <div class="meter-fill" style="width: ${protocol.packets_percent || 0}%"></div>
+                            </div>
+                            <div class="protocol-stats">
+                                <span>${(protocol.packets || 0).toLocaleString()} packets</span>
+                                <span>${protocol.packets_percent || 0}%</span>
+                            </div>
                         </div>
                     `).join('')}
                 </div>
-            `;
-        } else if (typeof ioc === 'object') {
-            // Structured IOC object
-            let html = '<div class="ioc-structured">';
-            
-            if (ioc.ip_addresses && Array.isArray(ioc.ip_addresses)) {
-                html += `
-                    <div class="ioc-category">
-                        <h4><i class="fas fa-map-marker-alt"></i> IP Addresses</h4>
-                        <div class="ioc-list">
-                            ${ioc.ip_addresses.map(ip => `
-                                <div class="ioc-item">
-                                    <i class="fas fa-globe"></i>
-                                    <span>${escapeHtml(ip)}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            if (ioc.domains && Array.isArray(ioc.domains)) {
-                html += `
-                    <div class="ioc-category">
-                        <h4><i class="fas fa-globe"></i> Domains</h4>
-                        <div class="ioc-list">
-                            ${ioc.domains.map(domain => `
-                                <div class="ioc-item">
-                                    <i class="fas fa-link"></i>
-                                    <span>${escapeHtml(domain)}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            if (ioc.file_hashes && Array.isArray(ioc.file_hashes)) {
-                html += `
-                    <div class="ioc-category">
-                        <h4><i class="fas fa-hashtag"></i> File Hashes</h4>
-                        <div class="ioc-list">
-                            ${ioc.file_hashes.map(hash => `
-                                <div class="ioc-item">
-                                    <i class="fas fa-fingerprint"></i>
-                                    <span class="file-hash">${escapeHtml(hash)}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            html += '</div>';
-            card.innerHTML = html;
+            </div>
+        `;
+    }
+    
+    generateSecurityFindingsHTML(findings) {
+        // Handle different data structures
+        let securityFindings = {};
+        
+        if (findings && findings.findings && typeof findings.findings === 'object') {
+            // Structure: {findings: {critical: [], high: [], ...}}
+            securityFindings = findings.findings;
+        } else if (findings && typeof findings === 'object') {
+            // Structure: {critical: [], high: [], ...}
+            securityFindings = findings;
         } else {
-            card.innerHTML = createGenericDisplay(ioc);
+            return '<div class="no-findings">No security findings detected</div>';
         }
         
-        return card;
-    } catch (error) {
-        console.error(`Error in createIOCSection:`, error);
-        return createFallbackSection(title, ioc);
-    }
-}
-
-function createStepsSection(title, steps) {
-    try {
-        const card = createResultCard(title, 'steps-section');
+        const severities = ['critical', 'high', 'medium', 'low'];
+        let hasFindings = false;
         
-        if (!Array.isArray(steps)) {
-            card.innerHTML = createGenericDisplay(steps);
-            return card;
+        // Check if we have any findings
+        severities.forEach(severity => {
+            if (securityFindings[severity] && securityFindings[severity].length > 0) {
+                hasFindings = true;
+            }
+        });
+        
+        if (!hasFindings) {
+            return '<div class="no-findings">No security findings detected</div>';
         }
         
-        card.innerHTML = `
-            <ol class="steps-list">
-                ${steps.map(step => `
-                    <li>${formatTextAnalysis(step)}</li>
-                `).join('')}
-            </ol>
-        `;
-        return card;
-    } catch (error) {
-        console.error(`Error in createStepsSection:`, error);
-        return createFallbackSection(title, steps);
-    }
-}
-
-function createDataSummarySection(title, summary) {
-    try {
-        const card = createResultCard(title, 'data-summary-section');
+        let html = '<div class="findings-container">';
         
-        if (typeof summary !== 'object') {
-            card.innerHTML = createGenericDisplay(summary);
-            return card;
-        }
-        
-        card.innerHTML = `
-            <div class="data-summary-grid">
-                ${Object.entries(summary).map(([key, value]) => `
-                    <div class="summary-item">
-                        <div class="summary-label">${formatKey(key)}</div>
-                        <div class="summary-value">
-                            ${typeof value === 'number' ? 
-                                (key.includes('size') || key.includes('bytes') ? 
-                                    `${value.toLocaleString()} bytes` : 
-                                    value.toLocaleString()) : 
-                                escapeHtml(String(value))
-                            }
+        severities.forEach(severity => {
+            const severityFindings = securityFindings[severity] || [];
+            if (severityFindings.length > 0) {
+                // Clean and deduplicate findings
+                const uniqueFindings = this.deduplicateFindings(severityFindings);
+                
+                html += `
+                    <div class="severity-section ${severity}">
+                        <h5 class="severity-title">
+                            <i class="fas fa-exclamation-circle"></i>
+                            ${severity.toUpperCase()} (${uniqueFindings.length})
+                        </h5>
+                        <div class="findings-list">
+                            ${uniqueFindings.map((finding, index) => {
+                                // Clean the source_ip - it shows as "10," which is wrong
+                                let sourceIP = finding.source_ip || '';
+                                if (sourceIP.includes(',')) {
+                                    // Extract actual IP from malformed data
+                                    const ipMatch = sourceIP.match(/(\d+\.\d+\.\d+\.\d+)/);
+                                    sourceIP = ipMatch ? ipMatch[1] : 'Unknown';
+                                }
+                                
+                                // Clean the domain
+                                let domain = finding.domain || '';
+                                if (domain.includes('\t')) {
+                                    // Extract just the domain from malformed data
+                                    const parts = domain.split('\t');
+                                    domain = parts[parts.length - 1] || domain;
+                                }
+                                
+                                const description = finding.description || '';
+                                const recommendation = finding.recommendation || '';
+                                
+                                return `
+                                    <div class="finding-item">
+                                        <div class="finding-header">
+                                            <span class="finding-type">Security Issue</span>
+                                            <button class="btn-na btn-small analyze-threat" 
+                                                    data-threat="${this.escapeHtml(description)}" 
+                                                    data-severity="${severity}"
+                                                    data-evidence="${this.escapeHtml(JSON.stringify(finding))}">
+                                                <i class="fas fa-robot"></i> AI Analyze
+                                            </button>
+                                        </div>
+                                        <div class="finding-description">${this.escapeHtml(description)}</div>
+                                        <div class="finding-details">
+                                            ${domain ? `<span><strong>Domain:</strong> ${this.escapeHtml(domain)}</span>` : ''}
+                                            ${sourceIP ? `<span><strong>Source IP:</strong> ${this.escapeHtml(sourceIP)}</span>` : ''}
+                                        </div>
+                                        ${recommendation ? `
+                                        <div class="finding-recommendation">
+                                            <strong>Recommendation:</strong> ${this.escapeHtml(recommendation)}
+                                        </div>
+                                        ` : ''}
+                                    </div>
+                                `;
+                            }).join('')}
                         </div>
                     </div>
-                `).join('')}
-            </div>
-        `;
-        return card;
-    } catch (error) {
-        console.error(`Error in createDataSummarySection:`, error);
-        return createFallbackSection(title, summary);
+                `;
+            }
+        }); 
+        html += '</div>';
+        return html;
     }
-}
 
-function createRecommendationsSection(title, recommendations) {
-    try {
-        const card = createResultCard(title, 'recommendations-section');
+    deduplicateFindings(findings) {
+        const seen = new Set();
+        const unique = [];
         
-        if (!Array.isArray(recommendations)) {
-            card.innerHTML = createGenericDisplay(recommendations);
-            return card;
-        }
+        findings.forEach(finding => {
+            // Create a unique key based on description and domain
+            const domain = finding.domain || '';
+            const description = finding.description || '';
+            const key = `${description}:${domain}`;
+            
+            if (!seen.has(key)) {
+                seen.add(key);
+                unique.push(finding);
+            }
+        });
         
-        card.innerHTML = `
-            <div class="recommendations-grid">
-                ${recommendations.map((rec, index) => `
-                    <div class="recommendation-item">
-                        <div class="rec-number">${index + 1}</div>
-                        <div class="rec-content">${formatTextAnalysis(rec)}</div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-        return card;
-    } catch (error) {
-        console.error(`Error in createRecommendationsSection:`, error);
-        return createFallbackSection(title, recommendations);
+        return unique;
     }
-}
-
-// Additional specialized sections for forensic and comprehensive analysis
-function createEvidencePointsSection(title, points) {
-    try {
-        const card = createResultCard(title, 'evidence-points-section');
+    
+    generatePerformanceMetricsHTML(metrics) {
+        const tcpHealth = metrics.tcp_health || {};
+        const issues = metrics.performance_issues || [];
         
-        if (!Array.isArray(points)) {
-            card.innerHTML = createGenericDisplay(points);
-            return card;
-        }
-        
-        card.innerHTML = `
-            <div class="evidence-grid">
-                ${points.map((point, index) => `
-                    <div class="evidence-item">
-                        <div class="evidence-number">${index + 1}</div>
-                        <div class="evidence-content">
-                            <i class="fas fa-archive"></i>
-                            ${formatTextAnalysis(point)}
+        return `
+            <div class="performance-container">
+                <div class="tcp-health">
+                    <h5>TCP Health Metrics</h5>
+                    <div class="health-stats">
+                        <div class="health-stat ${tcpHealth.retransmissions > 100 ? 'warning' : ''}">
+                            <span class="label">Retransmissions</span>
+                            <span class="value">${tcpHealth.retransmissions || 0}</span>
+                        </div>
+                        <div class="health-stat ${tcpHealth.zero_windows > 50 ? 'warning' : ''}">
+                            <span class="label">Zero Windows</span>
+                            <span class="value">${tcpHealth.zero_windows || 0}</span>
+                        </div>
+                        <div class="health-stat ${tcpHealth.duplicate_acks > 50 ? 'warning' : ''}">
+                            <span class="label">Duplicate ACKs</span>
+                            <span class="value">${tcpHealth.duplicate_acks || 0}</span>
+                        </div>
+                        <div class="health-stat ${parseFloat(tcpHealth.estimated_packet_loss) > 1 ? 'critical' : ''}">
+                            <span class="label">Packet Loss</span>
+                            <span class="value">${tcpHealth.estimated_packet_loss || '0%'}</span>
                         </div>
                     </div>
-                `).join('')}
-            </div>
-        `;
-        return card;
-    } catch (error) {
-        console.error(`Error in createEvidencePointsSection:`, error);
-        return createFallbackSection(title, points);
-    }
-}
-
-function createAttackChainSection(title, chain) {
-    try {
-        const card = createResultCard(title, 'attack-chain-section');
-        
-        if (typeof chain !== 'object') {
-            card.innerHTML = createGenericDisplay(chain);
-            return card;
-        }
-        
-        let html = '';
-        
-        if (chain.initial_stage) {
-            html += `
-                <div class="attack-stage">
-                    <h4>Initial Stage</h4>
-                    <div class="stage-content">${formatTextAnalysis(chain.initial_stage)}</div>
                 </div>
-            `;
-        }
-        
-        if (chain.potential_phases && Array.isArray(chain.potential_phases)) {
-            html += `
-                <div class="attack-stage">
-                    <h4>Potential Attack Phases</h4>
-                    <ol class="phase-list">
-                        ${chain.potential_phases.map(phase => `
-                            <li>${formatTextAnalysis(phase)}</li>
-                        `).join('')}
-                    </ol>
-                </div>
-            `;
-        }
-        
-        if (chain.hypotheses && Array.isArray(chain.hypotheses)) {
-            html += `
-                <div class="attack-stage">
-                    <h4>Attack Hypotheses</h4>
-                    <div class="hypotheses-grid">
-                        ${chain.hypotheses.map(hypothesis => `
-                            <div class="hypothesis-item">
-                                <i class="fas fa-search"></i>
-                                ${formatTextAnalysis(hypothesis)}
+                
+                ${issues.length > 0 ? `
+                <div class="performance-issues">
+                    <h5>Performance Issues</h5>
+                    <div class="issues-list">
+                        ${issues.map(issue => `
+                            <div class="issue-item ${issue.severity}">
+                                <div class="issue-severity">${issue.severity}</div>
+                                <div class="issue-description">${issue.issue}</div>
+                                <div class="issue-detail">${issue.percentage || issue.count || ''}</div>
+                                <div class="issue-recommendation">${issue.recommendation || ''}</div>
                             </div>
                         `).join('')}
                     </div>
                 </div>
-            `;
-        }
-        
-        card.innerHTML = html || createGenericDisplay(chain);
-        return card;
-    } catch (error) {
-        console.error(`Error in createAttackChainSection:`, error);
-        return createFallbackSection(title, chain);
+                ` : '<div class="no-issues">No performance issues detected</div>'}
+            </div>
+        `;
     }
-}
 
-function createDataTransferSection(title, transfer) {
-    try {
-        const card = createResultCard(title, 'data-transfer-section');
+    generateAnomaliesHTML(anomalies) {
+        const severities = ['critical', 'high', 'medium'];
+        let hasAnomalies = false;
         
-        if (typeof transfer !== 'object') {
-            card.innerHTML = createGenericDisplay(transfer);
-            return card;
+        severities.forEach(severity => {
+            if (anomalies[severity] && anomalies[severity].length > 0) {
+                hasAnomalies = true;
+            }
+        });
+        
+        if (!hasAnomalies) {
+            return '';
         }
         
-        card.innerHTML = createObjectAnalysisDisplay(transfer, 'forensic');
-        return card;
-    } catch (error) {
-        console.error(`Error in createDataTransferSection:`, error);
-        return createFallbackSection(title, transfer);
+        let html = '<div class="anomalies-section"><h5>Network Anomalies</h5>';
+        
+        severities.forEach(severity => {
+            const severityAnomalies = anomalies[severity] || [];
+            if (severityAnomalies.length > 0) {
+                html += `
+                    <div class="anomaly-severity ${severity}">
+                        <h6>${severity.toUpperCase()}</h6>
+                        <div class="anomalies-list">
+                            ${severityAnomalies.map(anomaly => `
+                                <div class="anomaly-item">
+                                    <div class="anomaly-type">${anomaly.type}</div>
+                                    <div class="anomaly-description">${anomaly.description}</div>
+                                    ${anomaly.source_ip ? `<div class="anomaly-source">Source: ${anomaly.source_ip}</div>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        });
+        
+        html += '</div>';
+        return html;
     }
-}
 
-function createActionableRecommendationsSection(title, recommendations) {
-    return createRecommendationsSection(title, recommendations);
-}
-
-function createAnomalyDetectionSection(title, anomalies) {
-    try {
-        const card = createResultCard(title, 'anomaly-detection-section');
+    generateThreatsHTML(threats) {
+        const severities = ['critical', 'high', 'medium'];
+        let hasThreats = false;
         
-        if (typeof anomalies !== 'object') {
-            card.innerHTML = createGenericDisplay(anomalies);
-            return card;
+        severities.forEach(severity => {
+            if (threats[severity] && threats[severity].length > 0) {
+                hasThreats = true;
+            }
+        });
+        
+        if (!hasThreats) {
+            return '';
         }
         
-        card.innerHTML = createObjectAnalysisDisplay(anomalies, 'comprehensive');
-        return card;
-    } catch (error) {
-        console.error(`Error in createAnomalyDetectionSection:`, error);
-        return createFallbackSection(title, anomalies);
+        let html = '<div class="threats-section"><h5>Advanced Threats</h5>';
+        
+        severities.forEach(severity => {
+            const severityThreats = threats[severity] || [];
+            if (severityThreats.length > 0) {
+                html += `
+                    <div class="threat-severity ${severity}">
+                        <h6>${severity.toUpperCase()}</h6>
+                        <div class="threats-list">
+                            ${severityThreats.map(threat => `
+                                <div class="threat-item">
+                                    <div class="threat-header">
+                                        <span class="threat-type">${threat.description || threat.type}</span>
+                                        <button class="btn-na btn-small analyze-threat"
+                                                data-threat="${threat.description || threat.type}"
+                                                data-severity="${severity}"
+                                                data-evidence="${this.escapeHtml(JSON.stringify(threat))}">
+                                            <i class="fas fa-robot"></i> Analyze
+                                        </button>
+                                    </div>
+                                    ${threat.source_ip ? `
+                                    <div class="threat-details">
+                                        <span><strong>From:</strong> ${threat.source_ip}</span>
+                                        ${threat.destination_ip ? `<span><strong>To:</strong> ${threat.destination_ip}</span>` : ''}
+                                    </div>
+                                    ` : ''}
+                                    ${threat.recommendation ? `
+                                    <div class="threat-recommendation">
+                                        <strong>Action:</strong> ${threat.recommendation}
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        });
+        
+        html += '</div>';
+        return html;
     }
-}
 
-function createRiskScoringSection(title, risk) {
-    try {
-        const card = createResultCard(title, 'risk-scoring-section');
+    generateComplianceHTML(compliance) {
+        const frameworks = ['pci_dss', 'hipaa', 'nist', 'iso27001'];
+        let hasCompliance = false;
         
-        if (typeof risk !== 'object') {
-            card.innerHTML = createGenericDisplay(risk);
-            return card;
+        frameworks.forEach(framework => {
+            if (compliance[framework] && compliance[framework].length > 0) {
+                hasCompliance = true;
+            }
+        });
+        
+        if (!hasCompliance) {
+            return '<div class="no-compliance">No compliance mappings available</div>';
         }
         
-        let html = '';
+        let html = '<div class="compliance-grid">';
         
-        if (risk.overall_risk) {
-            html += `
-                <div class="overall-risk ${getSeverityClass(risk.overall_risk)}">
-                    <h4>Overall Risk Assessment</h4>
-                    <div class="risk-level">${formatTextAnalysis(risk.overall_risk)}</div>
-                </div>
-            `;
-        }
+        frameworks.forEach(framework => {
+            const requirements = compliance[framework] || [];
+            if (requirements.length > 0) {
+                html += `
+                    <div class="compliance-framework">
+                        <h5>${framework.toUpperCase().replace('_', ' ')}</h5>
+                        <ul class="compliance-list">
+                            ${requirements.map(req => `<li>${req}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+        });
         
-        if (risk.factors && Array.isArray(risk.factors)) {
-            html += `
-                <div class="risk-factors">
-                    <h4>Risk Factors</h4>
-                    <ul class="factors-list">
-                        ${risk.factors.map(factor => `
-                            <li>${formatTextAnalysis(factor)}</li>
-                        `).join('')}
+        html += '</div>';
+        return html;
+    }
+
+    generateRecommendationsHTML(recommendations) {
+        const immediate = recommendations.immediate_actions || [];
+        const shortTerm = recommendations.short_term_actions || [];
+        const longTerm = recommendations.long_term_actions || [];
+        
+        return `
+            <div class="recommendations-grid">
+                <div class="recommendation-category immediate">
+                    <h5><i class="fas fa-bolt"></i> Immediate Actions (24h)</h5>
+                    <ul>
+                        ${immediate.map(action => `<li>${action}</li>`).join('')}
                     </ul>
                 </div>
-            `;
-        }
-        
-        card.innerHTML = html || createGenericDisplay(risk);
-        return card;
-    } catch (error) {
-        console.error(`Error in createRiskScoringSection:`, error);
-        return createFallbackSection(title, risk);
-    }
-}
-
-// Generic section creators - ALL MUST RETURN VALID DOM ELEMENTS
-function createArraySection(title, items, originalKey) {
-    try {
-        const card = createResultCard(title, `${originalKey}-array`);
-        
-        if (items.length === 0) {
-            card.innerHTML = '<div class="no-data">No data available</div>';
-            return card;
-        }
-        
-        if (typeof items[0] === 'string') {
-            card.innerHTML = `
-                <ul class="simple-array">
-                    ${items.map(item => `
-                        <li>${formatTextAnalysis(item)}</li>
-                    `).join('')}
-                </ul>
-            `;
-        } else if (typeof items[0] === 'object') {
-            card.innerHTML = createObjectTable(items);
-        } else {
-            card.innerHTML = createGenericArrayDisplay(items);
-        }
-        
-        return card;
-    } catch (error) {
-        console.error(`Error in createArraySection:`, error);
-        return createFallbackSection(title, items);
-    }
-}
-
-function createObjectSection(title, obj, originalKey) {
-    try {
-        const card = createResultCard(title, `${originalKey}-object`);
-        card.innerHTML = createObjectAnalysisDisplay(obj, 'generic');
-        return card;
-    } catch (error) {
-        console.error(`Error in createObjectSection:`, error);
-        return createFallbackSection(title, obj);
-    }
-}
-
-function createTextSection(title, text) {
-    try {
-        const card = createResultCard(title, 'text-section');
-        card.innerHTML = `
-            <div class="text-content">
-                ${formatTextAnalysis(text)}
+                
+                <div class="recommendation-category short-term">
+                    <h5><i class="fas fa-calendar-week"></i> Short Term (1-4 weeks)</h5>
+                    <ul>
+                        ${shortTerm.map(action => `<li>${action}</li>`).join('')}
+                    </ul>
+                </div>
+                
+                <div class="recommendation-category long-term">
+                    <h5><i class="fas fa-calendar-alt"></i> Long Term (1-6 months)</h5>
+                    <ul>
+                        ${longTerm.map(action => `<li>${action}</li>`).join('')}
+                    </ul>
+                </div>
             </div>
         `;
-        return card;
-    } catch (error) {
-        console.error(`Error in createTextSection:`, error);
-        return createFallbackSection(title, text);
     }
-}
 
-function createValueSection(title, value) {
-    try {
-        const card = createResultCard(title, 'value-section');
-        card.innerHTML = `
-            <div class="value-content">
-                <strong>Value:</strong> ${escapeHtml(String(value))}
-            </div>
-        `;
-        return card;
-    } catch (error) {
-        console.error(`Error in createValueSection:`, error);
-        return createFallbackSection(title, value);
-    }
-}
+    setupResultsInteractions() {
+        // AI Analyze buttons
+        document.querySelectorAll('.analyze-threat').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
 
-// Helper functions that return DOM elements
-function createResultCard(title, className = '') {
-    const card = document.createElement('div');
-    card.className = `result-card ${className}`;
-    card.innerHTML = `<h3>${escapeHtml(title)}</h3>`;
-    return card;
-}
+                const threat = button.getAttribute('data-threat');
+                const severity = button.getAttribute('data-severity');
+                const evidence = button.getAttribute('data-evidence');
 
-function createNoDataSection(message) {
-    const section = document.createElement('div');
-    section.className = 'no-data-section';
-    section.innerHTML = `
-        <div class="no-data-content">
-            <i class="fas fa-info-circle"></i>
-            <p>${escapeHtml(message)}</p>
-        </div>
-    `;
-    return section;
-}
-
-function createFallbackSection(title, content) {
-    const card = createResultCard(title, 'fallback-section');
-    card.innerHTML = `
-        <div class="fallback-content">
-            <p><em>Unable to display this section in the expected format.</em></p>
-            <pre>${escapeHtml(JSON.stringify(content, null, 2))}</pre>
-        </div>
-    `;
-    return card;
-}
-
-// Display helper functions (return HTML strings)
-function createObjectAnalysisDisplay(obj, analysisType) {
-    let html = '';
-    
-    Object.entries(obj).forEach(([key, value]) => {
-        const formattedKey = formatKey(key);
+                if (threat && severity) {
+                    try {
+                        const evidenceObj = JSON.parse(evidence);
+                        this.showAIModal(threat, severity, evidenceObj);
+                    } catch (error) {
+                        this.showAIModal(threat, severity, evidence);
+                    }
+                } else {
+                    this.showToast('No threat data available for analysis', 'error');
+                }
+            });
+        });
+            
+            // Expand/collapse findings
+            document.querySelectorAll('.finding-item, .threat-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    if (!e.target.classList.contains('analyze-threat') && 
+                        !e.target.classList.contains('btn-na')) {
+                        item.classList.toggle('expanded');
+                    }
+                });
+            });
+        }
         
-        if (Array.isArray(value)) {
-            html += createListSection(formattedKey, value);
-        } else if (typeof value === 'object' && value !== null) {
-            html += `
-                <div class="nested-section">
-                    <h4>${formattedKey}</h4>
-                    ${createObjectAnalysisDisplay(value, analysisType)}
-                </div>
-            `;
-        } else {
-            html += `
-                <div class="property-item">
-                    <strong>${formattedKey}:</strong>
-                    <span class="property-value">${formatTextAnalysis(String(value))}</span>
-                </div>
-            `;
+        formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
-    });
-    
-    return html || '<div class="no-data">No data available</div>';
-}
-
-function createGenericDisplay(data) {
-    if (Array.isArray(data)) {
-        return createGenericArrayDisplay(data);
-    } else if (typeof data === 'object' && data !== null) {
-        return createGenericObjectDisplay(data);
-    } else {
-        return `<div class="generic-content">${escapeHtml(String(data))}</div>`;
-    }
-}
-
-function createGenericArrayDisplay(items) {
-    return `
-        <div class="generic-array">
-            ${items.map((item, index) => `
-                <div class="array-item">
-                    <span class="item-index">${index + 1}.</span>
-                    <span class="item-content">
-                        ${typeof item === 'object' ? 
-                            `<pre>${escapeHtml(JSON.stringify(item, null, 2))}</pre>` : 
-                            escapeHtml(String(item))
-                        }
-                    </span>
+        
+        isValidUrl(string) {
+            try {
+                new URL(string);
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+        
+        showError(message) {
+        const resultsContainer = document.getElementById('network-results');
+        if (resultsContainer) {
+            let errorDetails = '';
+            
+            // Add troubleshooting tips based on error
+            if (message.includes('magic number')) {
+                errorDetails = `
+                    <div class="troubleshooting">
+                        <h4><i class="fas fa-lightbulb"></i> Troubleshooting Tips:</h4>
+                        <ul>
+                            <li>Make sure you're uploading a valid PCAP file (not a text file or ZIP)</li>
+                            <li>Try downloading a sample PCAP from <a href="https://wiki.wireshark.org/SampleCaptures" target="_blank">Wireshark Sample Captures</a></li>
+                            <li>If you have a PCAPNG file, rename it to .pcap or use the .pcapng extension</li>
+                            <li>Check that the file isn't corrupted</li>
+                        </ul>
+                    </div>
+                `;
+            } else if (message.includes('upload error')) {
+                errorDetails = `
+                    <div class="troubleshooting">
+                        <h4><i class="fas fa-lightbulb"></i> File Upload Tips:</h4>
+                        <ul>
+                            <li>Maximum file size: 500MB</li>
+                            <li>Supported formats: .pcap, .pcapng, .cap</li>
+                            <li>Try a smaller file if this one is large</li>
+                            <li>Make sure you have permission to upload files</li>
+                        </ul>
+                    </div>
+                `;
+            }
+            
+            resultsContainer.innerHTML = `
+                <div class="error-container">
+                    <div class="error-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h3>Analysis Error</h3>
+                    <p>${this.escapeHtml(message)}</p>
+                    ${errorDetails}
+                    <div class="error-actions">
+                        <button class="btn-na btn-primary" onclick="location.reload()">
+                            <i class="fas fa-redo"></i> Try Again
+                        </button>
+                        <button class="btn-na btn-outline" onclick="document.getElementById('network-results').style.display='none'">
+                            <i class="fas fa-times"></i> Dismiss
+                        </button>
+                    </div>
                 </div>
-            `).join('')}
-        </div>
-    `;
-}
-
-function createGenericObjectDisplay(obj) {
-    return `
-        <div class="generic-object">
-            ${Object.entries(obj).map(([key, value]) => `
-                <div class="object-property">
-                    <strong>${formatKey(key)}:</strong>
-                    <span class="property-value">
-                        ${typeof value === 'object' ? 
-                            `<pre>${escapeHtml(JSON.stringify(value, null, 2))}</pre>` : 
-                            escapeHtml(String(value))
-                        }
-                    </span>
-                </div>
-            `).join('')}
-        </div>
-    `;
-}
-
-function createObjectTable(items) {
-    if (items.length === 0) return '<div class="no-data">No items available</div>';
-    
-    const allKeys = [...new Set(items.flatMap(item => Object.keys(item)))];
-    
-    return `
-        <div class="object-table-container">
-            <table class="object-table">
-                <thead>
-                    <tr>
-                        ${allKeys.map(key => `<th>${formatKey(key)}</th>`).join('')}
-                    </tr>
-                </thead>
-                <tbody>
-                    ${items.map(item => `
-                        <tr>
-                            ${allKeys.map(key => `
-                                <td>${item[key] !== undefined && item[key] !== null ? 
-                                    (typeof item[key] === 'object' ? 
-                                        '<em>Object</em>' : 
-                                        escapeHtml(String(item[key]))) : 
-                                    '-'
-                                }</td>
-                            `).join('')}
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
-}
-
-function createListSection(title, items) {
-    return `
-        <div class="list-section">
-            <h4>${title}</h4>
-            <ul class="section-list">
-                ${items.map(item => `
-                    <li>${formatTextAnalysis(String(item))}</li>
-                `).join('')}
-            </ul>
-        </div>
-    `;
-}
-
-function getDPIIcon(type) {
-    const icons = {
-        'encryption': 'fa-lock',
-        'dns': 'fa-globe',
-        'protocol': 'fa-network-wired',
-        'default': 'fa-search'
-    };
-    return icons[type] || icons.default;
-}
-
-// Utility functions
-function formatTextAnalysis(text) {
-    if (!text && text !== 0) return '';
-    const textStr = String(text);
-    return textStr
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/\n\n/g, '</p><p>')
-        .replace(/\n/g, '<br>')
-        .replace(/^<p>/, '<p class="analysis-paragraph">');
-}
-
-function formatKey(key) {
-    if (!key) return '';
-    return key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-}
-
-function getSeverityClass(severity) {
-    if (!severity) return 'severity-unknown';
-    
-    const severityStr = String(severity).toLowerCase();
-    
-    if (severityStr.includes('critical') || severityStr.includes('high')) {
-        return 'severity-high';
-    }
-    if (severityStr.includes('medium')) {
-        return 'severity-medium';
-    }
-    if (severityStr.includes('low')) {
-        return 'severity-low';
-    }
-    return 'severity-unknown';
-}
-
-function getRiskLevel(risk) {
-    if (!risk) return 'low';
-    const lowerRisk = String(risk).toLowerCase();
-    if (lowerRisk.includes('high') || lowerRisk.includes('critical')) return 'high';
-    if (lowerRisk.includes('medium')) return 'medium';
-    return 'low';
-}
-
-function escapeHtml(unsafe) {
-    if (!unsafe) return '';
-    return String(unsafe)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-function isValidUrl(string) {
-    try {
-        new URL(string);
-        return true;
-    } catch (_) {
-        return false;
-    }
-}
-
-// Event listeners
-document.addEventListener('DOMContentLoaded', function() {
-    const localRadio = document.getElementById('local-mode');
-    const remoteRadio = document.getElementById('remote-mode');
-    const localInput = document.getElementById('local-input');
-    const remoteInput = document.getElementById('remote-input');
-    
-    function toggleInputs() {
-        if (localRadio.checked) {
-            localInput.classList.remove('hidden');
-            remoteInput.classList.add('hidden');
+            `;
+            resultsContainer.style.display = 'block';
         } else {
-            localInput.classList.add('hidden');
-            remoteInput.classList.remove('hidden');
+            alert('Error: ' + message);
         }
     }
     
-    localRadio.addEventListener('change', toggleInputs);
-    remoteRadio.addEventListener('change', toggleInputs);
+    async exportResults(format) {
+        if (!this.analysisResults) {
+            this.showError('No results to export');
+            return;
+        }
+        
+        try {
+            let content, mimeType, filename;
+            
+            switch (format) {
+                case 'json':
+                    content = JSON.stringify(this.analysisResults, null, 2);
+                    mimeType = 'application/json';
+                    filename = `network-analysis-${this.currentAnalysisId || Date.now()}.json`;
+                    break;
+                    
+                case 'csv':
+                    content = this.convertToCSV();
+                    mimeType = 'text/csv';
+                    filename = `network-analysis-${this.currentAnalysisId || Date.now()}.csv`;
+                    break;
+                    
+                case 'pdf':
+                    // In production, use a PDF generation library
+                    this.showError('PDF export requires server-side generation');
+                    return;
+            }
+            
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.showToast(`Exported as ${format.toUpperCase()}`, 'success');
+            
+        } catch (error) {
+            this.showError('Export failed: ' + error.message);
+        }
+    }
     
-    toggleInputs();
+    convertToCSV() {
+        const results = this.analysisResults;
+        const securityFindings = results.technical_analysis?.security_scan?.findings || {};
+        
+        const headers = ['Severity', 'Type', 'Description', 'Source IP', 'Destination IP', 'Port', 'Recommendation'];
+        const rows = [];
+        
+        // Add security findings
+        ['critical', 'high', 'medium', 'low'].forEach(severity => {
+            const findings = securityFindings[severity] || [];
+            findings.forEach(finding => {
+                rows.push([
+                    severity,
+                    finding.type || finding.threat_type || 'Security Issue',
+                    finding.description || '',
+                    finding.source_ip || '',
+                    finding.destination_ip || '',
+                    finding.port || '',
+                    finding.recommendation || ''
+                ]);
+            });
+        });
+        
+        // Add anomalies
+        const anomalies = results.technical_analysis?.anomaly_detection || {};
+        ['critical', 'high', 'medium'].forEach(severity => {
+            const anomalyList = anomalies[severity] || [];
+            anomalyList.forEach(anomaly => {
+                rows.push([
+                    severity,
+                    'Anomaly: ' + (anomaly.type || 'Network Anomaly'),
+                    anomaly.description || '',
+                    anomaly.source_ip || '',
+                    '',
+                    '',
+                    anomaly.recommendation || ''
+                ]);
+            });
+        });
+        
+        // Convert to CSV
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => 
+                row.map(field => `"${(field || '').toString().replace(/"/g, '""')}"`).join(',')
+            )
+        ].join('\n');
+        
+        return csvContent;
+    }
     
-    document.getElementById('network-btn').addEventListener('click', analyzeNetwork);
-});
+    copyAnalysis() {
+        const aiContent = this.aiModal.querySelector('#ai-analysis-content');
+        if (aiContent) {
+            const text = aiContent.textContent || aiContent.innerText;
+            if (text.trim()) {
+                navigator.clipboard.writeText(text)
+                    .then(() => this.showToast('Analysis copied to clipboard', 'success'))
+                    .catch(err => {
+                        console.error('Failed to copy: ', err);
+                        this.showToast('Failed to copy analysis', 'error');
+                    });
+            }
+        }
+    }
+    
+    showToast(message, type = 'success') {
+        // Remove existing toast
+        const existingToast = document.querySelector('.analysis-toast');
+        if (existingToast) {
+            existingToast.remove();
+        }
+        
+        // Create toast
+        const toast = document.createElement('div');
+        toast.className = 'analysis-toast';
+        toast.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+            <span>${message}</span>
+        `;
+        
+        // Style based on type
+        if (type === 'success') {
+            toast.style.background = '#198754';
+        } else if (type === 'error') {
+            toast.style.background = '#dc3545';
+        } else {
+            toast.style.background = '#ffc107';
+            toast.style.color = '#212529';
+        }
+        
+        document.body.appendChild(toast);
+        
+        // Auto remove after 3 seconds
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+    
+    escapeHtml(unsafe) {
+        if (typeof unsafe !== 'string') return '';
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+
+    // Add this method to your NetworkAnalyzer class:
+    debugDataStructure(results) {
+        console.log("=== DEBUG: Data Structure ===");
+        
+        // Check executive summary
+        console.log("Executive Summary:", results.executive_summary);
+        console.log("Type:", typeof results.executive_summary);
+        
+        // Check protocol analysis
+        console.log("Protocol Analysis:", results.technical_analysis?.protocol_analysis);
+        
+        // Check security findings
+        const security = results.technical_analysis?.security_scan;
+        console.log("Security Scan exists:", !!security);
+        if (security) {
+            console.log("Security Findings:", security.findings);
+            console.log("Findings type:", typeof security.findings);
+            
+            if (security.findings) {
+                Object.keys(security.findings).forEach(severity => {
+                    console.log(`${severity}:`, security.findings[severity]?.length || 0, "items");
+                    if (security.findings[severity] && security.findings[severity].length > 0) {
+                        console.log("First item:", security.findings[severity][0]);
+                    }
+                });
+            }
+        }
+        
+        // Check AI insights
+        console.log("AI Insights:", results.ai_insights);
+    }
+    
+    addAnalysisStyles() {
+        if (document.getElementById('network-analysis-styles')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'network-analysis-styles';
+        style.textContent = this.getAnalysisCSS();
+        document.head.appendChild(style);
+    }
+    
+    getAnalysisCSS() {
+        return `
+            /* Network Analysis Specific Styles */
+            .network-analysis-report {
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 2px 20px rgba(0, 96, 223, 0.08);
+                margin-top: 2rem;
+                overflow: hidden;
+            }
+            
+            .report-header {
+                background: linear-gradient(135deg, #0060df 0%, #003eaa 100%);
+                color: white;
+                padding: 1.5rem 2rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .report-title h3 {
+                margin: 0;
+                font-size: 1.5rem;
+                font-weight: 600;
+            }
+            
+            .report-meta {
+                display: flex;
+                gap: 1.5rem;
+                margin-top: 0.5rem;
+                font-size: 0.9rem;
+                opacity: 0.9;
+            }
+            
+            .report-actions {
+                display: flex;
+                gap: 0.75rem;
+            }
+            
+            .section {
+                padding: 2rem;
+                border-bottom: 1px solid #e9ecef;
+            }
+            
+            .section:last-child {
+                border-bottom: none;
+            }
+            
+            .section h4 {
+                color: #2c3e50;
+                margin: 0 0 1.5rem 0;
+                font-size: 1.3rem;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+            }
+            
+            .section h4 i {
+                color: #0060df;
+            }
+            
+            /* Executive Summary */
+            .risk-scoreboard {
+                display: grid;
+                grid-template-columns: auto 1fr;
+                gap: 2rem;
+                margin-bottom: 2rem;
+            }
+            
+            .risk-score {
+                background: white;
+                border-radius: 10px;
+                padding: 1.5rem;
+                text-align: center;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                min-width: 150px;
+                border-left: 6px solid #0060df;
+            }
+            
+            .risk-score.critical { border-left-color: #dc2626; }
+            .risk-score.high { border-left-color: #ea580c; }
+            .risk-score.medium { border-left-color: #d97706; }
+            .risk-score.low { border-left-color: #65a30d; }
+            
+            .score-label {
+                font-size: 0.9rem;
+                color: #6c757d;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 0.5rem;
+            }
+            
+            .score-value {
+                font-size: 2rem;
+                font-weight: 700;
+                color: #2c3e50;
+            }
+            
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 1rem;
+            }
+            
+            .stat-card {
+                background: white;
+                border-radius: 8px;
+                padding: 1.5rem;
+                text-align: center;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+                transition: transform 0.2s;
+            }
+            
+            .stat-card:hover {
+                transform: translateY(-2px);
+            }
+            
+            .stat-card.critical { border-top: 4px solid #dc2626; }
+            .stat-card.high { border-top: 4px solid #ea580c; }
+            .stat-card.medium { border-top: 4px solid #d97706; }
+            .stat-card.total { border-top: 4px solid #0060df; }
+            
+            .stat-value {
+                font-size: 2rem;
+                font-weight: 700;
+                color: #2c3e50;
+                line-height: 1;
+            }
+            
+            .stat-card.critical .stat-value { color: #dc2626; }
+            .stat-card.high .stat-value { color: #ea580c; }
+            .stat-card.medium .stat-value { color: #d97706; }
+            .stat-card.total .stat-value { color: #0060df; }
+            
+            .stat-label {
+                font-size: 0.9rem;
+                color: #6c757d;
+                margin-top: 0.5rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            .ai-summary {
+                background: #f8fafc;
+                border-radius: 10px;
+                padding: 1.5rem;
+                border-left: 4px solid #0060df;
+            }
+            
+            .ai-summary h5 {
+                color: #2c3e50;
+                margin: 0 0 1rem 0;
+                font-size: 1.1rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            
+            .ai-summary p {
+                margin: 0;
+                line-height: 1.6;
+                color: #4a5568;
+            }
+            
+            /* Packet Statistics */
+            .stats-container {
+                background: white;
+                border-radius: 10px;
+                padding: 1.5rem;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            }
+            
+            .stat-row {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 2rem;
+                margin-bottom: 1.5rem;
+            }
+            
+            .stat-row:last-child {
+                margin-bottom: 0;
+            }
+            
+            .stat-item {
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .stat-label {
+                font-size: 0.9rem;
+                color: #6c757d;
+                margin-bottom: 0.5rem;
+            }
+            
+            .stat-value {
+                font-size: 1.5rem;
+                font-weight: 600;
+                color: #2c3e50;
+            }
+            
+            /* Protocol Analysis */
+            .protocol-container {
+                background: white;
+                border-radius: 10px;
+                padding: 1.5rem;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            }
+            
+            .protocol-summary {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 2rem;
+                padding-bottom: 1rem;
+                border-bottom: 2px solid #e9ecef;
+            }
+            
+            .top-protocol, .unique-count {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            
+            .top-protocol .label,
+            .unique-count .label {
+                color: #6c757d;
+                font-size: 0.9rem;
+            }
+            
+            .top-protocol .value,
+            .unique-count .value {
+                font-weight: 600;
+                color: #2c3e50;
+            }
+            
+            .top-protocol .percentage {
+                background: #0060df;
+                color: white;
+                padding: 0.25rem 0.75rem;
+                border-radius: 20px;
+                font-size: 0.85rem;
+                font-weight: 500;
+            }
+            
+            .protocol-chart {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .protocol-bar {
+                display: grid;
+                grid-template-columns: 120px 1fr auto;
+                gap: 1rem;
+                align-items: center;
+            }
+            
+            .protocol-name {
+                font-weight: 500;
+                color: #2c3e50;
+            }
+            
+            .protocol-meter {
+                height: 24px;
+                background: #e9ecef;
+                border-radius: 12px;
+                overflow: hidden;
+            }
+            
+            .meter-fill {
+                height: 100%;
+                background: linear-gradient(90deg, #0060df, #0095ff);
+                border-radius: 12px;
+                transition: width 1s ease-in-out;
+            }
+            
+            .protocol-stats {
+                display: flex;
+                justify-content: space-between;
+                min-width: 150px;
+                color: #6c757d;
+                font-size: 0.9rem;
+            }
+            
+            /* Security Findings */
+            .findings-container {
+                display: flex;
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+            
+            .severity-section {
+                background: white;
+                border-radius: 10px;
+                overflow: hidden;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            }
+            
+            .severity-section.critical {
+                border-left: 6px solid #dc2626;
+            }
+            
+            .severity-section.high {
+                border-left: 6px solid #ea580c;
+            }
+            
+            .severity-section.medium {
+                border-left: 6px solid #d97706;
+            }
+            
+            .severity-section.low {
+                border-left: 6px solid #65a30d;
+            }
+            
+            .severity-title {
+                background: #f8fafc;
+                margin: 0;
+                padding: 1rem 1.5rem;
+                font-size: 1.1rem;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                color: #2c3e50;
+            }
+            
+            .severity-section.critical .severity-title {
+                background: #fef2f2;
+                color: #dc2626;
+            }
+            
+            .severity-section.high .severity-title {
+                background: #fff7ed;
+                color: #ea580c;
+            }
+            
+            .severity-section.medium .severity-title {
+                background: #fffbeb;
+                color: #d97706;
+            }
+            
+            .severity-section.low .severity-title {
+                background: #f0fdf4;
+                color: #65a30d;
+            }
+            
+            .findings-list {
+                padding: 1.5rem;
+            }
+            
+            .finding-item {
+                background: #f8fafc;
+                border-radius: 8px;
+                padding: 1.25rem;
+                margin-bottom: 1rem;
+                cursor: pointer;
+                transition: all 0.2s;
+                border: 1px solid transparent;
+            }
+            
+            .finding-item:last-child {
+                margin-bottom: 0;
+            }
+            
+            .finding-item:hover {
+                border-color: #0060df;
+                box-shadow: 0 2px 8px rgba(0, 96, 223, 0.1);
+            }
+            
+            .finding-item.expanded {
+                background: white;
+                border-color: #e9ecef;
+            }
+            
+            .finding-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.75rem;
+            }
+            
+            .finding-type {
+                font-weight: 600;
+                color: #2c3e50;
+                font-size: 1.05rem;
+            }
+            
+            .finding-description {
+                color: #4a5568;
+                line-height: 1.5;
+                margin-bottom: 0.75rem;
+            }
+            
+            .finding-details {
+                display: flex;
+                gap: 1.5rem;
+                margin-bottom: 0.75rem;
+                font-size: 0.9rem;
+                color: #6c757d;
+            }
+            
+            .finding-recommendation {
+                background: #e8f4ff;
+                border-radius: 6px;
+                padding: 0.75rem 1rem;
+                font-size: 0.9rem;
+                color: #0060df;
+                border-left: 3px solid #0060df;
+            }
+            
+            /* Performance Metrics */
+            .performance-container {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 2rem;
+            }
+            
+            .tcp-health, .performance-issues {
+                background: white;
+                border-radius: 10px;
+                padding: 1.5rem;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            }
+            
+            .tcp-health h5, .performance-issues h5 {
+                color: #2c3e50;
+                margin: 0 0 1.5rem 0;
+                font-size: 1.1rem;
+            }
+            
+            .health-stats {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+            
+            .health-stat {
+                background: #f8fafc;
+                border-radius: 8px;
+                padding: 1rem;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .health-stat.warning {
+                background: #fff7ed;
+                border: 1px solid #fed7aa;
+            }
+            
+            .health-stat.critical {
+                background: #fef2f2;
+                border: 1px solid #fecaca;
+            }
+            
+            .health-stat .label {
+                font-size: 0.85rem;
+                color: #6c757d;
+                margin-bottom: 0.5rem;
+            }
+            
+            .health-stat .value {
+                font-size: 1.5rem;
+                font-weight: 600;
+                color: #2c3e50;
+            }
+            
+            .health-stat.warning .value {
+                color: #ea580c;
+            }
+            
+            .health-stat.critical .value {
+                color: #dc2626;
+            }
+            
+            .issues-list {
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            
+            .issue-item {
+                background: #f8fafc;
+                border-radius: 8px;
+                padding: 1rem;
+                display: grid;
+                grid-template-columns: auto 1fr auto;
+                gap: 1rem;
+                align-items: start;
+            }
+            
+            .issue-item.critical {
+                background: #fef2f2;
+                border-left: 4px solid #dc2626;
+            }
+            
+            .issue-item.high {
+                background: #fff7ed;
+                border-left: 4px solid #ea580c;
+            }
+            
+            .issue-item.medium {
+                background: #fffbeb;
+                border-left: 4px solid #d97706;
+            }
+            
+            .issue-severity {
+                font-size: 0.75rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                padding: 0.25rem 0.75rem;
+                border-radius: 20px;
+                color: white;
+            }
+            
+            .issue-item.critical .issue-severity {
+                background: #dc2626;
+            }
+            
+            .issue-item.high .issue-severity {
+                background: #ea580c;
+            }
+            
+            .issue-item.medium .issue-severity {
+                background: #d97706;
+            }
+            
+            .issue-description {
+                font-weight: 500;
+                color: #2c3e50;
+            }
+            
+            .issue-detail {
+                color: #6c757d;
+                font-size: 0.9rem;
+            }
+            
+            .issue-recommendation {
+                grid-column: 2 / span 2;
+                color: #0060df;
+                font-size: 0.9rem;
+                margin-top: 0.5rem;
+                padding-top: 0.5rem;
+                border-top: 1px solid #e9ecef;
+            }
+            
+            /* Anomalies & Threats */
+            .threats-container {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 2rem;
+            }
+            
+            .anomalies-section, .threats-section {
+                background: white;
+                border-radius: 10px;
+                padding: 1.5rem;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            }
+            
+            .anomalies-section h5, .threats-section h5 {
+                color: #2c3e50;
+                margin: 0 0 1.5rem 0;
+                font-size: 1.1rem;
+            }
+            
+            .anomaly-severity, .threat-severity {
+                margin-bottom: 1.5rem;
+            }
+            
+            .anomaly-severity:last-child, .threat-severity:last-child {
+                margin-bottom: 0;
+            }
+            
+            .anomaly-severity h6, .threat-severity h6 {
+                color: #6c757d;
+                margin: 0 0 0.75rem 0;
+                font-size: 0.9rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            .anomalies-list, .threats-list {
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            
+            .anomaly-item, .threat-item {
+                background: #f8fafc;
+                border-radius: 8px;
+                padding: 1rem;
+            }
+            
+            .anomaly-item:hover, .threat-item:hover {
+                background: white;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            }
+            
+            .anomaly-type, .threat-header {
+                font-weight: 600;
+                color: #2c3e50;
+                margin-bottom: 0.5rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .anomaly-description, .threat-details {
+                color: #4a5568;
+                font-size: 0.9rem;
+                line-height: 1.5;
+            }
+            
+            .anomaly-source, .threat-details {
+                margin-top: 0.5rem;
+                color: #6c757d;
+                font-size: 0.85rem;
+            }
+            
+            .threat-recommendation {
+                margin-top: 0.75rem;
+                padding-top: 0.75rem;
+                border-top: 1px solid #e9ecef;
+                color: #0060df;
+                font-size: 0.9rem;
+            }
+            
+            /* AI Insights */
+            .ai-insights-content {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 1.5rem;
+            }
+            
+            .insight-card {
+                background: white;
+                border-radius: 10px;
+                padding: 1.5rem;
+                box-shadow: 0 2px 12px rgba(0, 96, 223, 0.1);
+                border: 1px solid #e9ecef;
+            }
+            
+            .insight-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 20px rgba(0, 96, 223, 0.15);
+                transition: all 0.2s;
+            }
+            
+            .insight-card h5 {
+                color: #2c3e50;
+                margin: 0 0 1rem 0;
+                font-size: 1.05rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            
+            .insight-card p, .insight-card ul {
+                margin: 0;
+                color: #4a5568;
+                line-height: 1.6;
+            }
+            
+            .insight-card ul {
+                padding-left: 1.25rem;
+            }
+            
+            .insight-card li {
+                margin-bottom: 0.5rem;
+            }
+            
+            .insight-card li:last-child {
+                margin-bottom: 0;
+            }
+            
+            /* Compliance Mapping */
+            .compliance-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1.5rem;
+            }
+            
+            .compliance-framework {
+                background: white;
+                border-radius: 10px;
+                padding: 1.5rem;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+                border: 1px solid #e9ecef;
+            }
+            
+            .compliance-framework h5 {
+                color: #2c3e50;
+                margin: 0 0 1rem 0;
+                font-size: 1.05rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            .compliance-list {
+                margin: 0;
+                padding-left: 1.25rem;
+            }
+            
+            .compliance-list li {
+                color: #4a5568;
+                margin-bottom: 0.5rem;
+                font-size: 0.9rem;
+                line-height: 1.5;
+            }
+            
+            /* Recommendations */
+            .recommendations-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 1.5rem;
+            }
+            
+            .recommendation-category {
+                background: white;
+                border-radius: 10px;
+                padding: 1.5rem;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            }
+            
+            .recommendation-category.immediate {
+                border-top: 4px solid #dc2626;
+            }
+            
+            .recommendation-category.short-term {
+                border-top: 4px solid #d97706;
+            }
+            
+            .recommendation-category.long-term {
+                border-top: 4px solid #0060df;
+            }
+            
+            .recommendation-category h5 {
+                color: #2c3e50;
+                margin: 0 0 1rem 0;
+                font-size: 1.05rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            
+            .recommendation-category ul {
+                margin: 0;
+                padding-left: 1.25rem;
+            }
+            
+            .recommendation-category li {
+                color: #4a5568;
+                margin-bottom: 0.75rem;
+                line-height: 1.5;
+            }
+            
+            .recommendation-category li:last-child {
+                margin-bottom: 0;
+            }
+            
+            /* Buttons */
+            .btn-na {
+                padding: 0.75rem 1.5rem;
+                border: none;
+                border-radius: 6px;
+                font-size: 0.95rem;
+                font-weight: 500;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.5rem;
+                transition: all 0.2s;
+            }
+            
+            .btn-primary {
+                background: linear-gradient(135deg, #0060df 0%, #003eaa 100%);
+                color: white;
+            }
+            
+            .btn-primary:hover {
+                background: linear-gradient(135deg, #0050c8 0%, #003288 100%);
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(0, 96, 223, 0.2);
+            }
+            
+            .btn-secondary {
+                background: #f8f9fa;
+                color: #2c3e50;
+                border: 1px solid #dee2e6;
+            }
+            
+            .btn-secondary:hover {
+                background: #e9ecef;
+            }
+            
+            .btn-outline {
+                background: transparent;
+                color: #0060df;
+                border: 1px solid #0060df;
+            }
+            
+            .btn-outline:hover {
+                background: rgba(0, 96, 223, 0.05);
+            }
+            
+            .btn-small {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.85rem;
+            }
+            
+            /* No Data States */
+            .no-data, .no-findings, .no-issues, .no-compliance {
+                text-align: center;
+                padding: 3rem 2rem;
+                color: #6c757d;
+                font-style: italic;
+                background: #f8fafc;
+                border-radius: 10px;
+                border: 2px dashed #dee2e6;
+            }
+            
+            /* Error Container */
+            .error-container {
+                text-align: center;
+                padding: 3rem 2rem;
+            }
+            
+            .error-icon {
+                font-size: 4rem;
+                color: #dc2626;
+                margin-bottom: 1.5rem;
+            }
+            
+            .error-container h3 {
+                color: #2c3e50;
+                margin: 0 0 1rem 0;
+            }
+            
+            .error-container p {
+                color: #6c757d;
+                margin-bottom: 2rem;
+                max-width: 500px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+            
+            /* Toast Notification */
+            .analysis-toast {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: #198754;
+                color: white;
+                padding: 1rem 1.5rem;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                animation: slideIn 0.3s ease-out;
+            }
+            
+            @keyframes slideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            
+            /* AI Modal */
+            #ai-analysis-modal .modal-content {
+                max-width: 900px;
+                max-height: 85vh;
+                overflow-y: auto;
+            }
+            
+            .threat-analysis {
+                background: #f8fafc;
+                border-radius: 10px;
+                padding: 1.5rem;
+                margin-top: 1.5rem;
+                border-left: 4px solid #0060df;
+            }
+            
+            .threat-analysis h4 {
+                color: #2c3e50;
+                margin: 0 0 1rem 0;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            
+            .analysis-content {
+                color: #4a5568;
+                line-height: 1.6;
+            }
+            
+            .analysis-content pre {
+                background: #1e1e1e;
+                color: #d4d4d4;
+                padding: 1rem;
+                border-radius: 6px;
+                overflow-x: auto;
+                margin: 1rem 0;
+                font-family: 'Consolas', 'Monaco', monospace;
+                font-size: 0.9rem;
+            }
+            
+            .analysis-content code {
+                background: #e9ecef;
+                padding: 0.2rem 0.4rem;
+                border-radius: 4px;
+                font-family: 'Consolas', 'Monaco', monospace;
+                font-size: 0.9em;
+                color: #2c3e50;
+            }
+            
+            /* Responsive */
+            @media (max-width: 1200px) {
+                .stats-grid,
+                .ai-insights-content,
+                .compliance-grid,
+                .recommendations-grid {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+                
+                .performance-container,
+                .threats-container {
+                    grid-template-columns: 1fr;
+                }
+            }
+            
+            @media (max-width: 768px) {
+                .report-header {
+                    flex-direction: column;
+                    gap: 1rem;
+                    text-align: center;
+                }
+                
+                .report-meta {
+                    flex-direction: column;
+                    gap: 0.5rem;
+                }
+                
+                .stats-grid,
+                .stat-row,
+                .ai-insights-content,
+                .compliance-grid,
+                .recommendations-grid {
+                    grid-template-columns: 1fr;
+                }
+                
+                .risk-scoreboard {
+                    grid-template-columns: 1fr;
+                }
+                
+                .section {
+                    padding: 1.5rem 1rem;
+                }
+                
+                .protocol-bar {
+                    grid-template-columns: 1fr;
+                    gap: 0.5rem;
+                }
+            }
+        `;
+    }
+}
+
+// Global instance
+const networkAnalyzer = new NetworkAnalyzer();
+
+// Global function for button
+function analyzeNetwork() {
+    networkAnalyzer.startAnalysis();
+}

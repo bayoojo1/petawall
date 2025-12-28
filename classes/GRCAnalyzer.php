@@ -32,7 +32,7 @@ class GRCAnalyzer {
             return $results;
             
         } catch (Exception $e) {
-            error_log("GRC Assessment Failed: " . $e->getMessage());
+            //error_log("GRC Assessment Failed: " . $e->getMessage());
             return $this->getErrorResponse($assessmentType, $organizationData, $e->getMessage());
         }
     }
@@ -109,8 +109,8 @@ class GRCAnalyzer {
     }
 
     public function getAssessmentQuestions($domains = [], $frameworks = []) {
-        error_log("Getting questions for domains: " . print_r($domains, true));
-        error_log("Getting questions for frameworks: " . print_r($frameworks, true));
+        //error_log("Getting questions for domains: " . print_r($domains, true));
+        //error_log("Getting questions for frameworks: " . print_r($frameworks, true));
         
         // Start with base query
         $query = "SELECT 
@@ -177,28 +177,28 @@ class GRCAnalyzer {
         
         $query .= " ORDER BY d.id, q.sort_order, o.sort_order";
         
-        error_log("SQL Query: " . $query);
-        error_log("SQL Params: " . print_r($params, true));
+        //error_log("SQL Query: " . $query);
+        //error_log("SQL Params: " . print_r($params, true));
         
         try {
             $stmt = $this->db->prepare($query);
             $stmt->execute($params);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-            error_log("Found " . count($rows) . " rows from database");
+            //error_log("Found " . count($rows) . " rows from database");
             
-            if (empty($rows)) {
-                error_log("No questions found. Check if:");
-                error_log("1. Domains exist in cissp_domains table");
-                error_log("2. Questions exist in assessment_questions table");
-                error_log("3. Domain keys match: " . implode(', ', $domains));
-                error_log("4. Framework patterns match compliance_framework values");
-            }
+            // if (empty($rows)) {
+            //     error_log("No questions found. Check if:");
+            //     error_log("1. Domains exist in cissp_domains table");
+            //     error_log("2. Questions exist in assessment_questions table");
+            //     error_log("3. Domain keys match: " . implode(', ', $domains));
+            //     error_log("4. Framework patterns match compliance_framework values");
+            // }
             
             return $this->formatQuestions($rows);
             
         } catch (Exception $e) {
-            error_log("Database error in getAssessmentQuestions: " . $e->getMessage());
+            //error_log("Database error in getAssessmentQuestions: " . $e->getMessage());
             return [];
         }
     }
@@ -207,7 +207,7 @@ class GRCAnalyzer {
         $questions = [];
         
         if (empty($rows)) {
-            error_log("No rows to format");
+            //error_log("No rows to format");
             return $questions;
         }
         
@@ -250,10 +250,10 @@ class GRCAnalyzer {
         // Convert to sequential arrays and log results
         foreach ($questions as $domainKey => &$domain) {
             $domain['questions'] = array_values($domain['questions']);
-            error_log("Domain {$domainKey}: " . count($domain['questions']) . " questions");
+            //error_log("Domain {$domainKey}: " . count($domain['questions']) . " questions");
         }
         
-        error_log("Formatted questions: " . count($questions) . " domains");
+        //error_log("Formatted questions: " . count($questions) . " domains");
         return $questions;
     }
     
@@ -669,3 +669,4 @@ class GRCAnalyzer {
         ];
     }
 }
+?>

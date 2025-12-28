@@ -1,9 +1,46 @@
 <?php
-// Add this at the very top of api.php for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+// Log the start of the request
+error_log("=== START API REQUEST ===");
+error_log("Time: " . date('Y-m-d H:i:s'));
 error_log("Request Method: " . $_SERVER['REQUEST_METHOD']);
-error_log("POST Data: " . print_r($_POST, true));
-error_log("Files: " . print_r($_FILES, true));
-error_log("Raw Input: " . file_get_contents('php://input'));
+error_log("Content-Type: " . ($_SERVER['CONTENT_TYPE'] ?? 'not set'));
+
+// Get ALL input data
+$allPostData = $_POST;
+$allFilesData = $_FILES;
+$rawInput = file_get_contents('php://input');
+
+error_log("Raw POST data: " . print_r($allPostData, true));
+error_log("Raw FILES data: " . print_r($allFilesData, true));
+error_log("Raw php://input: " . $rawInput);
+
+// Try to parse JSON if present
+$jsonData = [];
+if (!empty($rawInput)) {
+    $jsonData = json_decode($rawInput, true);
+    error_log("JSON decoded data: " . print_r($jsonData, true));
+}
+
+// Determine the tool - check multiple sources
+$tool = '';
+if (isset($allPostData['tool'])) {
+    $tool = $allPostData['tool'];
+    error_log("Tool from POST: " . $tool);
+} elseif (isset($jsonData['tool'])) {
+    $tool = $jsonData['tool'];
+    error_log("Tool from JSON: " . $tool);
+}
+
+error_log("Final tool determined: " . $tool);
+
+// If no tool found, log and exit
+if (empty($tool)) {
+    error_log("ERROR: No tool parameter found!");
+    echo json_encode(['error' => 'No tool specified']);
+    exit;
+}
 
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/classes/ollama-search.php';
@@ -60,7 +97,7 @@ if (empty($input) && !empty($rawInput)) {
     }
 }
 
-error_log("Processed Input: " . print_r($input, true));
+//error_log("Processed Input: " . print_r($input, true));
 
 //TO HERE - REMOVE
 
@@ -74,7 +111,7 @@ $scanType = $_POST['scan_type'] ?? '';
 try {
         $results = [];
 
-        error_log("Processing tool: " . $tool);
+        //error_log("Processing tool: " . $tool);
         
         switch ($tool) {
             case 'vulnerability':
@@ -88,7 +125,7 @@ try {
                 break;
                 
             case 'phishing':
-                error_log("=== PHISHING API CALL ===");
+                //error_log("=== PHISHING API CALL ===");
                 // Create dependencies with WhoAPI
                 $ollama = new OllamaSearch();
                 $httpClient = new SimpleHttpClient();
@@ -141,90 +178,94 @@ try {
                 break;
                 
             case 'network':
-                // Initialize Ollama first
-                $ollama = new OllamaSearch();
-                $analyzer = new NetworkAnalyzer($ollama);
-                
-                // Get the PCAP source type
-                $pcapSource = $_POST['pcap_source'] ?? 'local';
-                $analysisType = $_POST['analysis_type'] ?? 'comprehensive';
-                
-                try {
-                    $pcapData = null;
+                    // Use output buffering to prevent multiple outputs
+                    if (ob_get_level()) ob_end_clean();
+                    ob_start();
                     
-                    // Handle different PCAP sources
-                    if ($pcapSource === 'local') {
-                        // Handle local file upload
-                        if (isset($_FILES['pcap_file']) && $_FILES['pcap_file']['error'] === UPLOAD_ERR_OK) {
-                            $pcapFile = $_FILES['pcap_file']['tmp_name'];
-                            $pcapData = $analyzer->analyzePcap($pcapFile, $analysisType);
-                        } else {
-                            throw new Exception('No PCAP file uploaded or file upload error');
-                        }
-                    } elseif ($pcapSource === 'remote') {
-                        // Handle remote PCAP URL
-                        if (isset($_POST['remote_url']) && !empty($_POST['remote_url'])) {
-                            $remoteUrl = $_POST['remote_url'];
+                    $responseSent = false;
+                    
+                    try {
+                        // Initialize Ollama
+                        $ollama = new OllamaSearch();
+                        $analyzer = new NetworkAnalyzer($ollama);
+                        
+                        // Get analysis parameters
+                        $analysisType = $_POST['analysis_type'] ?? 'comprehensive';
+                        $pcapSource = $_POST['pcap_source'] ?? 'local';
+                        
+                        $results = [];
+                        
+                        if ($pcapSource === 'local') {
+                            // Handle file upload
+                            if (isset($_FILES['pcap_file']) && $_FILES['pcap_file']['error'] === UPLOAD_ERR_OK) {
+                                $pcapFile = $_FILES['pcap_file']['tmp_name'];
+                                
+                                if (!file_exists($pcapFile)) {
+                                    throw new Exception('Uploaded file not found on server');
+                                }
+                                
+                                $results = $analyzer->analyzePcap($pcapFile, $analysisType);
+                            } else {
+                                $errorCode = $_FILES['pcap_file']['error'] ?? 'unknown';
+                                throw new Exception('File upload error. Code: ' . $errorCode);
+                            }
+                        } elseif ($pcapSource === 'remote') {
+                            // Handle remote URL
+                            $remoteUrl = $_POST['remote_url'] ?? '';
                             $timeout = intval($_POST['timeout'] ?? 30);
                             
-                            if (!filter_var($remoteUrl, FILTER_VALIDATE_URL)) {
-                                throw new Exception('Invalid remote URL provided');
+                            if (empty($remoteUrl)) {
+                                throw new Exception('No remote URL provided');
                             }
                             
-                            $pcapData = $analyzer->analyzeRemotePcap($remoteUrl, $analysisType, $timeout);
+                            if (!filter_var($remoteUrl, FILTER_VALIDATE_URL)) {
+                                throw new Exception('Invalid URL format');
+                            }
+                            
+                            $results = $analyzer->analyzeRemotePcap($remoteUrl, $analysisType, $timeout);
                         } else {
-                            throw new Exception('No remote URL provided');
+                            throw new Exception('Invalid PCAP source');
                         }
-                    } else {
-                        throw new Exception('Invalid PCAP source specified');
-                    }
-                    
-                    // CRITICAL FIX: Handle Ollama response properly
-                    if (is_string($pcapData)) {
-                        // Try to decode as JSON first
-                        $decoded = json_decode($pcapData, true);
                         
-                        if (json_last_error() === JSON_ERROR_NONE && $decoded !== null) {
-                            // Successfully decoded JSON
-                            $results = $decoded;
-                        } else {
-                            // Not JSON, wrap as analysis result
-                            $results = [
-                                'analysis_type' => $analysisType,
-                                'executive_summary' => $pcapData,
-                                'raw_analysis' => $pcapData,
-                                'timestamp' => date('Y-m-d H:i:s'),
-                                'data_source' => $pcapSource === 'local' ? 'Uploaded file' : 'Remote URL: ' . ($remoteUrl ?? '')
-                            ];
-                        }
-                    } elseif (is_array($pcapData)) {
-                        // Already an array (should be the case with proper Ollama response)
-                        $results = $pcapData;
-                    } else {
-                        // Unknown format
-                        $results = [
-                            'error' => 'Invalid analysis result format',
-                            'raw_result' => $pcapData,
-                            'analysis_type' => $analysisType
-                        ];
+                        // Clear buffer and send single JSON response
+                        ob_clean();
+                        $responseSent = true;
+                        
+                        echo json_encode([
+                            'success' => true,
+                            'tool' => 'network',
+                            'analysis_type' => $analysisType,
+                            'data' => $results,
+                            'timestamp' => date('Y-m-d H:i:s')
+                        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                        
+                    } catch (Exception $e) {
+                        // Clear buffer and send error response
+                        ob_clean();
+                        $responseSent = true;
+                        
+                        echo json_encode([
+                            'success' => false,
+                            'error' => $e->getMessage(),
+                            'tool' => 'network',
+                            'analysis_type' => $analysisType ?? 'unknown',
+                            'timestamp' => date('Y-m-d H:i:s')
+                        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
                     }
                     
-                    // Ensure we have a proper structure
-                    if (!isset($results['analysis_type'])) {
-                        $results['analysis_type'] = $analysisType;
-                    }
-                    if (!isset($results['timestamp'])) {
-                        $results['timestamp'] = date('Y-m-d H:i:s');
+                    // Ensure we only output once
+                    if (!$responseSent) {
+                        ob_clean();
+                        echo json_encode([
+                            'success' => false,
+                            'error' => 'No response generated',
+                            'timestamp' => date('Y-m-d H:i:s')
+                        ]);
                     }
                     
-                } catch (Exception $e) {
-                    $results = [
-                        'success' => false,
-                        'error' => $e->getMessage(),
-                        'analysis_type' => $analysisType
-                    ];
-                }
-                break;
+                    ob_end_flush();
+                    exit; // CRITICAL: Stop further execution
+                    break;
 
                 case 'iot_finder':
                 // Get search parameters
@@ -332,55 +373,107 @@ try {
                 
                 break;
             case 'mobile':
-                $scanner = new MobileAppScanner();
-                
-                // Get platform and scan type
-                $platform = $_POST['platform'] ?? 'android';
-                $scanType = $_POST['scan_type'] ?? 'comprehensive';
-                
-                // Get scan options
-                $options = [
-                    'check_permissions' => ($_POST['check_permissions'] ?? 'true') === 'true',
-                    'check_code' => ($_POST['check_code'] ?? 'true') === 'true',
-                    'check_network' => ($_POST['check_network'] ?? 'true') === 'true',
-                    'check_storage' => ($_POST['check_storage'] ?? 'false') === 'true',
-                    'check_crypto' => ($_POST['check_crypto'] ?? 'false') === 'true',
-                    'check_api' => ($_POST['check_api'] ?? 'false') === 'true'
-                ];
-                
-                // Handle file upload
-                if (isset($_FILES['app_file']) && $_FILES['app_file']['error'] === UPLOAD_ERR_OK) {
-                    $filePath = $_FILES['app_file']['tmp_name'];
-                    $fileName = $_FILES['app_file']['name'];
-                    $fileSize = $_FILES['app_file']['size'];
+                try {
+                    error_log("=== MOBILE SCANNER DEBUG ===");
                     
-                    // Validate file type
-                    $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-                    if ($platform === 'android' && $fileExtension !== 'apk') {
-                        throw new Exception('Invalid file type for Android. Please upload an APK file.');
+                    // Debug file upload
+                    error_log("Files array: " . print_r($_FILES, true));
+                    error_log("POST array: " . print_r($_POST, true));
+                    
+                    $platform = $_POST['platform'] ?? 'android';
+                    error_log("Platform: " . $platform);
+                    
+                    if (isset($_FILES['app_file'])) {
+                        $fileInfo = $_FILES['app_file'];
+                        error_log("File info:");
+                        error_log("  Name: " . $fileInfo['name']);
+                        error_log("  Type: " . $fileInfo['type']);
+                        error_log("  Temp name: " . $fileInfo['tmp_name']);
+                        error_log("  Error: " . $fileInfo['error']);
+                        error_log("  Size: " . $fileInfo['size']);
+                        
+                        // Check if file exists
+                        if (file_exists($fileInfo['tmp_name'])) {
+                            error_log("Temp file exists");
+                            error_log("File size on disk: " . filesize($fileInfo['tmp_name']));
+                            
+                            // Check file extension
+                            $ext = pathinfo($fileInfo['name'], PATHINFO_EXTENSION);
+                            error_log("File extension: " . $ext);
+                            
+                            // Check MIME type
+                            $mime = mime_content_type($fileInfo['tmp_name']);
+                            error_log("MIME type: " . $mime);
+                            
+                            // Check if it's a valid ZIP/APK
+                            $zipTest = new ZipArchive();
+                            if ($zipTest->open($fileInfo['tmp_name']) === TRUE) {
+                                error_log("File is a valid ZIP archive");
+                                $zipTest->close();
+                            } else {
+                                error_log("File is NOT a valid ZIP archive");
+                            }
+                        } else {
+                            error_log("Temp file does not exist!");
+                        }
+                    } else {
+                        error_log("No app_file in FILES array");
                     }
-                    if ($platform === 'ios' && $fileExtension !== 'ipa') {
-                        throw new Exception('Invalid file type for iOS. Please upload an IPA file.');
+                    
+                    error_log("=== END DEBUG ===");
+                            $scanner = new MobileAppScanner();
+                            
+                            // Get platform and scan type
+                            $platform = $_POST['platform'] ?? 'android';
+                            $scanType = $_POST['scan_type'] ?? 'comprehensive';
+                            
+                            // Get scan options
+                            $options = [
+                                'check_permissions' => ($_POST['check_permissions'] ?? 'true') === 'true',
+                                'check_code' => ($_POST['check_code'] ?? 'true') === 'true',
+                                'check_network' => ($_POST['check_network'] ?? 'true') === 'true',
+                                'check_storage' => ($_POST['check_storage'] ?? 'false') === 'true',
+                                'check_crypto' => ($_POST['check_crypto'] ?? 'false') === 'true',
+                                'check_api' => ($_POST['check_api'] ?? 'false') === 'true'
+                            ];
+                            
+                            // Handle file upload
+                            if (isset($_FILES['app_file']) && $_FILES['app_file']['error'] === UPLOAD_ERR_OK) {
+                                $filePath = $_FILES['app_file']['tmp_name'];
+                                $fileName = $_FILES['app_file']['name'];
+                                $fileSize = $_FILES['app_file']['size'];
+                                
+                                // Validate file type
+                                $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+                                if ($platform === 'android' && $fileExtension !== 'apk') {
+                                    throw new Exception('Invalid file type for Android. Please upload an APK file.');
+                                }
+                                if ($platform === 'ios' && $fileExtension !== 'ipa') {
+                                    throw new Exception('Invalid file type for iOS. Please upload an IPA file.');
+                                }
+                                
+                                // Validate file size
+                                if ($fileSize > MAX_APP_FILE_SIZE) {
+                                    throw new Exception('File too large. Maximum size is ' . (MAX_APP_FILE_SIZE / 1024 / 1024) . 'MB');
+                                }
+                                
+                                $results = $scanner->scanMobileApp($filePath, $platform, $scanType, $options);
+                                
+                            } elseif (isset($_POST['package_name']) && !empty($_POST['package_name'])) {
+                                // Handle package name analysis
+                                $results = $scanner->analyzeByPackageName($_POST['package_name'], $scanType);
+                                
+                            } elseif (isset($_POST['bundle_id']) && !empty($_POST['bundle_id'])) {
+                                // Handle bundle ID analysis
+                                $results = $scanner->analyzeByBundleId($_POST['bundle_id'], $scanType);
+                                
+                            } else {
+                                throw new Exception('No app file, package name, or bundle ID provided');
+                            }
+                } catch (Exception $e) {
+                        error_log("Mobile scanner error: " . $e->getMessage());
+                        throw $e;
                     }
-                    
-                    // Validate file size
-                    if ($fileSize > MAX_APP_FILE_SIZE) {
-                        throw new Exception('File too large. Maximum size is ' . (MAX_APP_FILE_SIZE / 1024 / 1024) . 'MB');
-                    }
-                    
-                    $results = $scanner->scanMobileApp($filePath, $platform, $scanType, $options);
-                    
-                } elseif (isset($_POST['package_name']) && !empty($_POST['package_name'])) {
-                    // Handle package name analysis
-                    $results = $scanner->analyzeByPackageName($_POST['package_name'], $scanType);
-                    
-                } elseif (isset($_POST['bundle_id']) && !empty($_POST['bundle_id'])) {
-                    // Handle bundle ID analysis
-                    $results = $scanner->analyzeByBundleId($_POST['bundle_id'], $scanType);
-                    
-                } else {
-                    throw new Exception('No app file, package name, or bundle ID provided');
-                }
                 break;
             case 'grc_questions':
                 try {
@@ -402,12 +495,12 @@ try {
                             throw new Exception('Missing required assessment data');
                         }
                         
-                        error_log("Processing assessment submission:");
-                        error_log("Assessment Type: " . $assessmentType);
-                        error_log("Organization: " . $organizationData['name']);
-                        error_log("Responses Count: " . count($userResponses));
-                        error_log("Domains: " . implode(', ', $selectedDomains));
-                        error_log("Frameworks: " . implode(', ', $selectedFrameworks));
+                        // error_log("Processing assessment submission:");
+                        // error_log("Assessment Type: " . $assessmentType);
+                        // error_log("Organization: " . $organizationData['name']);
+                        // error_log("Responses Count: " . count($userResponses));
+                        // error_log("Domains: " . implode(', ', $selectedDomains));
+                        // error_log("Frameworks: " . implode(', ', $selectedFrameworks));
                         
                         // Perform the assessment
                         $results = $analyzer->performAssessment(
@@ -423,7 +516,7 @@ try {
                             'data' => $results,
                             'timestamp' => date('Y-m-d H:i:s')
                         ]);
-                        
+                        exit;
                     } else {
                         // Load questions (existing code)
                         $domains = json_decode($_POST['domains'] ?? '[]', true);
@@ -439,12 +532,12 @@ try {
                     //exit;
                     
                 } catch (Exception $e) {
-                    error_log("GRC Assessment Error: " . $e->getMessage());
+                    //error_log("GRC Assessment Error: " . $e->getMessage());
                     echo json_encode([
                         'success' => false,
                         'error' => $e->getMessage()
                     ]);
-                    //exit;
+                    exit;
                 }
                 break;
                 // Enhanced api.php

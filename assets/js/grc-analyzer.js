@@ -369,30 +369,25 @@ class GRCAnalyzer {
             const responseText = await response.text();
             console.log('Raw response:', responseText);
 
-            // Try to parse JSON, handle malformed responses
+            // FIX: Extract only the first complete JSON object
+            const firstJsonEnd = responseText.indexOf('}{');
+            const cleanJsonText = firstJsonEnd > 0 
+                ? responseText.substring(0, firstJsonEnd + 1) 
+                : responseText;
+
+            console.log('Cleaned JSON:', cleanJsonText);
+
             let result;
             try {
-                result = JSON.parse(responseText);
+                result = JSON.parse(cleanJsonText);
             } catch (parseError) {
                 console.error('JSON parse error:', parseError);
-                
-                // Try to extract valid JSON from the response
-                const jsonMatch = responseText.match(/\{.*\}/s);
-                if (jsonMatch) {
-                    try {
-                        result = JSON.parse(jsonMatch[0]);
-                    } catch (secondError) {
-                        throw new Error('Invalid JSON response from server');
-                    }
-                } else {
-                    throw new Error('Invalid response format from server');
-                }
+                throw new Error('Invalid JSON response from server');
             }
 
             if (result.success) {
-                // Check if questions were actually loaded
                 if (!result.questions || Object.keys(result.questions).length === 0) {
-                    throw new Error('No questions found for the selected domains and frameworks. Please check your selection.');
+                    throw new Error('No questions found for the selected domains and frameworks.');
                 }
                 
                 this.questions = result.questions;
@@ -1424,7 +1419,7 @@ class GRCAnalyzer {
             domains.push(checkbox.value);
         });
         
-        console.log('Selected domains:', domains);
+        //console.log('Selected domains:', domains);
         return domains;
     }
 
@@ -1434,7 +1429,7 @@ class GRCAnalyzer {
             frameworks.push(checkbox.value);
         });
         
-        console.log('Selected frameworks:', frameworks);
+        //console.log('Selected frameworks:', frameworks);
         return frameworks;
     }
 
