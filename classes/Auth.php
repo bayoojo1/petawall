@@ -1173,7 +1173,7 @@ class Auth {
                     <p>We received a request to reset your password for your PETAWALL account.</p>
                     
                     <div style='text-align: center;'>
-                        <a href='$resetLink' class='reset-button'>Reset Password</a>
+                        <a href='$resetLink' style='color: white;' class='reset-button'>Reset Password</a>
                     </div>
                     
                     <p>Or copy and paste the following link into your browser:</p>
