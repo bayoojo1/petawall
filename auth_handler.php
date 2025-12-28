@@ -74,6 +74,37 @@ try {
             echo json_encode(['success' => true, 'roles' => $roles]);
             break;
 
+        case 'forgot_password':
+            $email = filter_input(INPUT_POST, 'email', FILTER_VALIDATE_EMAIL);
+            
+            if (!$email) {
+                echo json_encode(['success' => false, 'message' => 'Invalid email address']);
+                break;
+            }
+            
+            $result = $auth->initiatePasswordReset($email);
+            echo json_encode($result);
+            break;
+
+        case 'reset_password':
+            $token = $_POST['token'] ?? '';
+            $password = $_POST['password'] ?? '';
+            $confirmPassword = $_POST['confirm_password'] ?? '';
+            
+            if (empty($token) || empty($password)) {
+                echo json_encode(['success' => false, 'message' => 'Token and password are required']);
+                break;
+            }
+            
+            if ($password !== $confirmPassword) {
+                echo json_encode(['success' => false, 'message' => 'Passwords do not match']);
+                break;
+            }
+            
+            $result = $auth->processPasswordReset($token, $password);
+            echo json_encode($result);
+            break;
+
         default:
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Invalid action: ' . $action]);

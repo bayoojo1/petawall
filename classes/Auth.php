@@ -973,6 +973,317 @@ class Auth {
         }
     }
 
+    public function initiatePasswordReset($email) {
+        try {
+            // Find user by email
+            $stmt = $this->pdo->prepare("SELECT user_id, email, username FROM users WHERE email = ? AND is_active = 1 AND is_verified = 1");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$user) {
+                // Don't reveal if user exists for security
+                return ['success' => true, 'message' => 'If an account exists with this email, a password reset link will be sent.'];
+            }
+            
+            // Generate reset token
+            $resetToken = bin2hex(random_bytes(32));
+            $tokenHash = password_hash($resetToken, PASSWORD_BCRYPT);
+            $expiresAt = date('Y-m-d H:i:s', time() + 3600); // 1 hour expiration
+            
+            // Store token in database
+            $stmt = $this->pdo->prepare(
+                "UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE user_id = ?"
+            );
+            $stmt->execute([$tokenHash, $expiresAt, $user['user_id']]);
+            
+            // Send reset email
+            $this->sendPasswordResetEmail($user['email'], $user['username'], $resetToken);
+            
+            // Log this activity
+            $this->logPasswordResetRequest($user['user_id']);
+            
+            return ['success' => true, 'message' => 'Password reset link has been sent to your email.'];
+            
+        } catch (Exception $e) {
+            error_log("Initiate password reset error: " . $e->getMessage());
+            return ['success' => false, 'message' => 'An error occurred. Please try again.'];
+        }
+    }
+
+    /**
+     * Process password reset with token
+     */
+    public function processPasswordReset($token, $newPassword) {
+        try {
+            // Find user with valid reset token
+            $stmt = $this->pdo->prepare(
+                "SELECT user_id, reset_token, reset_token_expires FROM users 
+                WHERE reset_token IS NOT NULL AND reset_token_expires > NOW()"
+            );
+            $stmt->execute();
+            $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            foreach ($users as $user) {
+                if (password_verify($token, $user['reset_token'])) {
+                    // Token is valid, update password and clear reset token
+                    $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
+                    
+                    $updateStmt = $this->pdo->prepare(
+                        "UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL 
+                        WHERE user_id = ?"
+                    );
+                    $success = $updateStmt->execute([$hashedPassword, $user['user_id']]);
+                    
+                    if ($success) {
+                        // Log successful password reset
+                        $this->logPasswordResetSuccess($user['user_id']);
+                        
+                        // Invalidate all existing sessions for security
+                        $this->invalidateUserSessions($user['user_id']);
+                        
+                        return ['success' => true, 'message' => 'Password has been reset successfully. You can now login with your new password.'];
+                    } else {
+                        return ['success' => false, 'message' => 'Failed to update password.'];
+                    }
+                }
+            }
+            
+            return ['success' => false, 'message' => 'Invalid or expired reset token.'];
+            
+        } catch (Exception $e) {
+            error_log("Process password reset error: " . $e->getMessage());
+            return ['success' => false, 'message' => 'An error occurred while processing your request.'];
+        }
+    }
+
+    /**
+     * Send password reset email
+     */
+    private function sendPasswordResetEmail($email, $username, $token) {
+        try {
+            $domain = $_SERVER['HTTP_HOST'] ?? 'petawall.com';
+            $resetLink = "https://$domain/reset-password.php?token=" . urlencode($token);
+            
+            $subject = "Reset Your PETAWALL Password";
+            $message = $this->buildForgotPasswordEmailTemplate($username, $resetLink);
+            
+            $emailGateway = new ZeptoMailGateway();
+            $result = $emailGateway->sendEmail(
+                "noreply@petawall.com",
+                $email,
+                $subject,
+                $message
+            );
+            
+            error_log("Password reset email sent to $email");
+            return true;
+            
+        } catch (Exception $e) {
+            error_log("Send password reset email error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Build forgot password email template
+     */
+    private function buildForgotPasswordEmailTemplate($username, $resetLink) {
+        $expirationTime = "1 hour";
+        
+        return "
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset='UTF-8'>
+                <title>Reset Your Password</title>
+                <style>
+                    body { 
+                        font-family: 'Arial', sans-serif; 
+                        line-height: 1.6; 
+                        color: #333; 
+                        max-width: 600px; 
+                        margin: 0 auto; 
+                        padding: 20px; 
+                    }
+                    .header { 
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white; 
+                        padding: 30px; 
+                        text-align: center; 
+                        border-radius: 10px 10px 0 0; 
+                    }
+                    .content { 
+                        background: #f9f9f9; 
+                        padding: 30px; 
+                        border-radius: 0 0 10px 10px; 
+                        border: 1px solid #e0e0e0;
+                    }
+                    .reset-button { 
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white; 
+                        padding: 14px 32px; 
+                        text-decoration: none; 
+                        border-radius: 6px; 
+                        display: inline-block; 
+                        font-weight: bold;
+                        margin: 20px 0;
+                        border: none;
+                        cursor: pointer;
+                    }
+                    .token-box {
+                        background: #f5f5f5;
+                        padding: 15px;
+                        border-radius: 5px;
+                        border-left: 4px solid #667eea;
+                        margin: 20px 0;
+                        word-break: break-all;
+                        font-family: 'Courier New', monospace;
+                        font-size: 13px;
+                    }
+                    .security-notice {
+                        background: #fff3cd;
+                        border-left: 4px solid #ffc107;
+                        padding: 15px;
+                        margin: 20px 0;
+                        border-radius: 4px;
+                        color: #856404;
+                    }
+                    .footer { 
+                        margin-top: 30px; 
+                        padding-top: 20px; 
+                        border-top: 1px solid #ddd; 
+                        color: #666; 
+                        font-size: 14px;
+                        text-align: center;
+                    }
+                    .instructions {
+                        background: #e8f4fd;
+                        padding: 15px;
+                        border-radius: 5px;
+                        margin: 20px 0;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class='header'>
+                    <h1>PETAWALL Password Reset</h1>
+                </div>
+                <div class='content'>
+                    <h2>Hello $username,</h2>
+                    <p>We received a request to reset your password for your PETAWALL account.</p>
+                    
+                    <div style='text-align: center;'>
+                        <a href='$resetLink' class='reset-button'>Reset Password</a>
+                    </div>
+                    
+                    <p>Or copy and paste the following link into your browser:</p>
+                    <div class='token-box'>$resetLink</div>
+                    
+                    <div class='security-notice'>
+                        <strong> Important Security Notice:</strong>
+                        <ul>
+                            <li>This link will expire in <strong>$expirationTime</strong></li>
+                            <li>If you didn't request this password reset, please ignore this email</li>
+                            <li>For security reasons, please don't share this link with anyone</li>
+                            <li>After resetting, all your active sessions will be logged out</li>
+                        </ul>
+                    </div>
+                    
+                    <div class='instructions'>
+                        <strong>Need help?</strong>
+                        <p>If you're having trouble clicking the button, copy the entire link above and paste it into your web browser's address bar.</p>
+                    </div>
+                    
+                    <div class='footer'>
+                        <p>This is an automated message from PETAWALL Security Tools.</p>
+                        <p>If you need assistance, contact our support team at <a href='mailto:support@petawall.com'>support@petawall.com</a></p>
+                        <p>© " . date('Y') . " PETAWALL. All rights reserved.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        ";
+    }
+
+    /**
+     * Log password reset request
+     */
+    private function logPasswordResetRequest($userId) {
+        try {
+            $stmt = $this->pdo->prepare("INSERT INTO user_activity (user_id, activity_type, ip_address, user_agent) 
+                VALUES (?, 'password_reset_request', ?, ?)
+            ");
+            $stmt->execute([
+                $userId, 
+                $_SERVER['REMOTE_ADDR'] ?? 'Unknown', 
+                $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
+            ]);
+        } catch (Exception $e) {
+            error_log("Log password reset request error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Log successful password reset
+     */
+    private function logPasswordResetSuccess($userId) {
+        try {
+            $stmt = $this->pdo->prepare("INSERT INTO user_activity (user_id, activity_type, ip_address, user_agent) 
+                VALUES (?, 'password_reset_success', ?, ?)
+            ");
+            $stmt->execute([
+                $userId, 
+                $_SERVER['REMOTE_ADDR'] ?? 'Unknown', 
+                $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
+            ]);
+        } catch (Exception $e) {
+            error_log("Log password reset success error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Invalidate all user sessions (for security after password reset)
+     */
+    private function invalidateUserSessions($userId) {
+        try {
+            $stmt = $this->pdo->prepare("DELETE FROM login_sessions WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            
+            // Also delete remember me tokens
+            $stmt = $this->pdo->prepare("DELETE FROM remember_tokens WHERE user_id = ?");
+            $stmt->execute([$userId]);
+        } catch (Exception $e) {
+            error_log("Invalidate user sessions error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Validate reset token (for the reset-password.php page)
+     */
+    public function validateResetToken($token) {
+        try {
+            // Find user with valid reset token
+            $stmt = $this->pdo->prepare(
+                "SELECT user_id, reset_token_expires FROM users 
+                WHERE reset_token IS NOT NULL AND reset_token_expires > NOW()"
+            );
+            $stmt->execute();
+            $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            foreach ($users as $user) {
+                if (password_verify($token, $user['reset_token'])) {
+                    return ['valid' => true, 'user_id' => $user['user_id']];
+                }
+            }
+            
+            return ['valid' => false, 'message' => 'Invalid or expired token'];
+            
+        } catch (Exception $e) {
+            error_log("Validate reset token error: " . $e->getMessage());
+            return ['valid' => false, 'message' => 'Error validating token'];
+        }
+    }
+
     function logResendActivity($userId) {
         try {
             $stmt = $this->pdo->prepare("INSERT INTO user_activity (user_id, activity_type, ip_address, user_agent) 
