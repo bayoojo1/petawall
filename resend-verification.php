@@ -121,10 +121,10 @@ require_once __DIR__ . '/includes/header.php';
             </form>
 
             <div class="actions">
-                <a href="login.php" class="btn btn-outline">
+                <button id="btn-resend" class="btn btn-outline">
                     <i class="fas fa-sign-in-alt"></i>
                     Back to Login
-                </a>
+                </button>
                 <a href="index.php" class="btn btn-outline">
                     <i class="fas fa-home"></i>
                     Go Home

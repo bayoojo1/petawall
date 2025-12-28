@@ -21,6 +21,7 @@ class AuthManager {
         document.getElementById('mobile-login-btn')?.addEventListener('click', () => this.showLogin());
         document.getElementById('btn-verify')?.addEventListener('click', () => this.showLogin());
         document.getElementById('btn-verify2')?.addEventListener('click', () => this.showLogin());
+        document.getElementById('btn-resend')?.addEventListener('click', () => this.showLogin());
         
         // Form submissions
         this.forms.login.addEventListener('submit', (e) => this.handleLogin(e));
