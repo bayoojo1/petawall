@@ -84,10 +84,10 @@ require_once __DIR__ . '/includes/header.php';
 
             <div class="actions">
                 <?php if ($messageType === 'success'): ?>
-                    <a href="login.php" class="btn btn-primary">
+                    <button class="btn btn-primary" id="btn-verify">
                         <i class="fas fa-sign-in-alt"></i>
                         Proceed to Login
-                    </a>
+                    </button>
                     <a href="index.php" class="btn btn-outline">
                         <i class="fas fa-home"></i>
                         Go Home
@@ -97,10 +97,10 @@ require_once __DIR__ . '/includes/header.php';
                         <i class="fas fa-home"></i>
                         Go Home
                     </a>
-                    <a href="login.php" class="btn btn-primary">
+                    <button class="btn btn-primary" id="btn-verify2">
                         <i class="fas fa-sign-in-alt"></i>
                         Login
-                    </a>
+                    </button>
                 <?php endif; ?>
             </div>
 

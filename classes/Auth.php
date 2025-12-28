@@ -354,16 +354,22 @@ class Auth {
                     <title>Verify Your PETAWALL Account</title>
                     <style>
                         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                        .button { background: #0060df; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; }
+                        .button { background: #0060df; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; }
                         .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; }
                     </style>
                 </head>
                 <body>
                     <h2>Welcome to PETAWALL!</h2>
                     <p>Please verify your email address by clicking the link below:</p>
-                    <p><a href='$verificationLink' class='button'>Verify Email Address</a></p>
+                    <p><a href='$verificationLink' class='button' style='color: white;'>Verify Email Address</a></p>
                     <p>Or copy and paste this link in your browser:<br><code>$verificationLink</code></p>
                     <p><strong>This link will expire in 24 hours.</strong></p>
+                    <br />
+                    <br />
+                    <p>Best Regards,</p>
+                    <p>Petawall Team</p>
+
+
                     <div class='footer'>
                         <p>If you didn't create an account with PETAWALL, please ignore this email.</p>
                     </div>
