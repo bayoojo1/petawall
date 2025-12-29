@@ -190,10 +190,10 @@ require_once __DIR__ . '/includes/header.php';
             <?php endif; ?>
 
             <div class="actions">
-                <a href="login.php" class="btn-reset btn-outline-reset">
+                <button id="btn-reset-pwd" class="btn-reset btn-outline-reset">
                     <i class="fas fa-sign-in-alt"></i>
                     Back to Login
-                </a>
+                </button>
                 <a href="index.php" class="btn-reset btn-outline-reset">
                     <i class="fas fa-home"></i>
                     Go Home
