@@ -267,7 +267,7 @@ try {
                     exit; // CRITICAL: Stop further execution
                     break;
 
-                case 'iot_finder':
+            case 'iot_finder':
                 // Get search parameters
                 $searchType = $_POST['search_type'] ?? 'shodan';
                 $query = $_POST['query'] ?? '';
@@ -494,13 +494,6 @@ try {
                         if (empty($organizationData) || empty($userResponses)) {
                             throw new Exception('Missing required assessment data');
                         }
-                        
-                        // error_log("Processing assessment submission:");
-                        // error_log("Assessment Type: " . $assessmentType);
-                        // error_log("Organization: " . $organizationData['name']);
-                        // error_log("Responses Count: " . count($userResponses));
-                        // error_log("Domains: " . implode(', ', $selectedDomains));
-                        // error_log("Frameworks: " . implode(', ', $selectedFrameworks));
                         
                         // Perform the assessment
                         $results = $analyzer->performAssessment(

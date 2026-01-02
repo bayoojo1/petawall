@@ -87,16 +87,14 @@ require_once __DIR__ . '/includes/header.php';
             
             <!-- Simplified Loading Section -->
             <div class="loading" id="iot-loading" style="display: none;">
-                <div class="spinner-container text-center">
-                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-                        <span class="sr-only">Scanning IoT device...</span>
-                    </div>
-                    <h4 class="mt-3">IoT Device Scan in Progress</h4>
-                    <div id="iot-current-task" class="current-task mt-2">Preparing to start IoT scan...</div>
+                <div class="spinner-container">
+                    <div class="spinner"></div>
+                    <h4>IoT Device Scan in Progress</h4>
+                    <!-- <div id="iot-current-task" class="current-task mt-2"></div> -->
                     <div class="scan-tips mt-3">
                         <small class="text-muted">
                             <i class="fas fa-lightbulb"></i> 
-                            Tip: IoT scans typically take 1-3 minutes depending on device responsiveness.
+                            Tip: Scanning may take more than 20 minutes depending on the target complexity.
                         </small>
                     </div>
                 </div>
@@ -130,6 +128,12 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="result-card">
                     <h3><i class="fas fa-broadcast-tower"></i> Protocol Analysis</h3>
                     <div id="protocol-analysis"></div>
+                </div>
+
+                <!-- Credential test results will be inserted here -->
+                <div class="result-card">
+                    <h3><i class="fas fa-credential"></i> Default Credential Test</h3>
+                    <div id="credential-tests-container"></div>
                 </div>
                 
                 <!-- AI Recommendations -->

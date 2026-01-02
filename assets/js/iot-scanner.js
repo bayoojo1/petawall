@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
         clearResults();
 
         // Update loading message
-        currentTask.textContent = 'Starting IoT device scan...';
+        //currentTask.textContent = 'Starting IoT device scan...';
 
         // Get scan options
         const scanOptions = {
@@ -88,6 +88,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Display network results
         displayNetworkResults(results.network_scan);
 
+        if (results.data && results.data.credential_tests) {
+            displayCredentialTests(results.data.credential_tests);
+        }
+
         // Display vulnerabilities
         displayVulnerabilities(results.vulnerabilities);
 
@@ -108,27 +112,64 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        let fingerprintsCount = 0;
+        let webAccessible = false;
+        
+        if (deviceInfo.fingerprints) {
+            // Count ports correctly
+            if (deviceInfo.fingerprints.ports && typeof deviceInfo.fingerprints.ports === 'object') {
+                fingerprintsCount += Object.keys(deviceInfo.fingerprints.ports).length;
+            }
+            
+            // Count services correctly  
+            if (deviceInfo.fingerprints.services && typeof deviceInfo.fingerprints.services === 'object') {
+                fingerprintsCount += Object.keys(deviceInfo.fingerprints.services).length;
+            }
+            
+            // Check HTTP accessibility correctly
+            if (deviceInfo.fingerprints.http_headers) {
+                fingerprintsCount += 1; // Count HTTP headers as a fingerprint
+                webAccessible = deviceInfo.fingerprints.http_headers.http_accessible === true;
+            }
+        }
+
         container.innerHTML = `
             <div class="device-details">
                 <div class="detail-item">
-                    <strong>Detected Type:</strong> ${deviceInfo.detected_type || 'Unknown'}
+                    <strong>Detected Type:</strong> <span class="text-primary">${deviceInfo.detected_type || 'Unknown'}</span>
                 </div>
                 <div class="detail-item">
-                    <strong>Confidence Level:</strong> ${deviceInfo.confidence || 0}%
+                    <strong>Confidence Level:</strong> 
+                    <span class="confidence-badge confidence-${Math.floor(deviceInfo.confidence / 25)}">
+                        ${deviceInfo.confidence || 0}%
+                    </span>
                 </div>
                 <div class="detail-item">
-                    <strong>Fingerprints Found:</strong> ${Object.keys(deviceInfo.fingerprints || {}).length}
+                    <strong>Fingerprints Found:</strong> ${fingerprintsCount}
                 </div>
-                ${deviceInfo.fingerprints?.http_headers?.http_accessible ? 
-                    '<div class="detail-item"><strong>Web Interface:</strong> Accessible</div>' : ''}
+                <div class="detail-item">
+                    <strong>Web Interface:</strong> 
+                    <span class="${webAccessible ? 'status-accessible' : 'status-not-accessible'}">
+                        ${webAccessible ? 'Accessible' : 'Not accessible'}
+                    </span>
+                </div>
             </div>
         `;
     }
 
     function displayNetworkResults(networkScan) {
         const container = document.getElementById('network-results');
-        if (!networkScan || !networkScan.open_ports || networkScan.open_ports.length === 0) {
-            container.innerHTML = '<div class="no-data">No open ports found or port scanning disabled</div>';
+        
+        // Check if port scanning was enabled
+        const portScanning = document.getElementById('opt-ports').checked;
+        if (!portScanning) {
+            container.innerHTML = '<div class="no-data">Port scanning disabled</div>';
+            return;
+        }
+        
+        // Check if we have valid network scan data
+        if (!networkScan || !Array.isArray(networkScan.open_ports) || networkScan.open_ports.length === 0) {
+            container.innerHTML = '<div class="no-data">No open ports detected</div>';
             return;
         }
 
@@ -140,24 +181,49 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
 
         networkScan.open_ports.forEach(port => {
+            const riskLevel = port.risk_level ? port.risk_level.toLowerCase() : 'medium';
+            const riskClass = `risk-${riskLevel}`;
+            
             html += `
-                <div class="port-item ${port.risk_level}">
-                    <span class="port-number">${port.port}</span>
-                    <span class="port-service">${port.service}</span>
-                    <span class="port-protocol">${port.protocol}</span>
-                    <span class="port-risk risk-${port.risk_level}">${port.risk_level}</span>
+                <div class="port-item ${riskClass}">
+                    <div class="port-number">${port.port}</div>
+                    <div class="port-service">${port.service || 'Unknown'}</div>
+                    <div class="port-protocol">${port.protocol || 'TCP'}</div>
+                    <span class="port-risk ${riskClass}">${riskLevel}</span>
                 </div>
             `;
         });
 
         html += '</div>';
+        
+        // Add banner info for first port with banner
+        const firstPortWithBanner = networkScan.open_ports.find(p => p.banner && p.banner.trim());
+        if (firstPortWithBanner && firstPortWithBanner.banner) {
+            const bannerText = firstPortWithBanner.banner.length > 200 
+                ? firstPortWithBanner.banner.substring(0, 200) + '...' 
+                : firstPortWithBanner.banner;
+            
+            html += `
+                <div class="port-banner mt-3">
+                    <strong>Service Banner (Port ${firstPortWithBanner.port}):</strong>
+                    <pre class="mt-2">${escapeHtml(bannerText)}</pre>
+                </div>
+            `;
+        }
+        
         container.innerHTML = html;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     function displayVulnerabilities(vulnerabilities) {
         vulnerabilitiesElement.innerHTML = '';
 
-        if (!vulnerabilities || vulnerabilities.length === 0) {
+        if (!vulnerabilities || !Array.isArray(vulnerabilities) || vulnerabilities.length === 0) {
             vulnerabilitiesElement.innerHTML = '<div class="no-vulns">No vulnerabilities found - device appears secure</div>';
             return;
         }
@@ -167,22 +233,24 @@ document.addEventListener('DOMContentLoaded', function() {
         vulnerabilities.sort((a, b) => {
             const severityA = a.severity ? a.severity.toLowerCase() : 'medium';
             const severityB = b.severity ? b.severity.toLowerCase() : 'medium';
-            return severityOrder[severityB] - severityOrder[severityA];
+            return (severityOrder[severityB] || 2) - (severityOrder[severityA] || 2);
         });
 
         vulnerabilities.forEach(vuln => {
+            const severityClass = vuln.severity ? vuln.severity.toLowerCase() : 'medium';
             const vulnElement = document.createElement('div');
-            vulnElement.className = `vulnerability-item severity-${vuln.severity?.toLowerCase() || 'medium'}`;
+            vulnElement.className = `vulnerability-item severity-${severityClass}`;
             
             vulnElement.innerHTML = `
                 <div class="vuln-header">
-                    <span class="severity-badge ${vuln.severity?.toLowerCase() || 'medium'}">${vuln.severity || 'Medium'}</span>
-                    <strong>${vuln.type || 'Unknown Vulnerability'}</strong>
+                    <span class="severity-badge ${severityClass}">${vuln.severity || 'Medium'}</span>
+                    <strong>${vuln.type || 'Security Vulnerability'}</strong>
                 </div>
-                <div class="vuln-description">${vuln.description || 'No description'}</div>
-                ${vuln.service ? `<div class="vuln-service"><strong>Service:</strong> ${vuln.service}</div>` : ''}
-                ${vuln.impact ? `<div class="vuln-impact"><strong>Impact:</strong> ${vuln.impact}</div>` : ''}
-                ${vuln.remediation ? `<div class="vuln-remediation"><strong>Remediation:</strong> ${vuln.remediation}</div>` : ''}
+                ${vuln.description ? `<div class="vuln-description">${escapeHtml(vuln.description)}</div>` : ''}
+                ${vuln.service ? `<div class="vuln-service"><strong>Service:</strong> ${escapeHtml(vuln.service)}</div>` : ''}
+                ${vuln.impact ? `<div class="vuln-impact"><strong>Impact:</strong> ${escapeHtml(vuln.impact)}</div>` : ''}
+                ${vuln.remediation ? `<div class="vuln-remediation"><strong>Remediation:</strong> ${escapeHtml(vuln.remediation)}</div>` : ''}
+                ${vuln.evidence ? `<div class="vuln-evidence"><strong>Evidence:</strong> <code>${escapeHtml(vuln.evidence)}</code></div>` : ''}
             `;
             vulnerabilitiesElement.appendChild(vulnElement);
         });
@@ -190,68 +258,248 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function displayProtocolAnalysis(protocols) {
         const container = document.getElementById('protocol-analysis');
+        
+        // Check if protocol analysis was enabled
+        const protocolEnabled = document.getElementById('opt-protocols').checked;
+        if (!protocolEnabled) {
+            container.innerHTML = '<div class="no-data">Protocol analysis disabled</div>';
+            return;
+        }
+        
+        // Check if protocols exist
         if (!protocols || Object.keys(protocols).length === 0) {
-            container.innerHTML = '<div class="no-data">No IoT protocols detected or protocol analysis disabled</div>';
+            container.innerHTML = '<div class="no-data">No IoT protocols detected</div>';
             return;
         }
 
         let html = '';
-        Object.entries(protocols).forEach(([protocol, info]) => {
-            html += `
-                <div class="protocol-item">
-                    <h4>${info.protocol} Protocol</h4>
-                    <div class="protocol-purpose"><strong>Purpose:</strong> ${info.purpose}</div>
-                    <div class="protocol-concerns">
-                        <strong>Security Concerns:</strong>
-                        <ul>
-                            ${info.security_concerns.map(concern => `<li>${concern}</li>`).join('')}
-                        </ul>
-                    </div>
-                    <div class="protocol-recommendations">
-                        <strong>Recommendations:</strong>
-                        <ul>
-                            ${info.recommendations.map(rec => `<li>${rec}</li>`).join('')}
-                        </ul>
-                    </div>
-                </div>
-            `;
-        });
+        
+        // It could be an array or object
+        if (Array.isArray(protocols)) {
+            if (protocols.length === 0) {
+                container.innerHTML = '<div class="no-data">No IoT protocols detected</div>';
+                return;
+            }
+            
+            protocols.forEach(protocol => {
+                html += createProtocolCard(protocol);
+            });
+        } else {
+            // It's an object with protocol names as keys
+            Object.entries(protocols).forEach(([protocolName, protocolData]) => {
+                html += createProtocolCard(protocolData);
+            });
+        }
 
         container.innerHTML = html;
     }
 
+    function createProtocolCard(protocol) {
+        const riskLevel = protocol.risk_level || 'medium';
+        return `
+            <div class="protocol-card">
+                <div class="protocol-header">
+                    <i class="fas fa-satellite-dish"></i>
+                    <h4>${protocol.protocol || 'Unknown Protocol'}</h4>
+                    <span class="protocol-risk ${riskLevel}">${riskLevel} Risk</span>
+                </div>
+                <div class="protocol-body">
+                    <div class="protocol-purpose">
+                        <strong>Purpose:</strong> ${protocol.purpose || 'Not specified'}
+                    </div>
+                    ${protocol.security_concerns && protocol.security_concerns.length > 0 ? `
+                        <div class="protocol-concerns">
+                            <strong>Security Concerns:</strong>
+                            <ul>
+                                ${protocol.security_concerns.map(concern => `<li>${concern}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                    ${protocol.recommendations && protocol.recommendations.length > 0 ? `
+                        <div class="protocol-recommendations">
+                            <strong>Recommendations:</strong>
+                            <ul>
+                                ${protocol.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+
     function displayAIRecommendations(aiAnalysis) {
         const container = document.getElementById('iot-recommendations');
-        if (!aiAnalysis || (!aiAnalysis.ai_insights && !aiAnalysis.ai_recommendations)) {
+        if (!aiAnalysis) {
             container.innerHTML = '<div class="no-data">No AI analysis available or AI analysis disabled</div>';
             return;
         }
 
         let html = '';
         
-        if (aiAnalysis.ai_insights && aiAnalysis.ai_insights.length > 0) {
+        // Check if we have formatted HTML from Ollama
+        if (aiAnalysis.formatted) {
             html += `
-                <div class="ai-insights">
-                    <h4>Security Insights</h4>
-                    <ul>
-                        ${aiAnalysis.ai_insights.map(insight => `<li>${insight}</li>`).join('')}
-                    </ul>
+                <div class="ai-analysis-content">
+                    ${aiAnalysis.formatted}
+                </div>
+            `;
+        } else if (aiAnalysis.raw_response) {
+            // Fallback to raw response with basic formatting
+            html += `
+                <div class="ai-analysis-content">
+                    <div class="raw-ai-response">
+                        ${aiAnalysis.raw_response.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
+                    </div>
+                </div>
+            `;
+        } else {
+            html += '<div class="no-data">No AI analysis available</div>';
+        }
+
+        container.innerHTML = html;
+    }
+
+    function displayCredentialTests(credentialTests) {
+        const container = document.getElementById('credential-tests-container');
+        if (!container) {
+            // Create the container if it doesn't exist
+            const vulnContainer = document.getElementById('iot-vulnerabilities');
+            if (vulnContainer) {
+                const newContainer = document.createElement('div');
+                newContainer.id = 'credential-tests-container';
+                newContainer.className = 'result-card';
+                vulnContainer.parentNode.insertBefore(newContainer, vulnContainer.nextSibling);
+            } else {
+                console.error('Credential tests container not found');
+                return;
+            }
+        }
+        
+        if (!credentialTests || Object.keys(credentialTests).length === 0) {
+            container.innerHTML = `
+                <div class="credential-test-summary">
+                    <h3><i class="fas fa-key"></i> Default Credential Testing</h3>
+                    <div class="no-data">Credential testing was not performed or no results available</div>
+                </div>
+            `;
+            return;
+        }
+        
+        const summary = credentialTests.test_summary || {};
+        const details = credentialTests.test_details || [];
+        
+        let html = `
+            <div class="credential-test-summary">
+                <h3><i class="fas fa-key"></i> Default Credential Testing</h3>
+                <div class="test-stats">
+                    <div class="stat-item">
+                        <div class="stat-value ${summary.found_credentials > 0 ? 'text-danger' : 'text-success'}">${summary.found_credentials || 0}</div>
+                        <div class="stat-label">Credentials Found</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${summary.total_tests || 0}</div>
+                        <div class="stat-label">Tests Performed</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value ${summary.successful_tests > 0 ? 'text-success' : ''}">${summary.successful_tests || 0}</div>
+                        <div class="stat-label">Successful Tests</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${summary.failed_tests || 0}</div>
+                        <div class="stat-label">Failed Tests</div>
+                    </div>
+                </div>
+        `;
+        
+        // Show summary message
+        if (summary.found_credentials > 0) {
+            html += `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Critical Finding:</strong> ${summary.found_credentials} default credential(s) found!
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i>
+                    <strong>Good News:</strong> No default credentials found in tested combinations.
                 </div>
             `;
         }
         
-        if (aiAnalysis.ai_recommendations && aiAnalysis.ai_recommendations.length > 0) {
+        // Show detailed test results (collapsible)
+        if (details.length > 0) {
             html += `
-                <div class="ai-recommendations">
-                    <h4>Recommendations</h4>
-                    <ul>
-                        ${aiAnalysis.ai_recommendations.map(rec => `<li>${rec}</li>`).join('')}
-                    </ul>
+                <div class="test-details">
+                    <button class="btn btn-sm btn-outline-secondary toggle-details" onclick="toggleTestDetails(this)">
+                        <i class="fas fa-chevron-down"></i> Show Detailed Test Results (${details.length} tests)
+                    </button>
+                    <div class="details-table" style="display: none;">
+                        <table class="table table-sm table-hover mt-3">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Password</th>
+                                    <th>Path</th>
+                                    <th>Port</th>
+                                    <th>Status</th>
+                                    <th>Evidence</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+            
+            // Sort by success status (failures first)
+            details.sort((a, b) => (b.success ? 0 : 1) - (a.success ? 0 : 1));
+            
+            details.forEach(test => {
+                const statusClass = test.success ? 'success' : 'failure';
+                const statusText = test.success ? 'SUCCESS' : 'FAILED';
+                const statusIcon = test.success ? 'fa-check text-success' : 'fa-times text-danger';
+                
+                html += `
+                    <tr class="test-row ${statusClass}">
+                        <td><code>${escapeHtml(test.username || '')}</code></td>
+                        <td><code>${test.password ? '••••••' : '(empty)'}</code></td>
+                        <td><code>${escapeHtml(test.path || '/')}</code></td>
+                        <td><span class="badge bg-secondary">${test.port || '80'}</span></td>
+                        <td>
+                            <span class="status-badge ${statusClass}">
+                                <i class="fas ${statusIcon}"></i> ${statusText}
+                            </span>
+                        </td>
+                        <td><small>${escapeHtml(test.evidence || '')}</small></td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             `;
         }
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
 
-        container.innerHTML = html || '<div class="no-data">No AI recommendations available</div>';
+    function toggleTestDetails(button) {
+        const detailsDiv = button.nextElementSibling;
+        const icon = button.querySelector('i');
+        
+        if (detailsDiv.style.display === 'none') {
+            detailsDiv.style.display = 'block';
+            icon.className = 'fas fa-chevron-up';
+            button.innerHTML = '<i class="fas fa-chevron-up"></i> Hide Detailed Test Results';
+        } else {
+            detailsDiv.style.display = 'none';
+            icon.className = 'fas fa-chevron-down';
+            button.innerHTML = '<i class="fas fa-chevron-down"></i> Show Detailed Test Results';
+        }
     }
 
     function displayRiskAssessment(summary) {
@@ -285,6 +533,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('protocol-analysis').innerHTML = '';
         recommendationsElement.innerHTML = '';
         document.getElementById('risk-assessment').innerHTML = '';
+        scanSummary.textContent = '0 vulnerabilities found';
     }
 
     function displayIoTError(message) {
