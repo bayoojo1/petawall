@@ -518,41 +518,6 @@ class OllamaSearch {
         
         return ['code' => $httpCode, 'body' => $response];
     }
-    
-    /**
-     * Parse chat response from Ollama
-     */
-    // private function parseChatResponse($response) {
-    //     if ($response['code'] !== 200) {
-    //         throw new Exception('Ollama request failed with code: ' . $response['code']);
-    //     }
-        
-    //     $data = json_decode($response['body'], true);
-
-    //     // Check for Ollama error message
-    //     if (isset($data['error'])) {
-    //         throw new Exception('Ollama Error: ' . $data['error']);
-    //     }
-        
-    //     if (!isset($data['message']['content'])) {
-    //         throw new Exception('Invalid response format from Ollama');
-    //     }
-        
-    //     $content = $data['message']['content'];
-        
-    //     // Try to extract JSON from response
-    //     $jsonData = $this->extractJson($content);
-    //     if ($jsonData !== null) {
-    //         return $jsonData;
-    //     }
-        
-    //     // If no JSON found, return the raw content with some structure
-    //     return [
-    //         'raw_response' => $content,
-    //         // 'analysis' => $content,
-    //         'recommendations' => $this->extractRecommendations($content)
-    //     ];
-    // }
 
     private function parseChatResponse($response) {
         if ($response['code'] !== 200) {
