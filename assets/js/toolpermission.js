@@ -1,4 +1,3 @@
-
 function handlePermissionUpdate(event) {
     event.preventDefault();
     
