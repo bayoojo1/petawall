@@ -1,9 +1,8 @@
 <?php
 require_once __DIR__ . '/classes/Auth.php';
 require_once __DIR__ . '/classes/StripeManager.php';
-require_once __DIR__ . '/config/config.php';
 
-// Start session (Auth class does this, but ensure it's started)
+// Start session before anything else
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -11,11 +10,10 @@ if (session_status() === PHP_SESSION_NONE) {
 // Check if user is logged in
 $auth = new Auth();
 if (!$auth->isLoggedIn()) {
-    header('Location: login.php?redirect=' . urlencode($_SERVER['REQUEST_URI']));
+    header('Location: index.php?redirect=' . urlencode($_SERVER['REQUEST_URI']));
     exit();
 }
 
-// Get user ID from session (your Auth class stores it in $_SESSION['user_id'])
 $userId = $_SESSION['user_id'] ?? null;
 $plan = $_GET['plan'] ?? null;
 $price = $_GET['price'] ?? null;
@@ -26,7 +24,7 @@ if (!$userId || !$plan || !in_array($plan, ['basic', 'premium'])) {
     exit();
 }
 
-// Validate price against your plan pricing
+// Validate price
 $validPrices = [
     'basic' => 29.99,
     'premium' => 49.99
@@ -46,6 +44,28 @@ if ($currentRole === $plan) {
     exit();
 }
 
+// Generate a secure token for this checkout session
+$checkoutToken = bin2hex(random_bytes(32));
+
+// Store checkout session data in database with the token
+try {
+    $db = Database::getInstance()->getConnection();
+    $stmt = $db->prepare("
+        INSERT INTO stripe_checkout_sessions 
+        (checkout_token, user_id, plan, status, created_at) 
+        VALUES (?, ?, ?, 'pending', NOW())
+    ");
+    $stmt->execute([$checkoutToken, $userId, $plan]);
+    
+    // Store token in session for validation later
+    $_SESSION['stripe_checkout_token'] = $checkoutToken;
+    
+} catch (Exception $e) {
+    error_log("Failed to store checkout session: " . $e->getMessage());
+    header('Location: plan.php?error=checkout_failed');
+    exit();
+}
+
 // Create Stripe checkout session
 $stripeManager = new StripeManager();
 
@@ -54,10 +74,14 @@ try {
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
     $domain = $protocol . '://' . $_SERVER['HTTP_HOST'];
     
-    $successUrl = $domain . '/success.php';
+    // Secure: Only pass the token in URL
+    $successUrl = $domain . '/success.php?token=' . urlencode($checkoutToken);
     $cancelUrl = $domain . '/plan.php?canceled=true';
     
-    $checkoutUrl = $stripeManager->createCheckoutSession($plan, $userId, $successUrl, $cancelUrl);
+    $checkoutUrl = $stripeManager->createCheckoutSession($plan, $userId, $successUrl, $cancelUrl, $checkoutToken);
+    
+    // Force session write before redirect
+    session_write_close();
     
     // Redirect to Stripe Checkout
     header('Location: ' . $checkoutUrl);

@@ -36,7 +36,7 @@ if (empty($sigHeader)) {
 }
 
 // Check if webhook secret is configured
-if (empty(STRIPE_SECRET['webhook_secret']) || STRIPE_SECRET['webhook_secret'] === 'whsec_mXAchJhw9h93XmgBfbuKy1fZgRIVmXY6') {
+if (!defined('STRIPE_WEBHOOK_SECRET') || STRIPE_WEBHOOK_SECRET === 'whsec_mXAchJhw9h93XmgBfbuKy1fZgRIVmXY6') {
     error_log("Webhook secret not configured properly");
     http_response_code(500);
     echo json_encode(['error' => 'Webhook secret not configured']);
@@ -44,7 +44,7 @@ if (empty(STRIPE_SECRET['webhook_secret']) || STRIPE_SECRET['webhook_secret'] ==
 }
 
 // Initialize Stripe with the API key
-\Stripe\Stripe::setApiKey(STRIPE_SECRET['secret_key']);
+\Stripe\Stripe::setApiKey(STRIPE_SECRET_KEY);
 
 // Handle the webhook
 $stripeManager = new StripeManager();

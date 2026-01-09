@@ -5,37 +5,12 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 class StripeManager {
     private $db;
-    private $priceToRole;
-    private $planToPrice;
     
     public function __construct() {
-         $this->db = Database::getInstance()->getConnection();
+        $this->db = Database::getInstance()->getConnection();
         
-        // Load configuration
-        $this->loadConfig();
-        
-        // Initialize Stripe
+        // Initialize Stripe with secret key from config
         \Stripe\Stripe::setApiKey(STRIPE_SECRET_KEY);
-    }
-    
-    private function loadConfig() {
-        // These should be defined in config.php
-        if (!defined('STRIPE_SECRET_KEY')) {
-            throw new Exception('Stripe configuration not found. Please check config.php');
-        }
-        
-        // Initialize arrays from config.php or use defaults
-        global $stripePriceToRole, $stripePlanToPrice;
-        
-        $this->priceToRole = $stripePriceToRole ?? [
-            'price_1Slv7hReUJdbdkCUWse4Cddp' => 2, // basic
-            'price_1Slv9KReUJdbdkCUba1o3mIj' => 3  // premium
-        ];
-        
-        $this->planToPrice = $stripePlanToPrice ?? [
-            'basic' => 'price_1Slv7hReUJdbdkCUWse4Cddp',
-            'premium' => 'price_1Slv9KReUJdbdkCUba1o3mIj'
-        ];
     }
     
     /**
@@ -68,59 +43,20 @@ class StripeManager {
      * Get role ID from Stripe price ID
      */
     public function getRoleIdFromPriceId($priceId) {
-        return $this->priceToRole[$priceId] ?? null;
+        return STRIPE_PRICE_TO_ROLE['price_to_role'][$priceId] ?? null;
     }
     
     /**
      * Get Stripe price ID from plan name
      */
     public function getPriceIdFromPlan($planName) {
-        return $this->planToPrice[$planName] ?? null;
+        return STRIPE_PRICE_ID['price_ids'][$planName] ?? null;
     }
-
-    // public function createCheckoutSession($planName, $userId, $successUrl, $cancelUrl) {
-    //     try {
-    //         $priceId = $this->getPriceIdFromPlan($planName);
-            
-    //         if (!$priceId) {
-    //             throw new Exception("Invalid plan name: " . $planName);
-    //         }
-            
-    //         error_log("StripeManager - Creating checkout for user $userId, plan $planName, price $priceId");
-            
-    //         $checkout_session = \Stripe\Checkout\Session::create([
-    //             'line_items' => [[
-    //                 'price' => $priceId,
-    //                 'quantity' => 1,
-    //             ]],
-    //             'mode' => 'subscription',
-    //             'success_url' => $successUrl,
-    //             'cancel_url' => $cancelUrl,
-    //             'customer_email' => $this->getUserEmail($userId),
-    //             'client_reference_id' => $userId,
-    //             'metadata' => [
-    //                 'user_id' => $userId,
-    //                 'plan' => $planName,
-    //                 'role_id' => $this->getRoleIdFromPriceId($priceId)
-    //             ],
-    //             'subscription_data' => [
-    //                 'metadata' => [
-    //                     'user_id' => $userId,
-    //                     'plan' => $planName
-    //                 ]
-    //             ]
-    //         ]);
-            
-    //         error_log("StripeManager - Checkout session created: " . $checkout_session->id);
-    //         return $checkout_session->url;
-            
-    //     } catch (\Stripe\Exception\ApiErrorException $e) {
-    //         error_log("Stripe API error: " . $e->getMessage());
-    //         throw new Exception("Error creating checkout session: " . $e->getMessage());
-    //     }
-    // }
-
-    public function createCheckoutSession($planName, $userId, $successUrl, $cancelUrl, $checkoutToken) {
+    
+    /**
+     * Create a Stripe Checkout Session
+     */
+    public function createCheckoutSession($planName, $userId, $successUrl, $cancelUrl) {
         try {
             $priceId = $this->getPriceIdFromPlan($planName);
             
@@ -134,27 +70,22 @@ class StripeManager {
                     'quantity' => 1,
                 ]],
                 'mode' => 'subscription',
-                'success_url' => $successUrl,
+                'success_url' => $successUrl . '?session_id={CHECKOUT_SESSION_ID}&user_id=' . $userId . '&plan=' . $planName,
                 'cancel_url' => $cancelUrl,
                 'customer_email' => $this->getUserEmail($userId),
-                'client_reference_id' => $checkoutToken, // Use token as reference
+                'client_reference_id' => $userId,
                 'metadata' => [
-                    'checkout_token' => $checkoutToken, // Store token in metadata
                     'user_id' => $userId,
                     'plan' => $planName,
                     'role_id' => $this->getRoleIdFromPriceId($priceId)
                 ],
                 'subscription_data' => [
                     'metadata' => [
-                        'checkout_token' => $checkoutToken,
                         'user_id' => $userId,
                         'plan' => $planName
                     ]
                 ]
             ]);
-            
-            // Store Stripe session ID in database
-            $this->updateCheckoutSessionWithStripeId($checkoutToken, $checkout_session->id);
             
             return $checkout_session->url;
             
@@ -163,25 +94,14 @@ class StripeManager {
             throw new Exception("Error creating checkout session: " . $e->getMessage());
         }
     }
-
-    private function updateCheckoutSessionWithStripeId($checkoutToken, $stripeSessionId) {
-        try {
-            $stmt = $this->db->prepare("
-                UPDATE stripe_checkout_sessions 
-                SET stripe_session_id = ? 
-                WHERE checkout_token = ?
-            ");
-            $stmt->execute([$stripeSessionId, $checkoutToken]);
-        } catch (PDOException $e) {
-            error_log("Failed to update checkout session: " . $e->getMessage());
-        }
-    }
     
     /**
      * Handle Stripe webhook events
      */
     public function handleWebhook($payload, $sigHeader) {
-        if (!defined('STRIPE_WEBHOOK_SECRET') || STRIPE_WEBHOOK_SECRET === 'whsec_mXAchJhw9h93XmgBfbuKy1fZgRIVmXY6') {
+        $endpoint_secret = STRIPE_SECRET['webhook_secret'];
+        
+        if (empty($endpoint_secret)) {
             error_log("Webhook secret not configured");
             http_response_code(500);
             echo 'Webhook secret not configured';
@@ -190,7 +110,7 @@ class StripeManager {
         
         try {
             $event = \Stripe\Webhook::constructEvent(
-                $payload, $sigHeader, STRIPE_WEBHOOK_SECRET
+                $payload, $sigHeader, $endpoint_secret
             );
         } catch(\UnexpectedValueException $e) {
             // Invalid payload
@@ -211,22 +131,6 @@ class StripeManager {
         switch ($event->type) {
             case 'checkout.session.completed':
                 $session = $event->data->object;
-                
-                // Get checkout token from metadata
-                $checkoutToken = $session->metadata->checkout_token ?? null;
-                
-                if ($checkoutToken) {
-                    // Update the checkout session in database
-                    $db = Database::getInstance()->getConnection();
-                    $stmt = $db->prepare("
-                        UPDATE stripe_checkout_sessions 
-                        SET status = 'completed', completed_at = NOW() 
-                        WHERE checkout_token = ? AND status = 'pending'
-                    ");
-                    $stmt->execute([$checkoutToken]);
-                }
-                
-                // Continue with existing role update logic...
                 $this->handleCheckoutSessionCompleted($session);
                 break;
                 
@@ -245,7 +149,7 @@ class StripeManager {
                 $invoice = $event->data->object;
                 $this->handleInvoicePaid($invoice);
                 break;
-
+                
             case 'invoice.payment_failed':
                 $invoice = $event->data->object;
                 $this->handlePaymentFailed($invoice);
@@ -349,7 +253,10 @@ class StripeManager {
             }
         }
     }
-
+    
+    /**
+     * Handle failed payment
+     */
     private function handlePaymentFailed($invoice) {
         error_log("Payment failed for invoice: " . $invoice->id);
         
@@ -362,8 +269,6 @@ class StripeManager {
                 if ($userId) {
                     // You might want to downgrade after multiple failed payments
                     // or send a notification to the user
-                    $success = $this->updateUserRole($userId, 1); // Assuming 1 is free plan
-            error_log("Payment failed: Downgraded user $userId to free plan: " . ($success ? 'success' : 'failed'));
                     error_log("Payment failed for user: " . $userId);
                 }
             } catch (\Exception $e) {
@@ -389,8 +294,27 @@ class StripeManager {
     }
     
     /**
-     * Check if user has an active subscription
+     * Get Stripe subscription details
      */
+    public function getSubscriptionDetails($sessionId) {
+        try {
+            $session = \Stripe\Checkout\Session::retrieve($sessionId, [
+                'expand' => ['subscription', 'subscription.items.data.price']
+            ]);
+            
+            return [
+                'status' => $session->payment_status,
+                'subscription_id' => $session->subscription->id ?? null,
+                'plan' => $session->metadata->plan ?? null,
+                'amount' => $session->amount_total ? $session->amount_total / 100 : null,
+                'currency' => $session->currency ?? STRIPE_SECRET['currency']
+            ];
+        } catch (\Exception $e) {
+            error_log("Error getting subscription details: " . $e->getMessage());
+            return null;
+        }
+    }
+
     public function hasActiveSubscription($userId) {
         try {
             // Query the user_role table to check if user has paid role
@@ -410,7 +334,7 @@ class StripeManager {
             return false;
         }
     }
-    
+
     /**
      * Get current subscription plan for user
      */
