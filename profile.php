@@ -18,6 +18,10 @@ $isAdmin = $auth->hasRole('admin');
 $isModerator = $auth->hasRole('moderator');
 $isStaff = $isAdmin || $isModerator;
 
+// Get user created date
+$user = $auth->getUserByUsername($username);
+$userCreatedDate = $user['created_at'];
+
 // Default active tab
 $activeTab = $_GET['tab'] ?? 'overview';
 ?>

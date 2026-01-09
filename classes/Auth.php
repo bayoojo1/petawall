@@ -453,11 +453,25 @@ class Auth {
 
     public function getUserByEmail($email) {
         try {
-            $stmt = $pdo->prepare("SELECT user_id, username, email, is_verified, created_at 
+            $stmt = $this->pdo->prepare("SELECT user_id, username, email, is_verified, created_at 
                 FROM users 
                 WHERE email = ? AND is_active = 1
             ");
             $stmt->execute([$email]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $user;
+        } catch (Exception $e) {
+            error_log("Log get user by email error: " . $e->getMessage());
+        }
+    }
+
+    public function getUserByUsername($username) {
+        try {
+            $stmt = $this->pdo->prepare("SELECT user_id, email, is_verified, created_at 
+                FROM users 
+                WHERE username = ? AND is_active = 1
+            ");
+            $stmt->execute([$username]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
             return $user;
         } catch (Exception $e) {

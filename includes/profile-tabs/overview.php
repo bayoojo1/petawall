@@ -43,7 +43,7 @@
             </div>
             <div>
                 <strong>Member Since:</strong><br>
-                <span style="color: #94a3b8;"><?php echo date('M j, Y'); ?></span>
+                <span style="color: #94a3b8;"><?php echo date('M j, Y', strtotime($userCreatedDate)); ?></span>
             </div>
             <div>
                 <strong>User ID:</strong><br>
