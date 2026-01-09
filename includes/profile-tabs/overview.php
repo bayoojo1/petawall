@@ -57,7 +57,7 @@
         <div class="form-actions">
             <a href="?tab=tools" class="btn btn-primary">View My Tools</a>
             <a href="?tab=subscription" class="btn btn-outline">Upgrade Plan</a>
-            <a href="?tab=settings" class="btn btn-outline">Account Settings</a>
+            <!-- <a href="?tab=overview" class="btn btn-outline">Account Settings</a> -->
         </div>
     </div>
 </div>
