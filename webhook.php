@@ -36,7 +36,7 @@ if (empty($sigHeader)) {
 }
 
 // Check if webhook secret is configured
-if (!defined('STRIPE_WEBHOOK_SECRET') || STRIPE_WEBHOOK_SECRET === 'whsec_mXAchJhw9h93XmgBfbuKy1fZgRIVmXY6') {
+if (!defined('STRIPE_WEBHOOK_SECRET') || STRIPE_WEBHOOK_SECRET === '') {
     error_log("Webhook secret not configured properly");
     http_response_code(500);
     echo json_encode(['error' => 'Webhook secret not configured']);
