@@ -4,7 +4,7 @@ require_once __DIR__ . '/classes/Auth.php';
 
 $auth = new Auth();
 $accessControl = new AccessControl();
-$toolName = 'iot-scanner';
+$toolName = 'grc-analyzer';
 
 // If user is not logged In, do this...
 // Check if user is logged in
