@@ -41,3 +41,42 @@ document.addEventListener('DOMContentLoaded', function() {
         form.onsubmit = handlePermissionUpdate;
     });
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.toggle-btn').forEach(button => {
+        button.addEventListener('click', async () => {
+            const toolName = button.dataset.tool;
+
+            button.disabled = true;
+
+            try {
+                const response = await fetch('ajax/toggle_tool_visibility.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `tool_name=${encodeURIComponent(toolName)}`
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Toggle UI state
+                    const isEnabled = button.classList.contains('enabled');
+
+                    button.classList.toggle('enabled', !isEnabled);
+                    button.classList.toggle('disabled', isEnabled);
+                    button.textContent = isEnabled ? 'Disabled' : 'Enabled';
+                } else {
+                    alert('Failed to update tool visibility');
+                }
+
+            } catch (error) {
+                alert('Error updating tool');
+            } finally {
+                button.disabled = false;
+            }
+        });
+    });
+});
+

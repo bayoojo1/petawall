@@ -9,10 +9,10 @@
             <div class="stat-number"><?php echo count($allowedTools); ?></div>
             <div class="stat-label">Available Tools</div>
         </div>
-        <div class="stat-card">
-            <div class="stat-number"><?php echo count($userRoles); ?></div>
+        <!-- <div class="stat-card">
+            <div class="stat-number"><?php //echo count($userRoles); ?></div>
             <div class="stat-label">User Roles</div>
-        </div>
+        </div> -->
         <div class="stat-card">
             <div class="stat-number">
                 <?php 
@@ -57,7 +57,6 @@
         <div class="form-actions">
             <a href="?tab=tools" class="btn btn-primary">View My Tools</a>
             <a href="?tab=subscription" class="btn btn-outline">Upgrade Plan</a>
-            <!-- <a href="?tab=overview" class="btn btn-outline">Account Settings</a> -->
         </div>
     </div>
 </div>

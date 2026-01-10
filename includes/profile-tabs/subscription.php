@@ -80,7 +80,7 @@ foreach ($displayPlans as $plan) {
             <button class="btn btn-primary" onclick="upgradePlan()">Upgrade Plan</button>
         </div>
         <?php else: ?>
-        <div class="stat-card" style="display: inline-block; background: #0060df; color: white;">
+        <div class="stat-card" style="display: inline-block; color: white;">
             <div class="stat-number">Premium</div>
             <div class="stat-label">Maximum Features Unlocked</div>
         </div>

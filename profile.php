@@ -89,20 +89,18 @@ $activeTab = $_GET['tab'] ?? 'overview';
                     <a href="?tab=user-management" class="nav-link-profile">
                         <i class="fas fa-users"></i>
                         <span>User Management</span>
-                        <?php if ($isAdmin): ?><span class="badge admin-badge">Admin</span><?php endif; ?>
                     </a>
                 </li>
                 <li class="nav-item-profile <?php echo $activeTab === 'tool-permissions' ? 'active' : ''; ?>">
                     <a href="?tab=tool-permissions" class="nav-link-profile">
                         <i class="fas fa-shield-alt"></i>
                         <span>Tool Permissions</span>
-                        <?php if ($isAdmin): ?><span class="badge admin-badge">Admin</span><?php endif; ?>
                     </a>
                 </li>
-                <li class="nav-item-profile <?php echo $activeTab === 'audit-logs' ? 'active' : ''; ?>">
-                    <a href="?tab=audit-logs" class="nav-link-profile">
+                <li class="nav-item-profile <?php echo $activeTab === 'tool-management' ? 'active' : ''; ?>">
+                    <a href="?tab=tool-management" class="nav-link-profile">
                         <i class="fas fa-clipboard-list"></i>
-                        <span>Audit Logs</span>
+                        <span>Tool Management</span>
                     </a>
                 </li>
                 <?php endif; ?>
@@ -145,8 +143,8 @@ $activeTab = $_GET['tab'] ?? 'overview';
                 if ($isAdmin) include 'includes/profile-tabs/tool-permissions.php';
                 else include 'includes/profile-tabs/overview.php';
                 break;
-            case 'audit-logs':
-                if ($isStaff) include 'includes/profile-tabs/audit-logs.php';
+            case 'tool-management':
+                if ($isStaff) include 'includes/profile-tabs/tool-management.php';
                 else include 'includes/profile-tabs/overview.php';
                 break;
             case 'delete-account':

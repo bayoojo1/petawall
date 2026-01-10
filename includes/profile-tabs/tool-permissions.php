@@ -95,7 +95,7 @@ $allRoles = $accessControl->getAllRoles();
         <h3>Quick Actions</h3>
         <div class="form-actions">
             <a href="?tab=user-management" class="btn btn-primary">User Management</a>
-            <a href="?tab=audit-logs" class="btn btn-outline">View Audit Logs</a>
+            <a href="?tab=tool-management" class="btn btn-outline">Tool Management</a>
             <a href="?tab=overview" class="btn btn-secondary">Back to Overview</a>
         </div>
     </div>

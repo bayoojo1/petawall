@@ -143,3 +143,29 @@ input:checked + .toggle-slider:before {
         border-right: none;
     }
 }
+
+
+
+
+.toggle-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.toggle-btn.enabled {
+    background: #16a34a;
+    color: #fff;
+}
+
+.toggle-btn.disabled {
+    background: #dc2626;
+    color: #fff;
+}
+
+.toggle-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

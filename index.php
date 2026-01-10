@@ -1,11 +1,15 @@
 <?php 
 require_once __DIR__ . '/classes/NotificationManager.php';
+require_once __DIR__ . '/classes/ToolsManagement.php';
 require_once __DIR__ . '/includes/header.php';
 
 if (isset($isLoggedIn) && $isLoggedIn) {
     $notificationManager = new NotificationManager();
     $activeNotifications = $notificationManager->getActiveNotifications($_SESSION['user_id']);
 }
+
+$tools = new ToolsManagement();
+$listActiveTools = $tools->listActiveTools();
 ?>
 <body>
     <!-- Header -->
@@ -51,90 +55,31 @@ if (isset($isLoggedIn) && $isLoggedIn) {
             </div>
 
             <div id="links" class="tools-grid" style="margin-top: 40px;">
-                <a href="vulnerability-scanner.php" class="tool-card">
+                 <?php foreach ($listActiveTools as $listActiveTool): ?>
+                <a href="<?php echo htmlspecialchars($listActiveTool['tool_name']); ?>.php" class="tool-card">
                     <div class="tool-icon">
-                        <i class="fas fa-bug"></i>
+                        <i class="fas fa-<?php 
+                            $icons = [
+                                'vulnerability-scanner' => 'bug',
+                                'waf-analyzer' => 'fire',
+                                'phishing-detector' => 'fish',
+                                'network-analyzer' => 'stream',
+                                'password-analyzer' => 'key',
+                                'iot-scanner' => 'satellite-dish',
+                                'cloud-analyzer' => 'cloud',
+                                'iot-device' => 'search',
+                                'mobile-scanner' => 'mobile',
+                                'code-analyzer' => 'code',
+                                'grc-analyzer' => 'balance-scale',
+                                'threat-modeling' => 'shield-virus'
+                            ];
+                            echo $icons[$listActiveTool['tool_name']] ?? 'tool';
+                        ?>"></i>
                     </div>
-                    <h3>Vulnerability Scanner</h3>
-                    <p>Scan websites and applications for security vulnerabilities using AI-powered analysis.</p>
+                    <h3><?php echo htmlspecialchars($listActiveTool['display_name']); ?></h3>
+                    <p><?php echo htmlspecialchars($listActiveTool['description']); ?></p>
                 </a>
-                <a href="waf-analyzer.php" class="tool-card">
-                    <div class="tool-icon">
-                        <i class="fas fa-fire"></i>
-                    </div>
-                    <h3>WAF Analyzer</h3>
-                    <p>Analyze Web Application Firewall configurations and identify potential bypass techniques.</p>
-                </a>
-                <a href="phishing-detector.php" class="tool-card">
-                    <div class="tool-icon">
-                        <i class="fas fa-fish"></i>
-                    </div>
-                    <h3>Phishing Detector</h3>
-                    <p>Detect phishing URLs and email content using advanced AI algorithms.</p>
-                </a>
-                <a href="network-analyzer.php" class="tool-card">
-                    <div class="tool-icon">
-                        <i class="fas fa-stream"></i>
-                    </div>
-                    <h3>Network Traffic Analyzer</h3>
-                    <p>Analyze network traffic and PCAP files for security threats and anomalies.</p>
-                </a>
-                <a href="password-analyzer.php" class="tool-card">
-                    <div class="tool-icon">
-                        <i class="fas fa-key"></i>
-                    </div>
-                    <h3>Password Analyzer</h3>
-                    <p>Evaluate password strength and security using AI-powered analysis.</p>
-                </a>
-                <a href="iot-scanner.php" class="tool-card">
-                    <div class="tool-icon">
-                        <i class="fas fa-satellite-dish"></i>
-                    </div>
-                    <h3>IoT Analyzer</h3>
-                    <p>Analyze Internet of Things security using AI-powered analysis.</p>
-                </a>
-                <a href="cloud-analyzer.php" class="tool-card">
-                    <div class="tool-icon">
-                        <i class="fas fa-cloud"></i>
-                    </div>
-                    <h3>Cloud Analyzer</h3>
-                    <p>Scan Cloud platforms for vulnerabilities and security  threats.</p>
-                </a>
-                <a href="iot-device.php" class="tool-card">
-                    <div class="tool-icon">
-                        <i class="fas fa-search"></i>
-                    </div>
-                    <h3>IoT Device Finder</h3>
-                    <p>Scan the Internet for IoT devices and vulnerabilities.</p>
-                </a>
-                <a href="mobile-scanner.php" class="tool-card">
-                    <div class="tool-icon">
-                        <i class="fas fa-mobile"></i>
-                    </div>
-                    <h3>Andriod & iOS Code Analyzer</h3>
-                    <p>Scan Android & iOS devices for vulnerabilities.</p>
-                </a>
-                <a href="code-analyzer.php" class="tool-card">
-                    <div class="tool-icon">
-                        <i class="fas fa-code"></i>
-                    </div>
-                    <h3>Programming Language Analyzer</h3>
-                    <p>Scan programming language for vulnerabilities.</p>
-                </a>
-                <a href="grc-analyzer.php" class="tool-card">
-                    <div class="tool-icon">
-                        <i class="fas fa-balance-scale"></i>
-                    </div>
-                    <h3>GRC Assessment</h3>
-                    <p>Comprehensive Governance, Risk, and Compliance assessment.</p>
-                </a>
-                <a href="threat-modeling.php" class="tool-card">
-                    <div class="tool-icon">
-                        <i class="fas fa-shield-virus"></i>
-                    </div>
-                    <h3>Threat Modeling</h3>
-                    <p>Identify, quantify, and address security threats in your systems and applications</p>
-                </a>
+                <?php endforeach; ?>
             </div>
         </div>
     </div>
