@@ -1,0 +1,49 @@
+.detail-item {
+    padding: 10px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+}
+
+.detail-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 5px;
+}
+
+.detail-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.option-card:hover {
+    border-color: #0060df;
+    transition: border-color 0.3s;
+}
+
+.card-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 36px;
+}
+
+.card-icon.danger {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.card-icon.warning {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.card-icon.info {
+    background: #d1ecf1;
+    color: #0c5460;
+}

@@ -208,6 +208,41 @@ class StripeManager {
                 $invoice = $event->data->object;
                 $this->handlePaymentFailed($invoice);
                 break;
+
+            case 'customer.subscription.updated':
+                $subscription = $event->data->object;
+                
+                // Check if subscription was cancelled
+                if ($subscription->status === 'canceled') {
+                    $userId = $subscription->metadata->user_id ?? null;
+                    if ($userId) {
+                        // Update database
+                        $stripeManager->updateSubscriptionStatus($userId, 'canceled');
+                        // Downgrade user to free
+                        $stripeManager->updateUserRole($userId, 1);
+                        error_log("Subscription cancelled via webhook for user: $userId");
+                    }
+                }
+                
+                // Handle scheduled cancellations
+                if ($subscription->cancel_at_period_end) {
+                    $userId = $subscription->metadata->user_id ?? null;
+                    if ($userId) {
+                        $stripeManager->updateSubscriptionCancelAtPeriodEnd($userId, true);
+                        error_log("Subscription scheduled for cancellation for user: $userId");
+                    }
+                }
+                
+                // Handle reactivations
+                if (!$subscription->cancel_at_period_end) {
+                    $userId = $subscription->metadata->user_id ?? null;
+                    if ($userId) {
+                        $stripeManager->updateSubscriptionCancelAtPeriodEnd($userId, false);
+                        error_log("Subscription reactivated for user: $userId");
+                    }
+                }
+                
+                break;
                 
             default:
                 // Log unhandled events but don't fail
@@ -558,6 +593,172 @@ class StripeManager {
             return 'Renews in ' . $interval->days . ' day' . ($interval->days !== 1 ? 's' : '');
         } else {
             return 'Renews on ' . $endDate->format('M j, Y');
+        }
+    }
+
+    /**
+     * Cancel user's subscription
+     */
+    public function cancelSubscription($userId, $immediately = false) {
+        try {
+            // Get active subscription
+            $subscription = $this->getActiveSubscription($userId);
+            
+            if (!$subscription || empty($subscription['stripe_subscription_id'])) {
+                return [
+                    'success' => false,
+                    'message' => 'No active subscription found.'
+                ];
+            }
+            
+            $stripeSubscriptionId = $subscription['stripe_subscription_id'];
+            
+            // Cancel via Stripe API
+            if ($immediately) {
+                // Cancel immediately
+                $stripeSubscription = \Stripe\Subscription::retrieve($stripeSubscriptionId);
+                $stripeSubscription->cancel();
+                
+                // Update database status
+                $this->updateSubscriptionStatus($userId, 'canceled');
+                
+                // Downgrade user to free plan immediately
+                $this->updateUserRole($userId, 1); // Assuming 1 is free
+                
+                return [
+                    'success' => true,
+                    'message' => 'Subscription cancelled immediately. You have been downgraded to the Free plan.'
+                ];
+                
+            } else {
+                // Schedule cancellation at period end
+                $stripeSubscription = \Stripe\Subscription::update($stripeSubscriptionId, [
+                    'cancel_at_period_end' => true
+                ]);
+                
+                // Update database
+                $this->updateSubscriptionCancelAtPeriodEnd($userId, true);
+                
+                $periodEnd = date('F j, Y', $stripeSubscription->current_period_end);
+                
+                return [
+                    'success' => true,
+                    'message' => "Subscription scheduled for cancellation. You will have access until {$periodEnd}."
+                ];
+            }
+            
+        } catch (\Stripe\Exception\ApiErrorException $e) {
+            error_log("Stripe cancellation error: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Error cancelling subscription: ' . $e->getMessage()
+            ];
+        } catch (Exception $e) {
+            error_log("Cancellation error: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'An error occurred while cancelling your subscription.'
+            ];
+        }
+    }
+
+    /**
+     * Reactivate a scheduled cancellation
+     */
+    public function reactivateSubscription($userId) {
+        try {
+            // Get subscription with pending cancellation
+            $subscription = $this->getSubscriptionWithPendingCancellation($userId);
+            
+            if (!$subscription || empty($subscription['stripe_subscription_id'])) {
+                return [
+                    'success' => false,
+                    'message' => 'No subscription with pending cancellation found.'
+                ];
+            }
+            
+            $stripeSubscriptionId = $subscription['stripe_subscription_id'];
+            
+            // Reactivate in Stripe
+            $stripeSubscription = \Stripe\Subscription::update($stripeSubscriptionId, [
+                'cancel_at_period_end' => false
+            ]);
+            
+            // Update database
+            $this->updateSubscriptionCancelAtPeriodEnd($userId, false);
+            
+            return [
+                'success' => true,
+                'message' => 'Subscription reactivated successfully!'
+            ];
+            
+        } catch (\Stripe\Exception\ApiErrorException $e) {
+            error_log("Stripe reactivation error: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Error reactivating subscription: ' . $e->getMessage()
+            ];
+        } catch (Exception $e) {
+            error_log("Reactivation error: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'An error occurred while reactivating your subscription.'
+            ];
+        }
+    }
+
+    /**
+     * Get subscription with pending cancellation
+     */
+    public function getSubscriptionWithPendingCancellation($userId) {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT * FROM user_subscriptions 
+                WHERE user_id = ? 
+                AND status = 'active'
+                AND cancel_at_period_end = 1
+                ORDER BY current_period_end DESC 
+                LIMIT 1
+            ");
+            $stmt->execute([$userId]);
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get subscription with pending cancellation error: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Update subscription status
+     */
+    private function updateSubscriptionStatus($userId, $status) {
+        try {
+            $stmt = $this->db->prepare("
+                UPDATE user_subscriptions 
+                SET status = ?, updated_at = NOW()
+                WHERE user_id = ? AND status = 'active'
+            ");
+            return $stmt->execute([$status, $userId]);
+        } catch (PDOException $e) {
+            error_log("Update subscription status error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Update cancel_at_period_end flag
+     */
+    private function updateSubscriptionCancelAtPeriodEnd($userId, $cancelAtPeriodEnd) {
+        try {
+            $stmt = $this->db->prepare("
+                UPDATE user_subscriptions 
+                SET cancel_at_period_end = ?, updated_at = NOW()
+                WHERE user_id = ? AND status = 'active'
+            ");
+            return $stmt->execute([$cancelAtPeriodEnd ? 1 : 0, $userId]);
+        } catch (PDOException $e) {
+            error_log("Update cancel_at_period_end error: " . $e->getMessage());
+            return false;
         }
     }
 }

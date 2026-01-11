@@ -204,6 +204,33 @@ foreach ($displayPlans as $plan) {
                         </li>
                     <?php endforeach; ?>
                 </ul>
+                
+                <?php
+                // Add this after showing subscription info, before the upgrade buttons
+                if ($hasActiveSubscription && $subscription['cancel_at_period_end']):
+                ?>
+                <div class="alert alert-warning" style="margin: 20px 0;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="flex-shrink: 0;">
+                            <i class="fas fa-clock fa-2x" style="color: #856404;"></i>
+                        </div>
+                        <div style="flex-grow: 1;">
+                            <h4 style="margin: 0 0 5px 0; color: #856404;">
+                                <i class="fas fa-exclamation-triangle"></i> Cancellation Scheduled
+                            </h4>
+                            <p style="margin: 0; color: #856404;">
+                                Your subscription is scheduled to cancel on <strong><?php echo date('F j, Y', strtotime($subscription['current_period_end'])); ?></strong>.
+                                You will lose access to premium features after this date.
+                            </p>
+                            <div style="margin-top: 10px;">
+                                <a href="?tab=cancel-subscription" class="btn btn-sm btn-outline-warning">
+                                    <i class="fas fa-cog"></i> Manage Cancellation
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
 
                 <!-- BUTTON LOGIC -->
                 <?php if ($isSamePlan): ?>

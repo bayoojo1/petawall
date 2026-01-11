@@ -106,6 +106,12 @@ $activeTab = $_GET['tab'] ?? 'overview';
                 <?php endif; ?>
                 
                 <li class="nav-section-header">Danger Zone</li>
+                <li class="nav-item-profile <?php echo $activeTab === 'cancel-subscription' ? 'active' : ''; ?>">
+                    <a href="?tab=cancel-subscription" class="nav-link-profile danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Cancel Subscription</span>
+                    </a>
+                </li>
                 <li class="nav-item-profile <?php echo $activeTab === 'delete-account' ? 'active' : ''; ?>">
                     <a href="?tab=delete-account" class="nav-link-profile danger">
                         <i class="fas fa-exclamation-triangle"></i>
@@ -150,6 +156,9 @@ $activeTab = $_GET['tab'] ?? 'overview';
             case 'delete-account':
                 include 'includes/profile-tabs/delete-account.php';
                 break;
+            case 'cancel-subscription':
+                include 'includes/profile-tabs/cancel-subscription.php';
+                break;
             default:
                 include 'includes/profile-tabs/overview.php';
         }
@@ -167,7 +176,8 @@ $activeTab = $_GET['tab'] ?? 'overview';
 <script src="assets/js/auth.js"></script>
 <script src="assets/js/profile.js"></script>
 <script src="assets/js/notification.js"></script>
-
+<script src="assets/js/cancel-subs.js"></script>
 <link rel="stylesheet" href="assets/styles/modal.css">
 <link rel="stylesheet" href="assets/styles/profile.css">
 <link rel="stylesheet" href="assets/styles/notification.css">
+<link rel="stylesheet" href="assets/styles/cancel-subs.css">
