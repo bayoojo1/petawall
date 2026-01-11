@@ -3,3 +3,4 @@ classes/vendor/
 classes/cache/
 uploads/code_analysis/*
 webhook.php
+vendor/

@@ -38,11 +38,11 @@
                 <h4 class="footer-heading">Advanced Tools</h4>
                 <ul class="footer-links">
                     <li><a href="iot-scanner.php">IoT Security Scanner</a></li>
-                    <li><a href="iot-device.php">IoT Device Finder</a></li>
-                    <li><a href="cloud-analyzer.php">Cloud Security Analyzer</a></li>
+                    <!-- <li><a href="iot-device.php">IoT Device Finder</a></li> -->
+                    <!-- <li><a href="cloud-analyzer.php">Cloud Security Analyzer</a></li> -->
                     <li><a href="mobile-scanner.php">Andriod & iOS Code Analyzer</a></li>
                     <li><a href="code-analyzer.php">Programming Language Analyzer</a></li>
-                    <li><a href="threat-modeling.php">Threat Modeling</a></li>
+                    <!-- <li><a href="threat-modeling.php">Threat Modeling</a></li> -->
                 </ul>
             </div>
             

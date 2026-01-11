@@ -57,14 +57,14 @@
                                     <i class="fas fa-satellite-dish"></i>
                                     IoT Scanner
                                 </a>
-                                <a href="iot-device.php" class="dropdown-link">
+                                <!-- <a href="iot-device.php" class="dropdown-link">
                                     <i class="fas fa-search"></i>
                                     IoT Device Finder
                                 </a>
                                 <a href="cloud-analyzer.php" class="dropdown-link">
                                     <i class="fas fa-cloud"></i>
                                     Cloud Analyzer
-                                </a>
+                                </a> -->
                             </div>
                             <div class="dropdown-column">
                                 <h4>Code Analysis</h4>
@@ -77,7 +77,7 @@
                                     Programming Language Analyzer
                                 </a>
                             </div>
-                            <div class="dropdown-column">
+                            <!-- <div class="dropdown-column">
                                 <h4>GRC</h4>
                                 <a href="grc-analyzer.php" class="dropdown-link">
                                     <i class="fas fa-balance-scale"></i>
@@ -87,7 +87,7 @@
                                     <i class="fas fa-shield-virus"></i>
                                     <span>Threat Modeling</span>
                                 </a>
-                            </div>
+                            </div> -->
                         </div>
                     </div>
                 </li>
@@ -199,14 +199,14 @@
                             <i class="fas fa-satellite-dish"></i>
                             IoT Scanner
                         </a>
-                        <a href="iot-device.php" class="mobile-nav-link sublink">
+                        <!-- <a href="iot-device.php" class="mobile-nav-link sublink">
                             <i class="fas fa-search"></i>
                             IoT Device Finder
-                        </a>
-                        <a href="cloud-analyzer.php" class="mobile-nav-link sublink">
+                        </a> -->
+                        <!-- <a href="cloud-analyzer.php" class="mobile-nav-link sublink">
                             <i class="fas fa-cloud"></i>
                             Cloud Analyzer
-                        </a>
+                        </a> -->
                     </div>
                 </div>
                 

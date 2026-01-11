@@ -1312,5 +1312,41 @@ class Auth {
             error_log("Log resend activity error: " . $e->getMessage());
         }
     }
+
+    /**
+     * Get user subscription info
+     */
+    public function getUserSubscriptionInfo($userId = null) {
+        if ($userId === null && isset($_SESSION['user_id'])) {
+            $userId = $_SESSION['user_id'];
+        }
+        
+        if (!$userId) {
+            return null;
+        }
+        
+        try {
+            $stmt = $this->pdo->prepare("
+                SELECT 
+                    us.*,
+                    DATEDIFF(us.current_period_end, NOW()) as days_remaining,
+                    CASE 
+                        WHEN us.current_period_end < NOW() THEN 'expired'
+                        WHEN DATEDIFF(us.current_period_end, NOW()) <= 7 THEN 'expiring_soon'
+                        ELSE 'active'
+                    END as status_label
+                FROM user_subscriptions us
+                WHERE us.user_id = ? 
+                AND us.status = 'active'
+                ORDER BY us.current_period_end DESC 
+                LIMIT 1
+            ");
+            $stmt->execute([$userId]);
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            error_log("Get subscription info error: " . $e->getMessage());
+            return null;
+        }
+    }
 }
 ?>

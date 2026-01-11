@@ -1,10 +1,7 @@
 <?php
-// Start session only if not already started
+// Start session
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
-} else {
-    // Session already started, get current session ID
-    error_log("Session already started with ID: " . session_id());
 }
 
 require_once __DIR__ . '/config/config.php';
@@ -12,61 +9,52 @@ require_once __DIR__ . '/classes/Auth.php';
 require_once __DIR__ . '/classes/StripeManager.php';
 require_once __DIR__ . '/vendor/autoload.php';
 
-// Get all parameters
-$phpSessionId = $_GET['php_session_id'] ?? null;
-$userId = $_GET['user_id'] ?? null;
-$plan = $_GET['plan'] ?? null;
-$stripeSessionId = $_GET['stripe_session_id'] ?? null;
+// Get token from URL
+$checkoutToken = $_GET['token'] ?? null;
 
-// Validate required parameters
-if (!$phpSessionId || !$userId || !$plan || !$stripeSessionId) {
-    header('Location: plan.php?error=invalid_parameters');
+if (!$checkoutToken) {
+    header('Location: plan.php?error=invalid_token');
     exit();
 }
 
-// Check temp file for session data
-$tempDir = sys_get_temp_dir();
-$tempFile = $tempDir . '/stripe_session_' . md5($phpSessionId) . '.json';
-$sessionRestored = false;
-
-if (file_exists($tempFile)) {
-    $sessionData = json_decode(file_get_contents($tempFile), true);
-    
-    if ($sessionData && isset($sessionData['user_id'])) {
-        // Restore session from temp file
-        $_SESSION['user_id'] = $sessionData['user_id'];
-        $_SESSION['logged_in'] = true;
-        $userId = $sessionData['user_id'];
-        $sessionRestored = true;
-        
-        // Clean up temp file
-        unlink($tempFile);
-    }
-}
-
-// Initialize Auth
-$auth = new Auth();
-
-// If session wasn't restored, try to authenticate normally
-if (!$sessionRestored && !$auth->isLoggedIn()) {
-    header('Location: index.php?error=session_expired');
-    exit();
-}
-
-// If we have user_id but not logged in, create session
-if ($userId && empty($_SESSION['user_id'])) {
-    $_SESSION['user_id'] = $userId;
-    $_SESSION['logged_in'] = true;
-}
-
-// Initialize StripeManager
+// Initialize database connection
+$db = Database::getInstance()->getConnection();
 $stripeManager = new StripeManager();
 
-// Verify the session with Stripe
+// Verify the token and get checkout session data
 try {
+    $stmt = $db->prepare("
+        SELECT user_id, plan, stripe_session_id, status 
+        FROM stripe_checkout_sessions 
+        WHERE checkout_token = ? 
+        AND status = 'pending'
+        AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR) -- Token expires in 1 hour
+    ");
+    $stmt->execute([$checkoutToken]);
+    $checkoutSession = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$checkoutSession) {
+        header('Location: plan.php?error=invalid_or_expired_token');
+        exit();
+    }
+    
+    $userId = $checkoutSession['user_id'];
+    $plan = $checkoutSession['plan'];
+    $stripeSessionId = $checkoutSession['stripe_session_id'];
+    
+    // Verify user is logged in as the same user from checkout session
+    if (!isset($_SESSION['user_id']) || $_SESSION['user_id'] !== $userId) {
+        // Restore user session
+        $_SESSION['user_id'] = $userId;
+        $_SESSION['logged_in'] = true;
+    }
+    
+    // Initialize Auth
+    $auth = new Auth();
+    
+    // Verify the Stripe session
     \Stripe\Stripe::setApiKey(STRIPE_SECRET_KEY);
     
-    // Retrieve the Stripe session
     $session = \Stripe\Checkout\Session::retrieve([
         'id' => $stripeSessionId,
         'expand' => ['subscription', 'subscription.items.data.price']
@@ -74,7 +62,6 @@ try {
     
     $message = '';
     $success = false;
-    $upgradeDetails = '';
     
     if ($session->payment_status === 'paid') {
         // Get the price ID
@@ -99,24 +86,39 @@ try {
                     $userRoles = $auth->getUserRoles($userId);
                     $_SESSION['user_roles'] = $userRoles;
                     
+                    // Mark checkout session as completed
+                    $updateStmt = $db->prepare("
+                        UPDATE stripe_checkout_sessions 
+                        SET status = 'completed', completed_at = NOW() 
+                        WHERE checkout_token = ?
+                    ");
+                    $updateStmt->execute([$checkoutToken]);
+                    
+                    // Invalidate the token in session
+                    unset($_SESSION['stripe_checkout_token']);
+                    
                     $message = 'Your account has been successfully upgraded!';
-                    $upgradeDetails = "You now have access to all " . ucfirst($plan) . " features.";
+                    
                 } else {
-                    $message = 'Payment processed but there was an issue updating your account. Please contact support.';
+                    $message = 'Payment processed but there was an issue updating your account.';
                 }
-            } else {
-                $message = 'Payment processed. Your account will be upgraded shortly.';
             }
-        } else {
-            $message = 'Payment successful! Your account will be upgraded within a few minutes.';
         }
-    } else {
-        $message = 'Your payment is being processed. Please check back in a few minutes.';
+    }
+    
+    if (!$success) {
+        // Mark as failed
+        $updateStmt = $db->prepare("
+            UPDATE stripe_checkout_sessions 
+            SET status = 'failed' 
+            WHERE checkout_token = ?
+        ");
+        $updateStmt->execute([$checkoutToken]);
     }
     
 } catch (Exception $e) {
     error_log("Success page error: " . $e->getMessage());
-    $message = 'Thank you for your subscription! Please allow a few minutes for your account to be updated.';
+    $message = 'There was an error processing your payment. Please contact support.';
 }
 
 // Get current user role for display
@@ -134,58 +136,27 @@ require_once __DIR__ . '/includes/nav.php';
             <i class="fas fa-check-circle"></i>
         </div>
         <h1>Payment Successful!</h1>
-        <p class="success-message"><?php echo htmlspecialchars($message); ?></p>
+        <p><?php echo htmlspecialchars($message); ?></p>
         
-        <?php if ($upgradeDetails): ?>
-        <div class="upgrade-details">
-            <p><?php echo htmlspecialchars($upgradeDetails); ?></p>
+        <?php if ($success): ?>
+        <div class="alert alert-success">
+            <strong>Congratulations!</strong> You're now on the <strong><?php echo ucfirst($plan); ?></strong> plan.
+            <p>You can now log in to start using your tools.</p>
         </div>
         <?php endif; ?>
         
-        <div class="subscription-summary">
-            <div class="summary-item">
-                <span class="summary-label">Plan:</span>
-                <span class="summary-value badge badge-primary"><?php echo htmlspecialchars(ucfirst($plan)); ?></span>
-            </div>
-            <div class="summary-item">
-                <span class="summary-label">Status:</span>
-                <span class="summary-value badge badge-success">Active</span>
-            </div>
-            <div class="summary-item">
-                <span class="summary-label">Amount:</span>
-                <span class="summary-value">$<?php echo $plan === 'basic' ? '29.99' : '49.99'; ?>/month</span>
-            </div>
-        </div>
-        
         <div class="success-actions">
-            <a href="dashboard.php" class="btn btn-primary btn-lg">
-                <i class="fas fa-tachometer-alt"></i> Go to Dashboard
-            </a>
-            <a href="subscription.php" class="btn btn-outline btn-lg">
-                <i class="fas fa-receipt"></i> View Subscription
-            </a>
-            <a href="tools.php" class="btn btn-success btn-lg">
-                <i class="fas fa-tools"></i> Use Premium Tools
-            </a>
-        </div>
-        
-        <div class="success-info">
-            <h5><i class="fas fa-lightbulb"></i> What happens next?</h5>
-            <ul>
-                <li>Your account now has access to all <?php echo ucfirst($plan); ?> features</li>
-                <li>You can start using <?php echo ucfirst($plan); ?> tools immediately</li>
-                <li>Your next billing date will be in 30 days</li>
-                <li>You can manage your subscription from your profile page</li>
-            </ul>
-            
-            <div class="alert alert-info mt-3">
-                <i class="fas fa-info-circle"></i>
-                <small>If any features aren't working immediately, please refresh the page or log out and back in.</small>
-            </div>
+            <button class="btn btn-primary signup-btn">
+                Login
+            </button>
         </div>
     </div>
 </div>
 
-<?php require_once __DIR__ . '/includes/footer.php'; ?>
+<?php require_once __DIR__ . '/includes/login-modal.php'; ?>
 
+<?php require_once __DIR__ . '/includes/footer.php'; ?>
 <link rel="stylesheet" href="assets/styles/success.css">
+<link rel="stylesheet" href="assets/styles/modal.css">
+<script src="assets/js/nav.js"></script>
+<script src="assets/js/auth.js"></script>

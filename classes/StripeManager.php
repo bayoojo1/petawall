@@ -78,48 +78,6 @@ class StripeManager {
         return $this->planToPrice[$planName] ?? null;
     }
 
-    // public function createCheckoutSession($planName, $userId, $successUrl, $cancelUrl) {
-    //     try {
-    //         $priceId = $this->getPriceIdFromPlan($planName);
-            
-    //         if (!$priceId) {
-    //             throw new Exception("Invalid plan name: " . $planName);
-    //         }
-            
-    //         error_log("StripeManager - Creating checkout for user $userId, plan $planName, price $priceId");
-            
-    //         $checkout_session = \Stripe\Checkout\Session::create([
-    //             'line_items' => [[
-    //                 'price' => $priceId,
-    //                 'quantity' => 1,
-    //             ]],
-    //             'mode' => 'subscription',
-    //             'success_url' => $successUrl,
-    //             'cancel_url' => $cancelUrl,
-    //             'customer_email' => $this->getUserEmail($userId),
-    //             'client_reference_id' => $userId,
-    //             'metadata' => [
-    //                 'user_id' => $userId,
-    //                 'plan' => $planName,
-    //                 'role_id' => $this->getRoleIdFromPriceId($priceId)
-    //             ],
-    //             'subscription_data' => [
-    //                 'metadata' => [
-    //                     'user_id' => $userId,
-    //                     'plan' => $planName
-    //                 ]
-    //             ]
-    //         ]);
-            
-    //         error_log("StripeManager - Checkout session created: " . $checkout_session->id);
-    //         return $checkout_session->url;
-            
-    //     } catch (\Stripe\Exception\ApiErrorException $e) {
-    //         error_log("Stripe API error: " . $e->getMessage());
-    //         throw new Exception("Error creating checkout session: " . $e->getMessage());
-    //     }
-    // }
-
     public function createCheckoutSession($planName, $userId, $successUrl, $cancelUrl, $checkoutToken) {
         try {
             $priceId = $this->getPriceIdFromPlan($planName);
@@ -259,56 +217,86 @@ class StripeManager {
         http_response_code(200);
         echo json_encode(['received' => true]);
     }
-    
+
     /**
-     * Handle successful checkout
-     */
+ * Handle successful checkout
+ */
     private function handleCheckoutSessionCompleted($session) {
         error_log("Checkout session completed: " . $session->id);
         
         $userId = $session->client_reference_id ?? $session->metadata->user_id ?? null;
+        $checkoutToken = $session->metadata->checkout_token ?? null;
         $priceId = null;
+        $subscriptionId = $session->subscription ?? null;
+        $customerId = $session->customer ?? null;
+        $plan = $session->metadata->plan ?? null;
         
-        // Try to get price ID from line items
-        if (isset($session->line_items) && isset($session->line_items->data[0])) {
-            $priceId = $session->line_items->data[0]->price->id ?? null;
-        }
+        error_log("Checkout session data - user_id: $userId, subscription_id: $subscriptionId, plan: $plan, customer_id: $customerId");
         
-        // If not found in line items, try to get from subscription
-        if (!$priceId && isset($session->subscription)) {
+        if ($subscriptionId) {
             try {
-                $subscription = \Stripe\Subscription::retrieve($session->subscription);
+                // Retrieve the subscription to get full details
+                $subscription = \Stripe\Subscription::retrieve($subscriptionId);
+                error_log("Retrieved subscription: " . $subscription->id . ", status: " . $subscription->status);
+                
                 $priceId = $subscription->items->data[0]->price->id ?? null;
+                $plan = $subscription->metadata->plan ?? $plan;
+                $customerId = $subscription->customer ?? $customerId;
+                
+                error_log("Subscription details - price_id: $priceId, plan: $plan, customer_id: $customerId");
+                
+                if ($userId && $priceId && $plan && $customerId) {
+                    // Store subscription immediately
+                    $this->storeSubscription(
+                        $userId,
+                        $subscription->id,
+                        $customerId,
+                        $plan,
+                        date('Y-m-d H:i:s', $subscription->current_period_start),
+                        date('Y-m-d H:i:s', $subscription->current_period_end),
+                        $subscription->status
+                    );
+                    
+                    // Update user role
+                    $roleId = $this->getRoleIdFromPriceId($priceId);
+                    if ($roleId) {
+                        $success = $this->updateUserRole($userId, $roleId);
+                        error_log("Checkout completed: User $userId to role $roleId: " . ($success ? 'success' : 'failed'));
+                    } else {
+                        error_log("No role mapping found for price ID: " . $priceId);
+                    }
+                } else {
+                    error_log("Missing data for subscription storage. User: $userId, Price: $priceId, Plan: $plan, Customer: $customerId");
+                }
             } catch (\Exception $e) {
                 error_log("Error retrieving subscription: " . $e->getMessage());
             }
-        }
-        
-        if ($userId && $priceId) {
-            $roleId = $this->getRoleIdFromPriceId($priceId);
-            if ($roleId) {
-                $success = $this->updateUserRole($userId, $roleId);
-                error_log("Updated user $userId to role $roleId: " . ($success ? 'success' : 'failed'));
-            } else {
-                error_log("No role mapping found for price ID: " . $priceId);
-            }
         } else {
-            error_log("Missing user ID or price ID. User ID: $userId, Price ID: $priceId");
+            error_log("No subscription ID found in session");
         }
     }
-    
-    /**
-     * Handle subscription updates
-     */
+
     private function handleSubscriptionUpdate($subscription) {
         error_log("Subscription updated: " . $subscription->id . " Status: " . $subscription->status);
         
-        // Only process active subscriptions
-        if ($subscription->status === 'active') {
-            $userId = $subscription->metadata->user_id ?? null;
-            $priceId = $subscription->items->data[0]->price->id ?? null;
+        $userId = $subscription->metadata->user_id ?? null;
+        $priceId = $subscription->items->data[0]->price->id ?? null;
+        $plan = $subscription->metadata->plan ?? null;
+        
+        if ($userId && $priceId && $plan) {
+            // Store subscription details
+            $this->storeSubscription(
+                $userId,
+                $subscription->id,
+                $subscription->customer,
+                $plan,
+                date('Y-m-d H:i:s', $subscription->current_period_start),
+                date('Y-m-d H:i:s', $subscription->current_period_end),
+                $subscription->status
+            );
             
-            if ($userId && $priceId) {
+            // Update user role if subscription is active
+            if ($subscription->status === 'active') {
                 $roleId = $this->getRoleIdFromPriceId($priceId);
                 if ($roleId) {
                     $success = $this->updateUserRole($userId, $roleId);
@@ -435,6 +423,141 @@ class StripeManager {
         } catch (PDOException $e) {
             error_log("Get subscription plan error: " . $e->getMessage());
             return 'free';
+        }
+    }
+
+    /**
+     * Store subscription information in database
+     */
+    public function storeSubscription($userId, $subscriptionId, $customerId, $plan, $periodStart, $periodEnd, $status = 'active') {
+        try {
+            error_log("Attempting to store subscription for user: $userId, subscription: $subscriptionId, plan: $plan, status: $status");
+            
+            // First, check if this subscription already exists
+            $checkStmt = $this->db->prepare("
+                SELECT id, status FROM user_subscriptions 
+                WHERE stripe_subscription_id = ?
+            ");
+            $checkStmt->execute([$subscriptionId]);
+            $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($existing) {
+                // Update existing subscription
+                $updateStmt = $this->db->prepare("
+                    UPDATE user_subscriptions 
+                    SET user_id = ?, 
+                        stripe_customer_id = ?,
+                        plan = ?,
+                        status = ?, 
+                        current_period_start = ?, 
+                        current_period_end = ?,
+                        updated_at = NOW()
+                    WHERE stripe_subscription_id = ?
+                ");
+                $success = $updateStmt->execute([
+                    $userId, 
+                    $customerId, 
+                    $plan, 
+                    $status, 
+                    $periodStart, 
+                    $periodEnd, 
+                    $subscriptionId
+                ]);
+                
+                error_log("Updated existing subscription $subscriptionId: " . ($success ? 'success' : 'failed'));
+            } else {
+                // Insert new subscription
+                $insertStmt = $this->db->prepare("
+                    INSERT INTO user_subscriptions 
+                    (user_id, stripe_subscription_id, stripe_customer_id, plan, status, current_period_start, current_period_end) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ");
+                $success = $insertStmt->execute([
+                    $userId, 
+                    $subscriptionId, 
+                    $customerId, 
+                    $plan, 
+                    $status, 
+                    $periodStart, 
+                    $periodEnd
+                ]);
+                
+                error_log("Inserted new subscription $subscriptionId: " . ($success ? 'success' : 'failed'));
+            }
+            
+            // Debug: Count subscriptions for this user
+            $countStmt = $this->db->prepare("SELECT COUNT(*) as count FROM user_subscriptions WHERE user_id = ?");
+            $countStmt->execute([$userId]);
+            $count = $countStmt->fetch(PDO::FETCH_ASSOC)['count'];
+            error_log("Total subscriptions for user $userId: $count");
+            
+            return $success;
+            
+        } catch (PDOException $e) {
+            error_log("Store subscription error: " . $e->getMessage());
+            error_log("Error details: user_id=$userId, subscription_id=$subscriptionId, plan=$plan");
+            return false;
+        }
+    }
+
+    public function getActiveSubscription($userId) {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT * FROM user_subscriptions 
+                WHERE user_id = ? AND status = 'active' 
+                ORDER BY current_period_end DESC 
+                LIMIT 1
+            ");
+            $stmt->execute([$userId]);
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get subscription error: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    public function getDaysRemaining($userId) {
+        $subscription = $this->getActiveSubscription($userId);
+        
+        if (!$subscription || empty($subscription['current_period_end'])) {
+            return null;
+        }
+        
+        $endDate = new DateTime($subscription['current_period_end']);
+        $now = new DateTime();
+        
+        if ($endDate < $now) {
+            return 0; // Already expired
+        }
+        
+        $interval = $now->diff($endDate);
+        return $interval->days;
+    }
+
+    /**
+     * Format subscription end date
+     */
+    public function formatEndDate($userId) {
+        $subscription = $this->getActiveSubscription($userId);
+        
+        if (!$subscription || empty($subscription['current_period_end'])) {
+            return 'No active subscription';
+        }
+        
+        $endDate = new DateTime($subscription['current_period_end']);
+        $now = new DateTime();
+        
+        if ($endDate < $now) {
+            return 'Expired on ' . $endDate->format('M j, Y');
+        }
+        
+        // If within 7 days, show "in X days", otherwise show date
+        $interval = $now->diff($endDate);
+        
+        if ($interval->days <= 7) {
+            return 'Renews in ' . $interval->days . ' day' . ($interval->days !== 1 ? 's' : '');
+        } else {
+            return 'Renews on ' . $endDate->format('M j, Y');
         }
     }
 }
