@@ -6,11 +6,12 @@ require_once __DIR__ . '/classes/StripeManager.php'; // Add this
 $accessControl = new AccessControl();
 $roleManager = new RoleManager();
 $auth = new Auth();
-$stripeManager = new StripeManager(); // Add this
+$stripeManager = new StripeManager(); // Add thiss
 
 // Get all plans (roles) and their features from database
 $allPlans = $roleManager->getAllRoles();
 $currentUserRole = $_SESSION['user_roles'][0]['role'] ?? 'free';
+//$currentUserRole = $roleManager->getPrimaryUserRole($_SESSION['user_id'][0]);
 
 // Get subscription info if logged in
 $subscriptionInfo = null;

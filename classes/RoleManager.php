@@ -314,5 +314,10 @@ class RoleManager {
             return [];
         }
     }
+
+    public function getPrimaryUserRole($userId) {
+        $roles = $this->getUserRoles($userId);
+        return !empty($roles) ? $roles[0]['role_id'] : null;
+    }
 }
 ?>

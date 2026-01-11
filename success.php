@@ -271,6 +271,7 @@ require_once __DIR__ . '/includes/nav.php';
                 <li>Your tools are available immediately</li>
                 <li>You can manage your subscription from your profile</li>
                 <li>You'll be billed monthly until you cancel</li>
+                <li>Now, login and start protecting your cyber space!</li>
             </ul>
         </div>
         
@@ -322,14 +323,6 @@ require_once __DIR__ . '/includes/nav.php';
     margin: 30px 0;
     flex-wrap: wrap;
 }
-
-/* .btn {
-    padding: 12px 24px;
-    border-radius: 6px;
-    text-decoration: none;
-    font-weight: 600;
-    transition: all 0.3s;
-} */
 
 .btn-primary {
     background: #0060df;
