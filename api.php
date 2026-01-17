@@ -618,6 +618,39 @@ try {
                 }
                 break;
 
+           case 'phishing-campaign':
+                $campaignManager = new CampaignManager();
+                
+                $action = $_POST['action'] ?? '';
+                
+                switch ($action) {
+                    case 'create':
+                        $results = $campaignManager->createCampaign([
+                            'organization_id' => $_SESSION['organization_id'],
+                            'user_id' => $_SESSION['user_id'],
+                            'name' => $_POST['name'],
+                            'subject' => $_POST['subject'],
+                            'email_content' => $_POST['email_content'],
+                            'sender_email' => $_POST['sender_email'],
+                            'sender_name' => $_POST['sender_name'],
+                            'recipients' => json_decode($_POST['recipients'], true)
+                        ]);
+                        break;
+                        
+                    case 'send':
+                        $results = $campaignManager->sendCampaign($_POST['campaign_id']);
+                        break;
+                        
+                    case 'stats':
+                        $results = $campaignManager->getCampaignStats($_POST['campaign_id'], $_SESSION['organization_id']);
+                        break;
+                        
+                    case 'report':
+                        $results = $campaignManager->generateDetailedReport($_POST['campaign_id'], $_POST['format']);
+                        break;
+                }
+                break;
+
             default:
                 echo json_encode(['error' => 'Unknown tool specified']);
                 exit;

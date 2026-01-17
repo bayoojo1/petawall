@@ -81,6 +81,14 @@ require_once __DIR__ . '/includes/header.php';
             <button id="phishing-btn" class="btn btn-primary" onclick="runPhishingAnalysis()">
                 <i class="fas fa-search"></i> Analyze
             </button>
+
+            <?php if ($auth->hasAnyRole(['admin', 'moderator', 'premium'])): ?>
+            <button class="btn btn-primary">
+                <a href="phishing-campaigns.php" style="color: white; text-decoration: none;">
+                    <i class="fas fa-bullhorn"></i> Start Phishing Campaign
+                </a>
+           </button>
+            <?php endif; ?>
             
             <div class="loading" id="phishing-loading">
                 <div class="spinner"></div>

@@ -136,5 +136,19 @@ class AccessControl {
     public function getAllRoles() {
         return $this->roleManager->getAllRoles();
     }
+
+    // In your AccessControl class, add:
+    public function checkPhishingCampaignAccess($campaignId, $userId) {
+        // Check if user has access to this specific campaign
+        $stmt = $this->pdo->prepare("
+            SELECT 1 
+            FROM phishing_campaigns c
+            JOIN users u ON c.organization_id = u.organization_id
+            WHERE c.id = ? AND u.user_id = ?
+        ");
+        
+        $stmt->execute([$campaignId, $userId]);
+        return $stmt->fetch() !== false;
+    }
 }
 ?>
