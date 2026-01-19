@@ -10,7 +10,7 @@ $toolName = 'phishing-campaigns';
 
 // Check if user is logged in
 if (!$auth->isLoggedIn()) {
-    header('Location: index.php');
+    header('Location: login.php');
     exit;
 }
 
@@ -31,18 +31,9 @@ $organizationId = $organizationManager->getOrCreateUserOrganization($userId, $us
 // Store in session
 $_SESSION['organization_id'] = $organizationId;
 
-// Initialize variables
-$action = '';
-$campaignId = 0;
-
-// Determine action and ID based on request method
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
-    $campaignId = $_POST['id'] ?? 0;
-} else {
-    $action = $_GET['action'] ?? '';
-    $campaignId = $_GET['id'] ?? 0;
-}
+// Handle actions
+// $action = $_GET['action'] ?? '';
+// $campaignId = $_GET['id'] ?? 0;
 
 // Helper functions
 function getStatusColor($status) {
@@ -69,11 +60,22 @@ function getStatusIcon($status) {
     return $icons[$status] ?? 'fas fa-circle';
 }
 
+// Initialize variables
+$action = '';
+$campaignId = 0;
+
+// Determine action and ID based on request method
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    $campaignId = $_POST['id'] ?? 0;
+} else {
+    $action = $_GET['action'] ?? '';
+    $campaignId = $_GET['id'] ?? 0;
+}
+
 // Process form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $postAction = $_POST['action'] ?? '';
-    
-    switch ($postAction) {
+    switch ($action) {
         case 'create':
             // Validate organization exists
             if (!$organizationId) {
@@ -90,7 +92,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'email_content' => $_POST['email_content'] ?? '',
                 'sender_email' => $_POST['sender_email'] ?? '',
                 'sender_name' => $_POST['sender_name'] ?? '',
-                'recipients' => $_POST['recipients'] ?? '',
                 'status' => 'draft'
             ]);
             
@@ -101,21 +102,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $_SESSION['error_message'] = $result['error'] ?? 'Failed to create campaign';
             }
-            break;
-            
-        case 'update_organization':
-            // Handle organization name update
-            $orgName = $_POST['organization_name'] ?? '';
-            if ($orgName) {
-                $result = $organizationManager->updateOrganizationName($organizationId, $orgName);
-                if ($result['success']) {
-                    $_SESSION['success_message'] = 'Organization name updated!';
-                } else {
-                    $_SESSION['error_message'] = $result['error'] ?? 'Failed to update organization name';
-                }
-            }
-            header('Location: phishing-campaigns.php');
-            exit;
             break;
             
         case 'send':
@@ -135,6 +121,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['success_message'] = 'Campaign deleted successfully!';
             } else {
                 $_SESSION['error_message'] = $result['error'] ?? 'Failed to delete campaign';
+            }
+            header('Location: phishing-campaigns.php');
+            exit;
+            break;
+            
+        case 'update_organization':
+            // Handle organization name update
+            $orgName = $_POST['organization_name'] ?? '';
+            if ($orgName) {
+                $result = $organizationManager->updateOrganizationName($organizationId, $orgName);
+                if ($result['success']) {
+                    $_SESSION['success_message'] = 'Organization name updated!';
+                } else {
+                    $_SESSION['error_message'] = $result['error'] ?? 'Failed to update organization name';
+                }
             }
             header('Location: phishing-campaigns.php');
             exit;
@@ -365,7 +366,7 @@ require_once __DIR__ . '/includes/header.php';
                                                data-tooltip="View Report">
                                                 <i class="fas fa-chart-bar"></i>
                                             </a>
-                                            <a href="?action=edit&id=<?php echo $campaign['id']; ?>" 
+                                            <a href="campaign-edit.php?id=<?php echo $campaign['id']; ?>" 
                                                class="campaign-action-btn campaign-action-edit"
                                                data-tooltip="Edit Campaign">
                                                 <i class="fas fa-edit"></i>
@@ -602,11 +603,10 @@ require_once __DIR__ . '/includes/header.php';
             </form>
         </div>
     </div>
-     <?php require_once __DIR__ . '/includes/footer.php' ?>
-     
-    <link rel="stylesheet" href="assets/styles/campaign.css">
-    <!-- JavaScript -->
-    <script src="assets/js/campaigns.js"></script>
+    <?php require_once __DIR__ . '/includes/footer.php' ?>
+
+    
+
     <script>
     // Initialize CampaignManager
     document.addEventListener('DOMContentLoaded', function() {
@@ -657,5 +657,9 @@ require_once __DIR__ . '/includes/header.php';
         }
     });
     </script>
+
+     <link rel="stylesheet" href="assets/styles/campaign.css">
+    <!-- JavaScript -->
+    <script src="assets/js/campaigns.js"></script>
 </body>
 </html>

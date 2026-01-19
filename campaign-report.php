@@ -186,7 +186,7 @@ require_once __DIR__ . '/includes/header.php';
                         </thead>
                         <tbody>
                             <?php foreach ($campaignStats['department_stats'] as $dept): 
-                                $deptRisk = $this->calculateDepartmentRisk($dept['open_rate'], $dept['click_rate']);
+                                $deptRisk = $campaignManager->calculateDepartmentRisk($dept['open_rate'], $dept['click_rate']);
                             ?>
                             <tr>
                                 <td><strong><?php echo htmlspecialchars($dept['department']); ?></strong></td>

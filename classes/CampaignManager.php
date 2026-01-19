@@ -14,6 +14,61 @@ class CampaignManager {
     /**
      * Create a new phishing campaign
      */
+    // public function createCampaign($data) {
+    //     try {
+    //         $this->db->beginTransaction();
+            
+    //         // Insert campaign
+    //         $stmt = $this->db->prepare("
+    //             INSERT INTO phishing_campaigns 
+    //             (organization_id, user_id, name, subject, email_content, sender_email, sender_name, status, scheduled_for)
+    //             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    //         ");
+            
+    //         $stmt->execute([
+    //             $data['organization_id'],
+    //             $data['user_id'],
+    //             $data['name'],
+    //             $data['subject'],
+    //             $data['email_content'],
+    //             $data['sender_email'],
+    //             $data['sender_name'],
+    //             $data['status'] ?? 'draft',
+    //             $data['scheduled_for'] ?? null
+    //         ]);
+            
+    //         $campaignId = $this->db->lastInsertId();
+            
+    //         // Process recipients if provided
+    //         if (!empty($data['recipients'])) {
+    //             $this->addRecipients($campaignId, $data['recipients']);
+    //         }
+            
+    //         // Process attachments if provided
+    //         if (!empty($data['attachments'])) {
+    //             $this->addAttachments($campaignId, $data['attachments']);
+    //         }
+            
+    //         // Initialize campaign results
+    //         $this->initCampaignResults($campaignId);
+            
+    //         $this->db->commit();
+            
+    //         return [
+    //             'success' => true,
+    //             'campaign_id' => $campaignId,
+    //             'message' => 'Campaign created successfully'
+    //         ];
+            
+    //     } catch (Exception $e) {
+    //         $this->db->rollBack();
+    //         return [
+    //             'success' => false,
+    //             'error' => 'Failed to create campaign: ' . $e->getMessage()
+    //         ];
+    //     }
+    // }
+
     public function createCampaign($data) {
         try {
             $this->db->beginTransaction();
@@ -41,12 +96,7 @@ class CampaignManager {
             
             // Process recipients if provided
             if (!empty($data['recipients'])) {
-                $this->addRecipients($campaignId, $data['recipients']);
-            }
-            
-            // Process attachments if provided
-            if (!empty($data['attachments'])) {
-                $this->addAttachments($campaignId, $data['attachments']);
+                $this->processRecipients($campaignId, $data['recipients']);
             }
             
             // Initialize campaign results
@@ -67,6 +117,82 @@ class CampaignManager {
                 'error' => 'Failed to create campaign: ' . $e->getMessage()
             ];
         }
+    }
+
+    private function processRecipients($campaignId, $recipientsInput) {
+        try {
+            $recipients = $this->parseRecipients($recipientsInput);
+            
+            if (empty($recipients)) {
+                return false;
+            }
+            
+            $stmt = $this->db->prepare("
+                INSERT INTO phishing_campaign_recipients 
+                (campaign_id, email, first_name, last_name, department, tracking_token)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            
+            $added = 0;
+            
+            foreach ($recipients as $recipient) {
+                $trackingToken = bin2hex(random_bytes(32));
+                
+                $stmt->execute([
+                    $campaignId,
+                    $recipient['email'],
+                    $recipient['first_name'] ?? '',
+                    $recipient['last_name'] ?? '',
+                    $recipient['department'] ?? '',
+                    $trackingToken
+                ]);
+                
+                $added++;
+            }
+            
+            // Update total recipients count
+            $this->updateRecipientCount($campaignId);
+            
+            return $added;
+            
+        } catch (Exception $e) {
+            error_log("Process recipients error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function parseRecipients($input) {
+        $recipients = [];
+        
+        // Split by new lines
+        $lines = array_filter(array_map('trim', explode("\n", $input)));
+        
+        foreach ($lines as $line) {
+            if (empty($line)) continue;
+            
+            // Try CSV format (comma separated)
+            $parts = str_getcsv($line);
+            
+            if (count($parts) >= 1) {
+                $email = trim($parts[0]);
+                
+                // Validate email
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    continue; // Skip invalid emails
+                }
+                
+                $recipient = [
+                    'email' => $email,
+                    'first_name' => isset($parts[1]) ? trim($parts[1]) : '',
+                    'last_name' => isset($parts[2]) ? trim($parts[2]) : '',
+                    'department' => isset($parts[3]) ? trim($parts[3]) : ''
+                ];
+                
+                $recipients[] = $recipient;
+            }
+        }
+        
+        return $recipients;
     }
 
     public function deleteCampaign($campaignId, $organizationId) {
@@ -216,12 +342,31 @@ class CampaignManager {
     /**
      * Send campaign emails
      */
+    /**
+ * Send campaign emails
+ */
     public function sendCampaign($campaignId, $batchSize = 50) {
         try {
             // Get campaign details
             $campaign = $this->getCampaign($campaignId);
             if (!$campaign) {
                 throw new Exception("Campaign not found");
+            }
+            
+            // Check if campaign has recipients
+            $stmt = $this->db->prepare("
+                SELECT COUNT(*) as recipient_count 
+                FROM phishing_campaign_recipients 
+                WHERE campaign_id = ?
+            ");
+            $stmt->execute([$campaignId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result['recipient_count'] == 0) {
+                return [
+                    'success' => false,
+                    'error' => 'Campaign has no recipients. Add recipients before sending.'
+                ];
             }
             
             // Update campaign status
@@ -246,14 +391,20 @@ class CampaignManager {
                         
                         // Log tracking event
                         $this->logTrackingEvent($recipient['id'], $campaignId, 'send');
-                        
-                        // Update sent count
+
                         $this->updateSentCount($campaignId);
+                        
+                        // Update total_sent in campaign results
+                        $this->updateCampaignMetrics($campaignId, 'total_sent', 1);
                     }
                     
                 } catch (Exception $e) {
                     // Log error but continue with other recipients
                     error_log("Failed to send to {$recipient['email']}: " . $e->getMessage());
+                    
+                    // Mark as bounced
+                    $this->updateRecipientStatus($recipient['id'], 'bounced');
+                    $this->updateCampaignMetrics($campaignId, 'total_bounced', 1);
                 }
             }
             
@@ -267,10 +418,31 @@ class CampaignManager {
             ];
             
         } catch (Exception $e) {
+            // Update campaign status to error state
+            $this->updateCampaignStatus($campaignId, 'paused');
+            
             return [
                 'success' => false,
                 'error' => 'Failed to send campaign: ' . $e->getMessage()
             ];
+        }
+    }
+
+    /**
+     * Update campaign metrics
+     */
+    private function updateCampaignMetrics($campaignId, $metric, $value) {
+        try {
+            $stmt = $this->db->prepare("
+                UPDATE phishing_campaign_results 
+                SET $metric = $metric + ?
+                WHERE campaign_id = ?
+            ");
+            $stmt->execute([$value, $campaignId]);
+        } catch (Exception $e) {
+            // If results row doesn't exist, create it
+            error_log("Update campaign metrics error: " . $e->getMessage());
+            $this->initCampaignResults($campaignId);
         }
     }
     
@@ -299,6 +471,76 @@ class CampaignManager {
         
         return $result['success'];
     }
+
+    /**
+ * Retry sending to failed recipients
+ */
+    public function retryFailedRecipients($campaignId, $organizationId = null) {
+        try {
+            // Validate campaign
+            $campaign = $this->getCampaign($campaignId);
+            if (!$campaign) {
+                throw new Exception("Campaign not found");
+            }
+            
+            // Validate organization access
+            if ($organizationId && $campaign['organization_id'] != $organizationId) {
+                throw new Exception("Access denied");
+            }
+            
+            // Get failed recipients (bounced or not sent)
+            $stmt = $this->db->prepare("
+                SELECT * FROM phishing_campaign_recipients
+                WHERE campaign_id = ? AND status IN ('pending', 'bounced')
+                ORDER BY id
+            ");
+            $stmt->execute([$campaignId]);
+            $recipients = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            $retried = 0;
+            
+            foreach ($recipients as $recipient) {
+                try {
+                    $emailSent = $this->sendEmailToRecipient($campaign, $recipient);
+                    
+                    if ($emailSent) {
+                        $retried++;
+                        
+                        // Update recipient status
+                        $this->updateRecipientStatus($recipient['id'], 'sent', [
+                            'sent_at' => date('Y-m-d H:i:s')
+                        ]);
+                        
+                        // Log tracking event
+                        $this->logTrackingEvent($recipient['id'], $campaignId, 'send');
+                        
+                        // Update total_sent in campaign results
+                        $this->updateCampaignMetrics($campaignId, 'total_sent', 1);
+                        
+                        // If previously bounced, reduce bounce count
+                        if ($recipient['status'] == 'bounced') {
+                            $this->updateCampaignMetrics($campaignId, 'total_bounced', -1);
+                        }
+                    }
+                    
+                } catch (Exception $e) {
+                    error_log("Failed to retry to {$recipient['email']}: " . $e->getMessage());
+                }
+            }
+            
+            return [
+                'success' => true,
+                'retried' => $retried,
+                'message' => "Retry sent to {$retried} recipients"
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'error' => 'Failed to retry: ' . $e->getMessage()
+            ];
+        }
+    }
     
     /**
      * Process email content to add tracking
@@ -315,6 +557,143 @@ class CampaignManager {
         
         return $content;
     }
+
+    public function getCampaignRecipients($campaignId, $organizationId = null) {
+        try {
+            $sql = "
+                SELECT r.*, 
+                    CASE 
+                        WHEN r.status = 'opened' THEN 'Opened'
+                        WHEN r.status = 'clicked' THEN 'Clicked'
+                        WHEN r.status = 'sent' THEN 'Sent'
+                        WHEN r.status = 'pending' THEN 'Pending'
+                        WHEN r.status = 'reported' THEN 'Reported'
+                        WHEN r.status = 'bounced' THEN 'Bounced'
+                        WHEN r.status = 'unsubscribed' THEN 'Unsubscribed'
+                        ELSE r.status
+                    END as status_display
+                FROM phishing_campaign_recipients r
+                WHERE r.campaign_id = ?
+            ";
+            
+            $params = [$campaignId];
+            
+            if ($organizationId) {
+                $sql .= " AND EXISTS (
+                    SELECT 1 FROM phishing_campaigns c
+                    WHERE c.id = r.campaign_id AND c.organization_id = ?
+                )";
+                $params[] = $organizationId;
+            }
+            
+            $sql .= " ORDER BY r.email";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+        } catch (Exception $e) {
+            error_log("Get campaign recipients error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function addRecipientsToCampaign($campaignId, $recipientsInput, $organizationId = null) {
+        try {
+            // Validate campaign exists and belongs to organization
+            if ($organizationId) {
+                $stmt = $this->db->prepare("
+                    SELECT id FROM phishing_campaigns 
+                    WHERE id = ? AND organization_id = ?
+                ");
+                $stmt->execute([$campaignId, $organizationId]);
+                
+                if (!$stmt->fetch()) {
+                    return [
+                        'success' => false,
+                        'error' => 'Campaign not found or access denied'
+                    ];
+                }
+            } else {
+                // Just check if campaign exists
+                $stmt = $this->db->prepare("SELECT id FROM phishing_campaigns WHERE id = ?");
+                $stmt->execute([$campaignId]);
+                
+                if (!$stmt->fetch()) {
+                    return [
+                        'success' => false,
+                        'error' => 'Campaign not found'
+                    ];
+                }
+            }
+            
+            // Parse recipients
+            $recipients = $this->parseRecipients($recipientsInput);
+            
+            if (empty($recipients)) {
+                return [
+                    'success' => false,
+                    'error' => 'No valid recipients found'
+                ];
+            }
+            
+            $added = 0;
+            $skipped = 0;
+            
+            foreach ($recipients as $recipient) {
+                // Check if recipient already exists for this campaign
+                $checkStmt = $this->db->prepare("
+                    SELECT id FROM phishing_campaign_recipients 
+                    WHERE campaign_id = ? AND email = ?
+                ");
+                $checkStmt->execute([$campaignId, $recipient['email']]);
+                
+                if ($checkStmt->fetch()) {
+                    $skipped++;
+                    continue; // Skip duplicate
+                }
+                
+                // Generate tracking token
+                $trackingToken = bin2hex(random_bytes(32));
+                
+                $stmt = $this->db->prepare("
+                    INSERT INTO phishing_campaign_recipients 
+                    (campaign_id, email, first_name, last_name, department, tracking_token)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ");
+                
+                $stmt->execute([
+                    $campaignId,
+                    $recipient['email'],
+                    $recipient['first_name'] ?? '',
+                    $recipient['last_name'] ?? '',
+                    $recipient['department'] ?? '',
+                    $trackingToken
+                ]);
+                
+                $added++;
+            }
+            
+            // Update total recipients count
+            $this->updateRecipientCount($campaignId);
+            
+            return [
+                'success' => true,
+                'added' => $added,
+                'skipped' => $skipped,
+                'message' => "Added {$added} new recipients" . ($skipped > 0 ? " (skipped {$skipped} duplicates)" : "")
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'error' => 'Failed to add recipients: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    
     
     /**
      * Generate open tracking pixel
@@ -565,23 +944,59 @@ class CampaignManager {
     /**
      * Get recipient statistics
      */
-    private function getRecipientStatistics($campaignId) {
-        $stmt = $this->db->prepare("
-            SELECT 
-                COUNT(*) as total,
-                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-                SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent,
-                SUM(CASE WHEN status = 'opened' THEN 1 ELSE 0 END) as opened,
-                SUM(CASE WHEN status = 'clicked' THEN 1 ELSE 0 END) as clicked,
-                SUM(CASE WHEN status = 'reported' THEN 1 ELSE 0 END) as reported,
-                SUM(CASE WHEN status = 'bounced' THEN 1 ELSE 0 END) as bounced,
-                SUM(CASE WHEN status = 'unsubscribed' THEN 1 ELSE 0 END) as unsubscribed
-            FROM phishing_campaign_recipients
-            WHERE campaign_id = ?
-        ");
-        
-        $stmt->execute([$campaignId]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+    public function getRecipientStatistics($campaignId, $organizationId = null) {
+        try {
+            $sql = "
+                SELECT 
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent,
+                    SUM(CASE WHEN status = 'opened' THEN 1 ELSE 0 END) as opened,
+                    SUM(CASE WHEN status = 'clicked' THEN 1 ELSE 0 END) as clicked,
+                    SUM(CASE WHEN status = 'reported' THEN 1 ELSE 0 END) as reported,
+                    SUM(CASE WHEN status = 'bounced' THEN 1 ELSE 0 END) as bounced,
+                    SUM(CASE WHEN status = 'unsubscribed' THEN 1 ELSE 0 END) as unsubscribed
+                FROM phishing_campaign_recipients
+                WHERE campaign_id = ?
+            ";
+            
+            $params = [$campaignId];
+            
+            if ($organizationId) {
+                $sql .= " AND EXISTS (
+                    SELECT 1 FROM phishing_campaigns c
+                    WHERE c.id = campaign_id AND c.organization_id = ?
+                )";
+                $params[] = $organizationId;
+            }
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            
+            return $stmt->fetch(PDO::FETCH_ASSOC) ?: [
+                'total' => 0,
+                'pending' => 0,
+                'sent' => 0,
+                'opened' => 0,
+                'clicked' => 0,
+                'reported' => 0,
+                'bounced' => 0,
+                'unsubscribed' => 0
+            ];
+            
+        } catch (Exception $e) {
+            error_log("Get recipient statistics error: " . $e->getMessage());
+            return [
+                'total' => 0,
+                'pending' => 0,
+                'sent' => 0,
+                'opened' => 0,
+                'clicked' => 0,
+                'reported' => 0,
+                'bounced' => 0,
+                'unsubscribed' => 0
+            ];
+        }
     }
     
     /**
@@ -819,6 +1234,20 @@ class CampaignManager {
             return $this->generateHtmlReport($stats);
         }
     }
+
+    public function calculateDepartmentRisk($openRate, $clickRate) {
+        $vulnerability_score = ($openRate * 0.4) + ($clickRate * 0.6);
+        
+        if ($vulnerability_score >= 70) {
+            return ['level' => 'Critical', 'color' => 'danger'];
+        } elseif ($vulnerability_score >= 50) {
+            return ['level' => 'High', 'color' => 'warning'];
+        } elseif ($vulnerability_score >= 30) {
+            return ['level' => 'Medium', 'color' => 'info'];
+        } else {
+            return ['level' => 'Low', 'color' => 'success'];
+        }
+    }
     
     /**
      * Generate HTML report
@@ -1038,12 +1467,78 @@ class CampaignManager {
     }
     
     private function updateRecipientCount($campaignId) {
-        $stmt = $this->db->prepare("
-            UPDATE phishing_campaigns 
-            SET total_recipients = (SELECT COUNT(*) FROM phishing_campaign_recipients WHERE campaign_id = ?)
-            WHERE id = ?
-        ");
-        $stmt->execute([$campaignId, $campaignId]);
+        try {
+            $stmt = $this->db->prepare("
+                UPDATE phishing_campaigns 
+                SET total_recipients = (
+                    SELECT COUNT(*) 
+                    FROM phishing_campaign_recipients 
+                    WHERE campaign_id = ?
+                )
+                WHERE id = ?
+            ");
+            $stmt->execute([$campaignId, $campaignId]);
+            
+            // Also update campaign results if they exist
+            $stmt = $this->db->prepare("
+                UPDATE phishing_campaign_results 
+                SET total_recipients = (
+                    SELECT COUNT(*) 
+                    FROM phishing_campaign_recipients 
+                    WHERE campaign_id = ?
+                )
+                WHERE campaign_id = ?
+            ");
+            $stmt->execute([$campaignId, $campaignId]);
+            
+        } catch (Exception $e) {
+            error_log("Update recipient count error: " . $e->getMessage());
+        }
+    }
+
+    public function removeRecipientFromCampaign($recipientId, $campaignId, $organizationId = null) {
+        try {
+            $sql = "
+                DELETE r FROM phishing_campaign_recipients r
+                WHERE r.id = ? AND r.campaign_id = ?
+            ";
+            
+            $params = [$recipientId, $campaignId];
+            
+            if ($organizationId) {
+                $sql .= " AND EXISTS (
+                    SELECT 1 FROM phishing_campaigns c
+                    WHERE c.id = r.campaign_id AND c.organization_id = ?
+                )";
+                $params[] = $organizationId;
+            }
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            
+            $rowsAffected = $stmt->rowCount();
+            
+            if ($rowsAffected > 0) {
+                // Update recipient count
+                $this->updateRecipientCount($campaignId);
+                
+                return [
+                    'success' => true,
+                    'message' => 'Recipient removed successfully'
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'error' => 'Recipient not found or access denied'
+                ];
+            }
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'error' => 'Failed to remove recipient: ' . $e->getMessage()
+            ];
+        }
     }
     
     private function updateSentCount($campaignId) {
@@ -1209,15 +1704,6 @@ class CampaignManager {
         $stmt->execute([$linkId]);
     }
     
-    private function updateCampaignMetrics($campaignId, $metric, $value) {
-        $stmt = $this->db->prepare("
-            UPDATE phishing_campaign_results 
-            SET $metric = $metric + ?
-            WHERE campaign_id = ?
-        ");
-        $stmt->execute([$value, $campaignId]);
-    }
-    
     private function recalculateCampaignRates($campaignId) {
         $stmt = $this->db->prepare("
             UPDATE phishing_campaign_results r
@@ -1259,18 +1745,24 @@ class CampaignManager {
     }
     
     private function checkCampaignCompletion($campaignId) {
-        $stmt = $this->db->prepare("
-            SELECT COUNT(*) as pending_count
-            FROM phishing_campaign_recipients
-            WHERE campaign_id = ? AND status = 'pending'
-        ");
-        $stmt->execute([$campaignId]);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($result['pending_count'] == 0) {
-            $this->updateCampaignStatus($campaignId, 'completed', [
-                'completed_at' => date('Y-m-d H:i:s')
-            ]);
+        try {
+            $stmt = $this->db->prepare("
+                SELECT COUNT(*) as pending_count
+                FROM phishing_campaign_recipients
+                WHERE campaign_id = ? AND status IN ('pending', 'bounced')
+            ");
+            $stmt->execute([$campaignId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result['pending_count'] == 0) {
+                // All recipients are either sent, opened, clicked, or reported
+                $this->updateCampaignStatus($campaignId, 'completed', [
+                    'completed_at' => date('Y-m-d H:i:s')
+                ]);
+            }
+            
+        } catch (Exception $e) {
+            error_log("Check campaign completion error: " . $e->getMessage());
         }
     }
     

@@ -109,7 +109,7 @@ class ZeptoMailGateway {
         
         $responseData = json_decode($response, true);
         
-        if ($httpCode === 200) {
+        if ($httpCode === 201) {
             return [
                 'success' => true,
                 'response' => $responseData

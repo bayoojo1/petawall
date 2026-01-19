@@ -336,22 +336,31 @@ Security Team`
     }
     
     initFileUpload() {
-        document.querySelectorAll('input[type="file"][data-campaign-upload]').forEach(input => {
-            input.addEventListener('change', (e) => {
+        // CSV file input
+        const csvInput = document.getElementById('csvFileInput');
+        const uploadBtn = document.getElementById('uploadCsvBtn');
+        const recipientsTextarea = document.querySelector('textarea[name="recipients"]');
+        
+        if (uploadBtn && csvInput) {
+            uploadBtn.addEventListener('click', () => {
+                csvInput.click();
+            });
+            
+            csvInput.addEventListener('change', (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 
-                // Validate CSV
+                // Validate CSV file
                 if (!file.name.toLowerCase().endsWith('.csv')) {
-                    this.showAlert('Please upload a CSV file', 'danger');
-                    input.value = '';
+                    this.showAlert('Please select a CSV file', 'danger');
+                    csvInput.value = '';
                     return;
                 }
                 
                 // Validate file size (max 5MB)
                 if (file.size > 5 * 1024 * 1024) {
                     this.showAlert('File size exceeds 5MB limit', 'danger');
-                    input.value = '';
+                    csvInput.value = '';
                     return;
                 }
                 
@@ -359,67 +368,152 @@ Security Team`
                 reader.onload = (e) => {
                     try {
                         const content = e.target.result;
-                        this.processCSV(content);
-                        input.value = '';
+                        const recipients = this.processCSVForCampaign(content);
+                        
+                        if (recipients.length > 0) {
+                            // Append to textarea
+                            const currentValue = recipientsTextarea.value.trim();
+                            const separator = currentValue ? '\n' : '';
+                            recipientsTextarea.value = currentValue + separator + recipients.join('\n');
+                            
+                            // Show preview
+                            this.showCSVPreview(recipients.length, file.name);
+                            
+                            this.showAlert(`Added ${recipients.length} recipients from CSV`, 'success');
+                        } else {
+                            this.showAlert('No valid email addresses found in CSV', 'warning');
+                        }
+                        
+                        // Reset file input
+                        csvInput.value = '';
+                        
                     } catch (error) {
-                        this.showAlert('Error processing file', 'danger');
-                        input.value = '';
+                        this.showAlert('Error processing CSV file', 'danger');
+                        csvInput.value = '';
                     }
                 };
+                
                 reader.onerror = () => {
                     this.showAlert('Error reading file', 'danger');
-                    input.value = '';
+                    csvInput.value = '';
                 };
+                
                 reader.readAsText(file);
             });
-        });
+        }
     }
     
-    processCSV(csvContent) {
-        try {
-            const lines = csvContent.split('\n').filter(line => line.trim());
-            if (lines.length < 1) {
-                this.showAlert('CSV file is empty', 'warning');
-                return;
-            }
-            
-            const recipients = [];
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            let hasHeader = false;
-            
-            // Check if first line contains headers
-            const firstLine = lines[0].toLowerCase();
-            if (firstLine.includes('email') || firstLine.includes('mail')) {
-                hasHeader = true;
-            }
-            
-            lines.forEach((line, index) => {
-                // Skip header
-                if (hasHeader && index === 0) return;
-                
-                const parts = line.split(',').map(part => part.trim());
-                if (parts.length >= 1 && emailRegex.test(parts[0])) {
-                    recipients.push(line);
-                }
-            });
-            
-            if (recipients.length > 0) {
-                const textarea = document.querySelector('textarea[name="recipients"]');
-                if (textarea) {
-                    const existing = textarea.value.trim();
-                    const separator = existing ? '\n' : '';
-                    textarea.value = existing + separator + recipients.join('\n');
-                    
-                    this.showAlert(`Successfully loaded ${recipients.length} recipients from CSV`, 'success');
-                }
-            } else {
-                this.showAlert('No valid email addresses found in CSV', 'warning');
-            }
-            
-        } catch (error) {
-            console.error('CSV processing error:', error);
-            this.showAlert('Error processing CSV file', 'danger');
+    processCSVForCampaign(csvContent) {
+        const lines = csvContent.split('\n').filter(line => line.trim());
+        const recipients = [];
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        
+        // Check if first line is header
+        let startIndex = 0;
+        const firstLine = lines[0].toLowerCase();
+        if (firstLine.includes('email') || firstLine.includes('mail')) {
+            startIndex = 1; // Skip header
         }
+        
+        for (let i = startIndex; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            // Parse CSV line (handles quoted fields)
+            const parts = this.parseCSVLine(line);
+            
+            if (parts.length >= 1) {
+                const email = parts[0].trim();
+                
+                // Validate email
+                if (emailRegex.test(email)) {
+                    // Format for textarea
+                    if (parts.length >= 4) {
+                        // Has all fields: email, first, last, department
+                        recipients.push(`${email},${parts[1]},${parts[2]},${parts[3]}`);
+                    } else if (parts.length >= 3) {
+                        // Has email, first, last
+                        recipients.push(`${email},${parts[1]},${parts[2]}`);
+                    } else if (parts.length >= 2) {
+                        // Has email and first name
+                        recipients.push(`${email},${parts[1]}`);
+                    } else {
+                        // Just email
+                        recipients.push(email);
+                    }
+                }
+            }
+        }
+        
+        return recipients;
+    }
+
+    parseCSVLine(line) {
+        // Simple CSV parser that handles quoted fields
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            const nextChar = line[i + 1];
+            
+            if (char === '"') {
+                if (inQuotes && nextChar === '"') {
+                    // Escaped quote
+                    current += '"';
+                    i++; // Skip next quote
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === ',' && !inQuotes) {
+                result.push(current);
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        
+        result.push(current);
+        return result.map(field => field.trim().replace(/^"|"$/g, ''));
+    }
+
+    showCSVPreview(count, filename) {
+        const preview = document.getElementById('csvPreview');
+        const previewText = document.getElementById('csvPreviewText');
+        
+        if (preview && previewText) {
+            previewText.textContent = `Loaded ${count} recipients from "${filename}"`;
+            preview.style.display = 'block';
+            
+            // Auto-hide after 10 seconds
+            setTimeout(() => {
+                preview.style.display = 'none';
+            }, 10000);
+        }
+    }
+
+    // Download CSV template
+    downloadCSVTemplate() {
+        const csv = `email,first_name,last_name,department
+    john.doe@example.com,John,Doe,IT
+    jane.smith@example.com,Jane,Smith,HR
+    bob.johnson@example.com,Bob,Johnson,Finance
+    alice.brown@example.com,Alice,Brown,Marketing
+    mike.wilson@example.com,Mike,Wilson,Sales`;
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'campaign_recipients_template.csv';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        this.showAlert('Template downloaded successfully', 'success');
     }
     
     validateEmail(email) {

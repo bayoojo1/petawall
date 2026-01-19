@@ -509,20 +509,6 @@
     padding: var(--campaign-spacing);
     overflow-y: auto; /* Allow modal container to scroll */
 }
-/* .campaign-modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 1050;
-    align-items: center;
-    justify-content: center;
-    padding: var(--campaign-spacing);
-    overflow-y: auto;
-} */
 
 .campaign-modal.show {
     display: flex;
@@ -533,18 +519,6 @@
     from { opacity: 0; }
     to { opacity: 1; }
 }
-
-/* .campaign-modal-content {
-    background: var(--campaign-card-bg);
-    border-radius: var(--campaign-radius-lg);
-    box-shadow: var(--campaign-shadow-lg);
-    width: 100%;
-    max-width: 800px;
-    max-height: 90vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-} */
 
 .campaign-modal-content {
     background: var(--campaign-card-bg);
@@ -700,6 +674,16 @@
 
 .campaign-action-delete {
     background: var(--campaign-danger);
+}
+
+.campaign-action-warning {
+    background: var(--campaign-warning);
+    color: #212529;
+}
+
+.campaign-action-success {
+    background: var(--campaign-success);
+    color: white;
 }
 
 /* Performance Metrics */
@@ -971,4 +955,117 @@
 .campaign-form-actions {
     margin-top: 1.5rem;
     text-align: center;
+}
+
+/* Recipients Input */
+.campaign-recipients-input {
+    position: relative;
+}
+
+.campaign-form-help {
+    margin-top: 10px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    font-size: 14px;
+}
+
+.campaign-form-help p {
+    margin: 0 0 10px 0;
+    font-weight: 500;
+}
+
+.campaign-form-help ul {
+    margin: 0 0 15px 20px;
+    padding: 0;
+}
+
+.campaign-form-help li {
+    margin-bottom: 5px;
+}
+
+.campaign-form-help code {
+    background: #e9ecef;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+}
+
+.campaign-file-upload-area {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+#csvPreview {
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Campaign Edit Page - Recipients Management */
+.campaign-recipients-section {
+    margin-top: 30px;
+}
+
+.recipients-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 14px;
+}
+
+.recipients-table th {
+    background: #f8f9fa;
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+}
+
+.recipients-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.recipients-table tr:hover {
+    background: #f8f9fa;
+}
+
+.recipient-status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-pending { background: #e9ecef; color: #495057; }
+.status-sent { background: #cfe2ff; color: #084298; }
+.status-opened { background: #d1e7dd; color: #0a3622; }
+.status-clicked { background: #f8d7da; color: #58151c; }
+
+.add-recipients-form {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+    border: 1px solid #e9ecef;
+}
+
+.add-recipients-form h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
 }
