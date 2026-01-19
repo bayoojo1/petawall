@@ -10,64 +10,6 @@ class CampaignManager {
         $this->db = Database::getInstance()->getConnection();
         $this->mailGateway = new ZeptoMailGateway();
     }
-    
-    /**
-     * Create a new phishing campaign
-     */
-    // public function createCampaign($data) {
-    //     try {
-    //         $this->db->beginTransaction();
-            
-    //         // Insert campaign
-    //         $stmt = $this->db->prepare("
-    //             INSERT INTO phishing_campaigns 
-    //             (organization_id, user_id, name, subject, email_content, sender_email, sender_name, status, scheduled_for)
-    //             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    //         ");
-            
-    //         $stmt->execute([
-    //             $data['organization_id'],
-    //             $data['user_id'],
-    //             $data['name'],
-    //             $data['subject'],
-    //             $data['email_content'],
-    //             $data['sender_email'],
-    //             $data['sender_name'],
-    //             $data['status'] ?? 'draft',
-    //             $data['scheduled_for'] ?? null
-    //         ]);
-            
-    //         $campaignId = $this->db->lastInsertId();
-            
-    //         // Process recipients if provided
-    //         if (!empty($data['recipients'])) {
-    //             $this->addRecipients($campaignId, $data['recipients']);
-    //         }
-            
-    //         // Process attachments if provided
-    //         if (!empty($data['attachments'])) {
-    //             $this->addAttachments($campaignId, $data['attachments']);
-    //         }
-            
-    //         // Initialize campaign results
-    //         $this->initCampaignResults($campaignId);
-            
-    //         $this->db->commit();
-            
-    //         return [
-    //             'success' => true,
-    //             'campaign_id' => $campaignId,
-    //             'message' => 'Campaign created successfully'
-    //         ];
-            
-    //     } catch (Exception $e) {
-    //         $this->db->rollBack();
-    //         return [
-    //             'success' => false,
-    //             'error' => 'Failed to create campaign: ' . $e->getMessage()
-    //         ];
-    //     }
-    // }
 
     public function createCampaign($data) {
         try {

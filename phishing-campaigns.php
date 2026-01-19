@@ -545,17 +545,37 @@ require_once __DIR__ . '/includes/header.php';
                             <span class="campaign-form-text">Tip: Use convincing language that mimics real phishing attempts</span>
                         </div>
                     </div>
-                    
                     <div class="campaign-form-group">
-                        <label class="campaign-form-label">Recipients (optional)</label>
-                        <textarea class="campaign-form-control" name="recipients" rows="4" 
-                                  placeholder="Enter email addresses, one per line, or leave empty to add later&#10;Format: email@example.com or email@example.com,First Name,Last Name,Department"></textarea>
-                        <span class="campaign-form-text">
-                            Upload a CSV file: 
-                            <button type="button" id="downloadTemplateBtn" class="campaign-btn campaign-btn-link">
-                                <i class="fas fa-download"></i> Download Template
-                            </button>
-                        </span>
+                        <label class="campaign-form-label">Recipients *</label>
+                        <div class="campaign-recipients-input">
+                            <textarea class="campaign-form-control" name="recipients" rows="6" required
+                                    placeholder="Enter email addresses (one per line)&#10;Optional format: email,First Name,Last Name,Department&#10;Example:&#10;john@example.com&#10;jane@example.com,Jane,Smith,IT&#10;bob@example.com,Bob,Johnson,Finance"></textarea>
+                            
+                            <div class="campaign-form-help">
+                                <p><strong>Format options:</strong></p>
+                                <ul>
+                                    <li>Just email: <code>email@example.com</code></li>
+                                    <li>With details: <code>email@example.com,First Name,Last Name,Department</code></li>
+                                </ul>
+                                
+                                <div class="campaign-file-upload-area">
+                                    <button type="button" class="campaign-btn campaign-btn-outline" id="uploadCsvBtn">
+                                        <i class="fas fa-upload"></i> Upload CSV
+                                    </button>
+                                    <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+                                    <button type="button" class="campaign-btn campaign-btn-link" id="downloadTemplateBtn">
+                                        <i class="fas fa-download"></i> Download Template
+                                    </button>
+                                </div>
+                                
+                                <div id="csvPreview" style="display: none; margin-top: 15px;">
+                                    <div class="campaign-alert campaign-alert-info">
+                                        <i class="fas fa-info-circle"></i>
+                                        <span id="csvPreviewText"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
