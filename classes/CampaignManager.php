@@ -960,6 +960,21 @@ class CampaignManager {
         $stmt->execute([$campaignId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function pendingOrBouncedRecipient(int $campaignId): int
+    {
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*)
+            FROM phishing_campaign_recipients
+            WHERE campaign_id = ?
+            AND status IN ('pending', 'bounced')
+        ");
+
+        $stmt->execute([$campaignId]);
+        return (int) $stmt->fetchColumn();
+    }
+
+
     
     /**
      * Get link statistics

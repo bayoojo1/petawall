@@ -10,7 +10,7 @@ $toolName = 'phishing-campaigns';
 
 // Check if user is logged in
 if (!$auth->isLoggedIn()) {
-    header('Location: login.php');
+    header('Location: index.php');
     exit;
 }
 
@@ -75,7 +75,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Process form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    switch ($action) {
+    $postAction = $_POST['action'] ?? '';
+    $postCampaignId = $_POST['id'] ?? 0;
+    
+    switch ($postAction) {
         case 'create':
             // Validate organization exists
             if (!$organizationId) {
@@ -105,13 +108,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
             
         case 'send':
-            $result = $campaignManager->sendCampaign($campaignId);
+            // Send campaign to all pending recipients
+            $result = $campaignManager->sendCampaign($postCampaignId);
             if ($result['success']) {
                 $_SESSION['success_message'] = 'Campaign sent! ' . $result['sent_count'] . ' emails sent.';
             } else {
                 $_SESSION['error_message'] = $result['error'] ?? 'Failed to send campaign';
             }
-            header('Location: ?action=view&id=' . $campaignId);
+            header('Location: ?action=view&id=' . $postCampaignId);
+            exit;
+            break;
+
+        case 'resume':
+            // Resume a paused campaign
+            $result = $campaignManager->resumeCampaign($postCampaignId, $organizationId);
+            if ($result['success']) {
+                $_SESSION['success_message'] = 'Campaign resumed!';
+                
+                // Optionally send to pending recipients immediately
+                if (isset($_POST['send_now']) && $_POST['send_now'] == '1') {
+                    $sendResult = $campaignManager->sendCampaign($postCampaignId);
+                    if ($sendResult['success']) {
+                        $_SESSION['success_message'] .= ' ' . $sendResult['sent_count'] . ' emails sent to pending recipients.';
+                    }
+                }
+            } else {
+                $_SESSION['error_message'] = $result['error'] ?? 'Failed to resume campaign';
+            }
+            header('Location: phishing-campaigns.php');
+            exit;
+            break;
+
+        case 'pause':
+            // Pause a running campaign
+            $result = $campaignManager->pauseCampaign($postCampaignId, $organizationId);
+            if ($result['success']) {
+                $_SESSION['success_message'] = 'Campaign paused!';
+            } else {
+                $_SESSION['error_message'] = $result['error'] ?? 'Failed to pause campaign';
+            }
+            header('Location: phishing-campaigns.php');
+            exit;
+            break;
+
+        case 'stop':
+            // Stop a campaign (mark as completed)
+            $result = $campaignManager->cancelCampaign($postCampaignId, $organizationId);
+            if ($result['success']) {
+                $_SESSION['success_message'] = 'Campaign stopped and marked as completed!';
+            } else {
+                $_SESSION['error_message'] = $result['error'] ?? 'Failed to stop campaign';
+            }
+            header('Location: phishing-campaigns.php');
+            exit;
+            break;
+
+        case 'retry_failed':
+            // Retry sending to failed recipients only
+            $result = $campaignManager->retryFailedRecipients($postCampaignId);
+            if ($result['success']) {
+                $_SESSION['success_message'] = 'Retry sent to ' . $result['retried'] . ' recipients!';
+            } else {
+                $_SESSION['error_message'] = $result['error'] ?? 'Failed to retry';
+            }
+            header('Location: phishing-campaigns.php');
             exit;
             break;
             
@@ -149,6 +209,8 @@ $organizationInfo = $organizationManager->getUserOrganization($userId);
 // Get campaigns for the organization
 $campaignsData = $campaignManager->getOrganizationCampaigns($organizationId, 10, 0);
 $campaigns = $campaignsData['campaigns'] ?? [];
+
+// Get peding or bounced recipient
 
 // Check for session messages
 $success = $_SESSION['success_message'] ?? '';
@@ -290,6 +352,8 @@ require_once __DIR__ . '/includes/header.php';
                             </thead>
                             <tbody>
                                 <?php foreach ($campaigns as $campaign): ?>
+                                <?php $status = $campaign['status'] ?? 'draft'; ?>
+                                <?php $pendingCount = $campaignManager->pendingOrBouncedRecipient($campaign['id']); ?>
                                 <tr>
                                     <td>
                                         <div style="font-weight: 600; margin-bottom: 4px;">
@@ -305,7 +369,7 @@ require_once __DIR__ . '/includes/header.php';
                                     </td>
                                     <td>
                                         <?php
-                                        $status = $campaign['status'] ?? 'draft';
+                                        //
                                         $statusColor = getStatusColor($status);
                                         $statusIcon = getStatusIcon($status);
                                         ?>
@@ -359,30 +423,74 @@ require_once __DIR__ . '/includes/header.php';
                                             <?php echo date('g:i A', strtotime($campaign['created_at'] ?? 'now')); ?>
                                         </div>
                                     </td>
+
                                     <td>
                                         <div class="campaign-actions">
                                             <a href="campaign-report.php?id=<?php echo $campaign['id']; ?>" 
-                                               class="campaign-action-btn campaign-action-info"
-                                               data-tooltip="View Report">
+                                            class="campaign-action-btn campaign-action-info"
+                                            data-tooltip="View Report">
                                                 <i class="fas fa-chart-bar"></i>
                                             </a>
                                             <a href="campaign-edit.php?id=<?php echo $campaign['id']; ?>" 
-                                               class="campaign-action-btn campaign-action-edit"
-                                               data-tooltip="Edit Campaign">
+                                            class="campaign-action-btn campaign-action-edit"
+                                            data-tooltip="Edit/Add Recipients">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <?php if ($status == 'draft' || $status == 'paused'): ?>
+                                            
+                                            <?php if ($status == 'draft'): ?>
                                             <form method="post" style="display: inline;">
                                                 <input type="hidden" name="action" value="send">
                                                 <input type="hidden" name="id" value="<?php echo $campaign['id']; ?>">
                                                 <button type="submit" 
                                                         class="campaign-action-btn campaign-action-send"
                                                         data-tooltip="Send Campaign"
-                                                        onclick="return confirm('Send this campaign to all recipients?')">
+                                                        onclick="return confirm('Send this campaign to all pending recipients?')">
                                                     <i class="fas fa-paper-plane"></i>
                                                 </button>
                                             </form>
+                                            <?php elseif ($status == 'running'): ?>
+                                            <form method="post" style="display: inline;">
+                                                <input type="hidden" name="action" value="pause">
+                                                <input type="hidden" name="id" value="<?php echo $campaign['id']; ?>">
+                                                <button type="submit" 
+                                                        class="campaign-action-btn campaign-action-warning"
+                                                        data-tooltip="Pause Campaign">
+                                                    <i class="fas fa-pause"></i>
+                                                </button>
+                                            </form>
+                                            <?php elseif ($status == 'paused'): ?>
+                                            <form method="post" style="display: inline;">
+                                                <input type="hidden" name="action" value="resume">
+                                                <input type="hidden" name="id" value="<?php echo $campaign['id']; ?>">
+                                                <button type="submit" 
+                                                        class="campaign-action-btn campaign-action-success"
+                                                        data-tooltip="Resume Campaign">
+                                                    <i class="fas fa-play"></i>
+                                                </button>
+                                            </form>
+                                            <form method="post" style="display: inline;">
+                                                <input type="hidden" name="action" value="stop">
+                                                <input type="hidden" name="id" value="<?php echo $campaign['id']; ?>">
+                                                <button type="submit" 
+                                                        class="campaign-action-btn campaign-action-danger"
+                                                        data-tooltip="Stop Campaign"
+                                                        onclick="return confirm('Stop this campaign? This will mark it as completed.')">
+                                                    <i class="fas fa-stop"></i>
+                                                </button>
+                                            </form>
+                                            <?php elseif ($status == 'completed' && $pendingCount > 0): ?>
+                                                <form method="post" style="display: inline;">
+                                                    <input type="hidden" name="action" value="retry_failed">
+                                                    <input type="hidden" name="id" value="<?php echo $campaign['id']; ?>">
+                                                    <button type="submit" 
+                                                            class="campaign-action-btn campaign-action-success"
+                                                            data-tooltip="Retry Failed Recipients"
+                                                            onclick="return confirm('Retry sending to <?php echo $pendingCount; ?> recipients?')">
+                                                        <i class="fas fa-redo"></i>
+                                                    </button>
+                                                </form>
                                             <?php endif; ?>
+                                            
                                             <form method="post" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this campaign? This action cannot be undone.')">
                                                 <input type="hidden" name="action" value="delete">
                                                 <input type="hidden" name="id" value="<?php echo $campaign['id']; ?>">
@@ -531,13 +639,16 @@ require_once __DIR__ . '/includes/header.php';
                                 </button>
                                 <div class="campaign-editor-divider"></div>
                                 <button type="button" class="campaign-btn" data-template="urgent-verify">
-                                    <i class="fas fa-exclamation-triangle"></i> Urgent Verify
+                                    <i class="fas fa-exclamation-triangle"></i> Security Alert
                                 </button>
                                 <button type="button" class="campaign-btn" data-template="password-expired">
                                     <i class="fas fa-key"></i> Password Expired
                                 </button>
                                 <button type="button" class="campaign-btn" data-template="security-breach">
                                     <i class="fas fa-shield-alt"></i> Security Breach
+                                </button>
+                                <button type="button" class="campaign-btn" data-template="payment-update">
+                                    <i class="fas fa-credit-card"></i> Payment Update
                                 </button>
                             </div>
                             <textarea class="campaign-editor-textarea" name="email_content" rows="12" required

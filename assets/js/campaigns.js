@@ -291,44 +291,301 @@ class CampaignManager {
         if (!textarea) return;
         
         const templates = {
-            'urgent-verify': `Dear Employee,
+            'urgent-verify': `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+        <div style="background: #d32f2f; color: white; padding: 20px 30px; text-align: center;">
+            <h2 style="margin: 0; font-size: 24px; font-weight: bold;">URGENT: Account Security Alert</h2>
+        </div>
+        
+        <div style="padding: 30px;">
+            <p style="font-size: 16px; line-height: 1.6; color: #333; margin-bottom: 20px;">
+                Dear Employee,
+            </p>
+            
+            <p style="font-size: 16px; line-height: 1.6; color: #333; margin-bottom: 20px;">
+                Our security system has detected <strong style="color: #d32f2f;">unusual login activity</strong> on your company account from an unrecognized device or location.
+            </p>
+            
+            <div style="background: #fff8e1; border-left: 4px solid #ffa000; padding: 15px 20px; margin: 25px 0; border-radius: 4px;">
+                <h3 style="color: #d32f2f; margin-top: 0; font-size: 18px;">⚠️ Immediate Action Required</h3>
+                <p style="margin-bottom: 0; font-size: 15px;">
+                    To protect your account, please verify your identity immediately by clicking the button below:
+                </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="[VERIFICATION_LINK]" style="display: inline-block; background: #1976d2; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; box-shadow: 0 3px 10px rgba(25, 118, 210, 0.3);">
+                    🔐 VERIFY YOUR ACCOUNT
+                </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #666; margin: 25px 0; text-align: center;">
+                <em>This verification link will expire in <strong>24 hours</strong> for security reasons.</em>
+            </p>
+            
+            <div style="background: #f5f5f5; padding: 20px; border-radius: 6px; margin-top: 30px; border: 1px solid #e0e0e0;">
+                <h4 style="margin-top: 0; color: #333; font-size: 15px;">📋 What to do if you didn't request this:</h4>
+                <ul style="font-size: 14px; color: #555; margin-bottom: 0;">
+                    <li>Do not click the verification link</li>
+                    <li>Contact IT Support immediately at <strong>support@yourcompany.com</strong></li>
+                    <li>Change your password through the official company portal</li>
+                </ul>
+            </div>
+            
+            <p style="font-size: 14px; color: #777; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                <strong>IT Security Team</strong><br>
+                Your Company Name<br>
+                📞 Support: (555) 123-4567 | ✉️ security@yourcompany.com
+            </p>
+        </div>
+        
+        <div style="background: #f5f5f5; padding: 15px 30px; text-align: center; font-size: 12px; color: #777; border-top: 1px solid #e0e0e0;">
+            <p style="margin: 5px 0;">
+                This is an automated security message from your company's IT department.
+                <br>Please do not reply to this email.
+            </p>
+        </div>
+    </div>`,
 
-We detected unusual activity in your account. For security purposes, please verify your credentials immediately.
+            'password-expired': `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+        <div style="background: #1976d2; color: white; padding: 20px 30px; text-align: center;">
+            <h2 style="margin: 0; font-size: 24px; font-weight: bold;">🔐 Password Update Required</h2>
+            <p style="margin: 10px 0 0; opacity: 0.9;">Your password is about to expire</p>
+        </div>
+        
+        <div style="padding: 30px;">
+            <p style="font-size: 16px; line-height: 1.6; color: #333; margin-bottom: 20px;">
+                Hello,
+            </p>
+            
+            <p style="font-size: 16px; line-height: 1.6; color: #333; margin-bottom: 20px;">
+                According to our records, your company account password will expire in <strong style="color: #1976d2;">3 days</strong>. To ensure uninterrupted access to company resources, please update your password now.
+            </p>
+            
+            <div style="background: #e3f2fd; border: 1px solid #bbdefb; padding: 20px; border-radius: 6px; margin: 25px 0; text-align: center;">
+                <h3 style="color: #1976d2; margin-top: 0; font-size: 18px;">🔄 Update Your Password</h3>
+                <p style="margin-bottom: 20px;">
+                    Click the button below to access the secure password reset portal:
+                </p>
+                
+                <a href="[PASSWORD_RESET_LINK]" style="display: inline-block; background: #1976d2; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; box-shadow: 0 3px 10px rgba(25, 118, 210, 0.3);">
+                    🔄 RESET PASSWORD
+                </a>
+                
+                <p style="font-size: 13px; color: #666; margin-top: 15px;">
+                    <strong>Note:</strong> This link is valid for 24 hours only.
+                </p>
+            </div>
+            
+            <div style="margin: 25px 0;">
+                <h4 style="color: #333; font-size: 16px; margin-bottom: 10px;">✅ Password Requirements:</h4>
+                <ul style="font-size: 14px; color: #555; background: #f9f9f9; padding: 15px 20px 15px 35px; border-radius: 4px; margin: 0;">
+                    <li>Minimum 12 characters</li>
+                    <li>At least one uppercase letter</li>
+                    <li>At least one lowercase letter</li>
+                    <li>At least one number (0-9)</li>
+                    <li>At least one special character (!@#$%^&*)</li>
+                    <li>Cannot be similar to your previous 5 passwords</li>
+                </ul>
+            </div>
+            
+            <div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 15px 20px; margin: 25px 0; border-radius: 4px;">
+                <h4 style="color: #e65100; margin-top: 0; font-size: 15px;">⚠️ Important Security Note:</h4>
+                <p style="font-size: 14px; margin-bottom: 0;">
+                    Never share your password with anyone. IT staff will <strong>never</strong> ask for your password via email.
+                </p>
+            </div>
+            
+            <p style="font-size: 14px; color: #777; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                <strong>IT Department</strong><br>
+                Your Company Name<br>
+                📞 Help Desk: (555) 123-4567 | ✉️ it-support@yourcompany.com
+            </p>
+        </div>
+        
+        <div style="background: #f5f5f5; padding: 15px 30px; text-align: center; font-size: 12px; color: #777; border-top: 1px solid #e0e0e0;">
+            <p style="margin: 5px 0;">
+                This is an automated notification from your company's IT system.
+                <br>For security reasons, please do not reply to this message.
+            </p>
+        </div>
+    </div>`,
 
-Click here to verify: [VERIFICATION_LINK]
+            'security-breach': `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+        <div style="background: linear-gradient(to right, #d32f2f, #b71c1c); color: white; padding: 25px 30px; text-align: center;">
+            <h2 style="margin: 0; font-size: 26px; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                🚨 EMERGENCY SECURITY NOTIFICATION
+            </h2>
+            <p style="margin: 10px 0 0; opacity: 0.9; font-size: 16px;">
+                Immediate Verification Required
+            </p>
+        </div>
+        
+        <div style="padding: 30px;">
+            <div style="background: #ffebee; border: 2px solid #ffcdd2; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+                <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                    <div style="background: #d32f2f; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-right: 15px;">
+                        ⚠️
+                    </div>
+                    <h3 style="margin: 0; color: #b71c1c; font-size: 20px;">SECURITY ALERT: Potential Data Breach Detected</h3>
+                </div>
+                <p style="margin: 0; font-size: 15px; color: #333;">
+                    Our monitoring systems have identified <strong>suspicious activity</strong> that may indicate a security breach affecting employee accounts.
+                </p>
+            </div>
+            
+            <p style="font-size: 16px; line-height: 1.6; color: #333; margin-bottom: 20px;">
+                Dear Employee,
+            </p>
+            
+            <p style="font-size: 16px; line-height: 1.6; color: #333; margin-bottom: 20px;">
+                We have detected <strong style="color: #d32f2f;">unauthorized access attempts</strong> on company systems. As a precautionary measure, we require <strong>all employees</strong> to immediately verify their account credentials.
+            </p>
+            
+            <div style="background: #fff3e0; border: 2px dashed #ff9800; padding: 25px; border-radius: 8px; margin: 30px 0; text-align: center;">
+                <h4 style="color: #e65100; margin-top: 0; font-size: 18px; margin-bottom: 15px;">
+                    🔐 CRITICAL: Account Verification Required
+                </h4>
+                <p style="margin-bottom: 20px; font-size: 15px;">
+                    Failure to verify your account within <strong>24 hours</strong> will result in temporary suspension of access to company resources.
+                </p>
+                
+                <a href="[SECURITY_CHECK_LINK]" style="display: inline-block; background: linear-gradient(to right, #d32f2f, #b71c1c); color: white; padding: 16px 40px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 17px; box-shadow: 0 4px 15px rgba(183, 28, 28, 0.3); transition: all 0.3s ease;">
+                    🛡️ VERIFY ACCOUNT NOW
+                </a>
+            </div>
+            
+            <div style="margin: 30px 0;">
+                <h4 style="color: #333; font-size: 16px; margin-bottom: 15px; border-bottom: 2px solid #1976d2; padding-bottom: 8px;">
+                    📋 Required Actions:
+                </h4>
+                <ol style="font-size: 14px; color: #555; background: #f9f9f9; padding: 20px 20px 20px 40px; border-radius: 4px; margin: 0;">
+                    <li style="margin-bottom: 10px;">Click the verification link above immediately</li>
+                    <li style="margin-bottom: 10px;">Review recent login activity on your account</li>
+                    <li style="margin-bottom: 10px;">Report any unfamiliar activity to IT Security</li>
+                    <li>Enable multi-factor authentication if not already active</li>
+                </ol>
+            </div>
+            
+            <div style="background: #e8f5e9; border-left: 4px solid #4caf50; padding: 20px; border-radius: 4px; margin: 30px 0;">
+                <h4 style="color: #2e7d32; margin-top: 0; font-size: 16px;">✅ What we're doing:</h4>
+                <ul style="font-size: 14px; color: #555; margin-bottom: 0;">
+                    <li>Enhanced monitoring of all systems</li>
+                    <li>Increased security protocols</li>
+                    <li>24/7 Security Operations Center monitoring</li>
+                    <li>Regular updates will be provided</li>
+                </ul>
+            </div>
+            
+            <div style="background: #f5f5f5; padding: 20px; border-radius: 6px; margin-top: 30px; border: 1px solid #e0e0e0;">
+                <h4 style="margin-top: 0; color: #333; font-size: 15px; margin-bottom: 10px;">📞 Need Help?</h4>
+                <p style="font-size: 14px; color: #555; margin-bottom: 5px;">
+                    <strong>Emergency Security Hotline:</strong> (555) 789-0123 (24/7)
+                </p>
+                <p style="font-size: 14px; color: #555; margin-bottom: 0;">
+                    <strong>Email:</strong> security-emergency@yourcompany.com
+                </p>
+            </div>
+            
+            <p style="font-size: 14px; color: #777; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+                <strong>Company Security Team</strong><br>
+                Your Company Name | Information Security Department
+            </p>
+        </div>
+        
+        <div style="background: #212121; color: #bdbdbd; padding: 15px 30px; text-align: center; font-size: 11px; line-height: 1.5;">
+            <p style="margin: 5px 0;">
+                <strong>CONFIDENTIAL</strong> - This message contains sensitive security information.<br>
+                Unauthorized disclosure is prohibited. If you received this in error, please delete immediately.<br>
+                © 2024 Your Company Name. All rights reserved.
+            </p>
+        </div>
+    </div>`,
 
-If you did not initiate this request, please contact IT support immediately.
-
-Best regards,
-IT Security Team`,
-
-            'password-expired': `Hello,
-
-Your password is about to expire. To maintain access to your account, please update your password now.
-
-Update password: [PASSWORD_RESET_LINK]
-
-Note: This link will expire in 24 hours.
-
-Sincerely,
-IT Department`,
-
-            'security-breach': `URGENT: Security Notification
-
-Our systems have detected a potential security breach. We require all employees to verify their account details immediately.
-
-Verify account: [SECURITY_CHECK_LINK]
-
-Failure to verify within 24 hours may result in account suspension.
-
-Security Team`
+            'payment-update': `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+        <div style="background: linear-gradient(to right, #2196f3, #1976d2); color: white; padding: 20px 30px;">
+            <h2 style="margin: 0; font-size: 24px; font-weight: bold;">💳 Payment Information Update Required</h2>
+            <p style="margin: 8px 0 0; opacity: 0.9; font-size: 15px;">
+                Action needed to ensure uninterrupted payment processing
+            </p>
+        </div>
+        
+        <div style="padding: 30px;">
+            <p style="font-size: 16px; line-height: 1.6; color: #333; margin-bottom: 20px;">
+                Dear Valued Employee,
+            </p>
+            
+            <p style="font-size: 16px; line-height: 1.6; color: #333; margin-bottom: 20px;">
+                Our records indicate that your payment information on file requires an update. To ensure your upcoming payroll/direct deposit is processed without delay, please verify and update your payment details.
+            </p>
+            
+            <div style="background: #e3f2fd; border: 1px solid #bbdefb; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center;">
+                <div style="background: #1976d2; color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 15px;">
+                    💰
+                </div>
+                <h3 style="color: #1976d2; margin-top: 0; font-size: 20px; margin-bottom: 10px;">
+                    Update Your Payment Information
+                </h3>
+                <p style="margin-bottom: 20px; font-size: 15px;">
+                    Click below to securely access the payment portal:
+                </p>
+                
+                <a href="[PAYMENT_UPDATE_LINK]" style="display: inline-block; background: linear-gradient(to right, #2196f3, #1976d2); color: white; padding: 15px 35px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);">
+                    🔄 UPDATE PAYMENT DETAILS
+                </a>
+                
+                <p style="font-size: 13px; color: #666; margin-top: 15px;">
+                    <strong>Deadline:</strong> Update required within 48 hours
+                </p>
+            </div>
+            
+            <div style="margin: 25px 0;">
+                <h4 style="color: #333; font-size: 16px; margin-bottom: 15px;">📋 Information You May Need:</h4>
+                <ul style="font-size: 14px; color: #555; background: #f9f9f9; padding: 15px 20px 15px 35px; border-radius: 4px; margin: 0;">
+                    <li>Bank account number</li>
+                    <li>Routing number</li>
+                    <li>Account type (Checking/Savings)</li>
+                    <li>Recent pay stub for verification</li>
+                </ul>
+            </div>
+            
+            <div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 15px 20px; margin: 25px 0; border-radius: 4px;">
+                <h4 style="color: #e65100; margin-top: 0; font-size: 15px;">⚠️ Security Reminder:</h4>
+                <p style="font-size: 14px; margin-bottom: 0;">
+                    The link above will take you to our <strong>secure company portal</strong>. Never enter payment information on any site unless you verify the URL begins with "https://" and shows a lock icon.
+                </p>
+            </div>
+            
+            <div style="background: #f5f5f5; padding: 20px; border-radius: 6px; margin-top: 25px; border: 1px solid #e0e0e0;">
+                <h4 style="margin-top: 0; color: #333; font-size: 15px; margin-bottom: 10px;">❓ Need Assistance?</h4>
+                <p style="font-size: 14px; color: #555; margin-bottom: 5px;">
+                    <strong>Payroll Department:</strong> (555) 234-5678
+                </p>
+                <p style="font-size: 14px; color: #555; margin-bottom: 0;">
+                    <strong>Email:</strong> payroll-support@yourcompany.com
+                </p>
+            </div>
+            
+            <p style="font-size: 14px; color: #777; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+                <strong>Finance & Payroll Department</strong><br>
+                Your Company Name<br>
+                Ensuring accurate and timely compensation
+            </p>
+        </div>
+        
+        <div style="background: #f5f5f5; padding: 15px 30px; text-align: center; font-size: 12px; color: #777; border-top: 1px solid #e0e0e0;">
+            <p style="margin: 5px 0;">
+                This is an official communication from your company's Finance Department.
+                <br>For verification, you can also log in directly to the company portal.
+            </p>
+        </div>
+    </div>`
         };
         
         if (templates[templateName]) {
             const start = textarea.selectionStart;
             textarea.value = textarea.value.substring(0, start) + 
-                           templates[templateName] + 
-                           textarea.value.substring(start);
+                        templates[templateName] + 
+                        textarea.value.substring(start);
             
             textarea.focus();
             textarea.setSelectionRange(start, start + templates[templateName].length);
@@ -668,86 +925,6 @@ Security Team`
             });
         });
     }
-    
-    // initForms() {
-    //     document.querySelectorAll('form[data-campaign-form]').forEach(form => {
-    //         form.addEventListener('submit', async (e) => {
-    //             e.preventDefault();
-                
-    //             const submitBtn = form.querySelector('button[type="submit"]');
-    //             if (!submitBtn) return;
-                
-    //             const originalText = submitBtn.innerHTML;
-    //             const originalDisabled = submitBtn.disabled;
-                
-    //             try {
-    //                 // Show loading
-    //                 submitBtn.innerHTML = '<span class="campaign-loading"></span> Processing...';
-    //                 submitBtn.disabled = true;
-                    
-    //                 // Validate form
-    //                 if (!this.validateForm(form)) {
-    //                     throw new Error('Please fill in all required fields correctly');
-    //                 }
-                    
-    //                 // Submit form
-    //                 const formData = new FormData(form);
-                    
-    //                 // Add CSRF token if available
-    //                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    //                 if (csrfToken) {
-    //                     formData.append('csrf_token', csrfToken);
-    //                 }
-                    
-    //                 const response = await fetch(form.action || window.location.href, {
-    //                     method: 'POST',
-    //                     body: formData,
-    //                     headers: {
-    //                         'X-Requested-With': 'XMLHttpRequest'
-    //                     }
-    //                 });
-                    
-    //                 let result;
-    //                 try {
-    //                     result = await response.json();
-    //                 } catch (jsonError) {
-    //                     throw new Error('Invalid server response');
-    //                 }
-                    
-    //                 if (result.success) {
-    //                     this.showAlert(result.message || 'Operation successful', 'success');
-                        
-    //                     // Redirect if URL provided
-    //                     if (result.redirect) {
-    //                         setTimeout(() => {
-    //                             window.location.href = result.redirect;
-    //                         }, 1500);
-    //                     } else if (result.reload) {
-    //                         setTimeout(() => {
-    //                             window.location.reload();
-    //                         }, 1500);
-    //                     } else {
-    //                         // Close modal if exists
-    //                         const modal = form.closest('.campaign-modal');
-    //                         if (modal) {
-    //                             this.hideModal(modal);
-    //                         }
-    //                     }
-    //                 } else {
-    //                     throw new Error(result.error || 'Operation failed');
-    //                 }
-                    
-    //             } catch (error) {
-    //                 this.showAlert(error.message, 'danger');
-    //                 console.error('Form submission error:', error);
-    //             } finally {
-    //                 // Reset button
-    //                 submitBtn.innerHTML = originalText;
-    //                 submitBtn.disabled = originalDisabled;
-    //             }
-    //         });
-    //     });
-    // }
     
     initForms() {
         document.querySelectorAll('form[data-campaign-form]').forEach(form => {
