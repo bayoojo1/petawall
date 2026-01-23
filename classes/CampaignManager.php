@@ -1847,20 +1847,26 @@ class CampaignManager {
     }
     
     private function logTrackingEvent($recipientId, $campaignId, $eventType, $additionalData = []) {
-        $stmt = $this->db->prepare("
-            INSERT INTO phishing_campaign_tracking 
-            (recipient_id, campaign_id, event_type, ip_address, user_agent, link_url)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ");
-        
-        $stmt->execute([
-            $recipientId,
-            $campaignId,
-            $eventType,
-            $additionalData['ip_address'] ?? null,
-            $additionalData['user_agent'] ?? null,
-            $additionalData['link_url'] ?? null
-        ]);
+        try {
+            $stmt = $this->db->prepare("
+                INSERT INTO phishing_campaign_tracking 
+                (recipient_id, campaign_id, event_type, ip_address, user_agent, link_url, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, NOW())
+            ");
+            
+            $stmt->execute([
+                $recipientId,
+                $campaignId,
+                $eventType,  // This will be 'resend' which needs VARCHAR(20) or larger
+                $additionalData['ip_address'] ?? null,
+                $additionalData['user_agent'] ?? null,
+                $additionalData['link_url'] ?? null
+            ]);
+            
+        } catch (Exception $e) {
+            // Re-throw the exception so calling code knows logging failed
+            throw new Exception("Failed to log tracking event: " . $e->getMessage());
+        }
     }
     
     private function initCampaignResults($campaignId) {
@@ -2226,8 +2232,13 @@ class CampaignManager {
                         
                         $resentCount++;
                         
-                        // Log tracking event for resend
-                        $this->logTrackingEvent($recipient['id'], $campaignId, 'resend');
+                        try {
+                            // Log tracking event for resend (wrap in try-catch to prevent failure from affecting the resend)
+                            $this->logTrackingEvent($recipient['id'], $campaignId, 'resend');
+                        } catch (Exception $e) {
+                            // Just log the error but don't fail the resend
+                            error_log("Failed to log resend event for {$recipient['email']}: " . $e->getMessage());
+                        }
                     } else {
                         $failedCount++;
                         // Mark as bounced if sending fails
@@ -2238,7 +2249,20 @@ class CampaignManager {
                 } catch (Exception $e) {
                     error_log("Failed to resend to {$recipient['email']}: " . $e->getMessage());
                     $failedCount++;
-                    $this->updateRecipientStatus($recipient['id'], 'bounced');
+                    
+                    // Only mark as bounced if it's a sending error, not a logging error
+                    if (strpos($e->getMessage(), 'event_type') === false) {
+                        // It's a sending error, mark as bounced
+                        $this->updateRecipientStatus($recipient['id'], 'bounced');
+                        $this->updateCampaignMetrics($campaignId, 'total_bounced', 1);
+                    } else {
+                        // It's just a logging error, but email was sent
+                        // Update as sent since email was delivered
+                        $this->updateRecipientStatus($recipient['id'], 'sent', [
+                            'sent_at' => date('Y-m-d H:i:s')
+                        ]);
+                        $resentCount++;
+                    }
                 }
             }
             

@@ -137,11 +137,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Store in session for confirmation
                     $_SESSION['resend_campaign_id'] = $postCampaignId;
                     $_SESSION['resend_eligible_count'] = $eligibleCount;
+                    $_SESSION['resend_organization_id'] = $organizationId;
                     
                     // Ask user if they want to resend
                     $_SESSION['info_message'] = "Campaign resumed. {$eligibleCount} recipients are eligible for resend (status: sent or pending). 
-                                                <a href='#' onclick='confirmResend({$postCampaignId}, {$eligibleCount})'>Click here to resend</a> or 
-                                                <a href='phishing-campaigns.php'>continue to dashboard</a>.";
+                                                <br><button class='campaign-btn campaign-btn-primary' onclick='confirmResend({$postCampaignId}, {$eligibleCount})'>Resend Now</button>
+                                                <a href='phishing-campaigns.php' class='campaign-btn campaign-btn-secondary'>Continue Without Resend</a>";
                 }
             } else {
                 $_SESSION['error_message'] = $result['error'] ?? 'Failed to resume campaign';
