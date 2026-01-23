@@ -328,87 +328,169 @@ require_once __DIR__ . '/includes/header.php';
     <?php require_once __DIR__ . '/includes/footer.php'; ?>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="assets/styles/reports.css">
+    <link rel="stylesheet" href="assets/styles/campaign-report.css">
     
     <script>
-    // Performance Chart
-    const perfCtx = document.getElementById('performanceChart').getContext('2d');
-    const performanceChart = new Chart(perfCtx, {
-        type: 'bar',
-        data: {
-            labels: ['Open Rate', 'Click Rate', 'Click-to-Open Rate'],
-            datasets: [{
-                label: 'Percentage (%)',
-                data: [
-                    <?php echo $campaignStats['open_rate']; ?>,
-                    <?php echo $campaignStats['click_rate']; ?>,
-                    <?php echo $campaignStats['click_to_open_rate']; ?>
-                ],
-                backgroundColor: [
-                    'rgba(40, 167, 69, 0.7)',
-                    'rgba(220, 53, 69, 0.7)',
-                    'rgba(255, 193, 7, 0.7)'
-                ],
-                borderColor: [
-                    'rgba(40, 167, 69, 1)',
-                    'rgba(220, 53, 69, 1)',
-                    'rgba(255, 193, 7, 1)'
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100,
-                    title: {
-                        display: true,
-                        text: 'Percentage (%)'
+    // Enhanced Chart Styling
+    document.addEventListener('DOMContentLoaded', function() {
+        // Performance Chart
+        const perfCtx = document.getElementById('performanceChart').getContext('2d');
+        const performanceChart = new Chart(perfCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Open Rate', 'Click Rate', 'Click-to-Open Rate'],
+                datasets: [{
+                    label: 'Performance Metrics',
+                    data: [
+                        <?php echo $campaignStats['open_rate']; ?>,
+                        <?php echo $campaignStats['click_rate']; ?>,
+                        <?php echo $campaignStats['click_to_open_rate']; ?>
+                    ],
+                    backgroundColor: [
+                        'rgba(46, 204, 113, 0.8)',
+                        'rgba(231, 76, 60, 0.8)',
+                        'rgba(243, 156, 18, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgba(46, 204, 113, 1)',
+                        'rgba(231, 76, 60, 1)',
+                        'rgba(243, 156, 18, 1)'
+                    ],
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y + '%';
+                            }
+                        }
                     }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: {
+                            drawBorder: false,
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            color: '#666',
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Percentage (%)',
+                            color: '#666',
+                            font: {
+                                size: 12,
+                                weight: '500'
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#666',
+                            font: {
+                                size: 12,
+                                weight: '500'
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    duration: 1500,
+                    easing: 'easeOutQuart'
                 }
             }
-        }
-    });
-    
-    // Status Chart
-    const statusCtx = document.getElementById('statusChart').getContext('2d');
-    const statusChart = new Chart(statusCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Opened', 'Clicked', 'Not Opened', 'Bounced'],
-            datasets: [{
-                data: [
-                    <?php echo $campaignStats['total_opened']; ?>,
-                    <?php echo $campaignStats['total_clicked']; ?>,
-                    <?php echo $campaignStats['total_recipients'] - $campaignStats['total_opened']; ?>,
-                    <?php echo $campaignStats['total_bounced']; ?>
-                ],
-                backgroundColor: [
-                    'rgba(40, 167, 69, 0.7)',
-                    'rgba(220, 53, 69, 0.7)',
-                    'rgba(108, 117, 125, 0.7)',
-                    'rgba(255, 193, 7, 0.7)'
-                ],
-                borderColor: [
-                    'rgba(40, 167, 69, 1)',
-                    'rgba(220, 53, 69, 1)',
-                    'rgba(108, 117, 125, 1)',
-                    'rgba(255, 193, 7, 1)'
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'bottom'
+        });
+        
+        // Status Chart
+        const statusCtx = document.getElementById('statusChart').getContext('2d');
+        const statusChart = new Chart(statusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Opened', 'Clicked', 'Not Opened', 'Bounced'],
+                datasets: [{
+                    data: [
+                        <?php echo $campaignStats['total_opened']; ?>,
+                        <?php echo $campaignStats['total_clicked']; ?>,
+                        <?php echo $campaignStats['total_recipients'] - $campaignStats['total_opened']; ?>,
+                        <?php echo $campaignStats['total_bounced']; ?>
+                    ],
+                    backgroundColor: [
+                        'rgba(46, 204, 113, 0.8)',
+                        'rgba(231, 76, 60, 0.8)',
+                        'rgba(149, 165, 166, 0.8)',
+                        'rgba(243, 156, 18, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgba(46, 204, 113, 1)',
+                        'rgba(231, 76, 60, 1)',
+                        'rgba(149, 165, 166, 1)',
+                        'rgba(243, 156, 18, 1)'
+                    ],
+                    borderWidth: 2,
+                    borderRadius: 4,
+                    spacing: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + context.raw + ' recipients';
+                            }
+                        }
+                    }
+                },
+                cutout: '60%',
+                animation: {
+                    animateScale: true,
+                    animateRotate: true,
+                    duration: 1500,
+                    easing: 'easeOutQuart'
                 }
             }
-        }
+        });
     });
-    </script>
+</script>
 </body>
 </html>

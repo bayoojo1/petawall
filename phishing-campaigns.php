@@ -60,6 +60,11 @@ function getStatusIcon($status) {
     return $icons[$status] ?? 'fas fa-circle';
 }
 
+function shouldShowCompleted($campaignId, $campaignManager) {
+    $pendingCount = $campaignManager->pendingOrBouncedRecipient($campaignId);
+    return $pendingCount === 0;
+}
+
 // Initialize variables
 $action = '';
 $campaignId = 0;
@@ -125,12 +130,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($result['success']) {
                 $_SESSION['success_message'] = 'Campaign resumed!';
                 
-                // Optionally send to pending recipients immediately
-                if (isset($_POST['send_now']) && $_POST['send_now'] == '1') {
-                    $sendResult = $campaignManager->sendCampaign($postCampaignId);
-                    if ($sendResult['success']) {
-                        $_SESSION['success_message'] .= ' ' . $sendResult['sent_count'] . ' emails sent to pending recipients.';
-                    }
+                // Get count of recipients eligible for resend
+                $eligibleCount = $campaignManager->getResendEligibleRecipients($postCampaignId, $organizationId);
+                
+                if ($eligibleCount > 0) {
+                    // Store in session for confirmation
+                    $_SESSION['resend_campaign_id'] = $postCampaignId;
+                    $_SESSION['resend_eligible_count'] = $eligibleCount;
+                    
+                    // Ask user if they want to resend
+                    $_SESSION['info_message'] = "Campaign resumed. {$eligibleCount} recipients are eligible for resend (status: sent or pending). 
+                                                <a href='#' onclick='confirmResend({$postCampaignId}, {$eligibleCount})'>Click here to resend</a> or 
+                                                <a href='phishing-campaigns.php'>continue to dashboard</a>.";
                 }
             } else {
                 $_SESSION['error_message'] = $result['error'] ?? 'Failed to resume campaign';
@@ -138,6 +149,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: phishing-campaigns.php');
             exit;
             break;
+
+        // case 'resume':
+        //     // Resume a paused campaign
+        //     $result = $campaignManager->resumeCampaign($postCampaignId, $organizationId);
+        //     if ($result['success']) {
+        //         $_SESSION['success_message'] = 'Campaign resumed!';
+                
+        //         // Optionally send to pending recipients immediately
+        //         if (isset($_POST['send_now']) && $_POST['send_now'] == '1') {
+        //             $sendResult = $campaignManager->sendCampaign($postCampaignId);
+        //             if ($sendResult['success']) {
+        //                 $_SESSION['success_message'] .= ' ' . $sendResult['sent_count'] . ' emails sent to pending recipients.';
+        //             }
+        //         }
+        //     } else {
+        //         $_SESSION['error_message'] = $result['error'] ?? 'Failed to resume campaign';
+        //     }
+        //     header('Location: phishing-campaigns.php');
+        //     exit;
+        //     break;
 
         case 'pause':
             // Pause a running campaign
@@ -197,6 +228,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['error_message'] = $result['error'] ?? 'Failed to update organization name';
                 }
             }
+            header('Location: phishing-campaigns.php');
+            exit;
+            break;
+
+        case 'resend_pending':
+            // Resend to pending and sent recipients
+            $eligibleCount = $_POST['eligible_count'] ?? 0;
+            
+            if ($eligibleCount > 0) {
+                $result = $campaignManager->resendToPendingAndSent($postCampaignId, $organizationId);
+                
+                if ($result['success']) {
+                    $_SESSION['success_message'] = "Campaign resent! {$result['resent']} emails sent" . 
+                                                ($result['failed'] > 0 ? ", {$result['failed']} failed" : "");
+                } else {
+                    $_SESSION['error_message'] = $result['error'] ?? 'Failed to resend campaign';
+                }
+            } else {
+                $_SESSION['error_message'] = 'No recipients eligible for resend';
+            }
+            
             header('Location: phishing-campaigns.php');
             exit;
             break;
@@ -352,8 +404,17 @@ require_once __DIR__ . '/includes/header.php';
                             </thead>
                             <tbody>
                                 <?php foreach ($campaigns as $campaign): ?>
-                                <?php $status = $campaign['status'] ?? 'draft'; ?>
-                                <?php $pendingCount = $campaignManager->pendingOrBouncedRecipient($campaign['id']); ?>
+                                <?php 
+                                $status = $campaign['status'] ?? 'draft';
+                                $pendingCount = $campaignManager->pendingOrBouncedRecipient($campaign['id']);
+
+                                // If campaign shows as running but all recipients are done, update status
+                                if ($status == 'running' && $pendingCount == 0) {
+                                    // Update campaign status to completed
+                                    $campaignManager->updateCampaignStatus($campaign['id'], 'completed');
+                                    $status = 'completed';
+                                }
+                                ?>
                                 <tr>
                                     <td>
                                         <div style="font-weight: 600; margin-bottom: 4px;">
@@ -786,6 +847,58 @@ require_once __DIR__ . '/includes/header.php';
                 }
             });
         }
+    });
+
+
+    // Confirm resend modal
+    function confirmResend(campaignId, eligibleCount) {
+        if (confirm(`Resend campaign to ${eligibleCount} recipients with status 'sent' or 'pending'?\n\nThis will generate new tracking links and reset their status.`)) {
+            // Submit resend form
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'phishing-campaigns.php';
+            
+            const actionInput = document.createElement('input');
+            actionInput.type = 'hidden';
+            actionInput.name = 'action';
+            actionInput.value = 'resend_pending';
+            form.appendChild(actionInput);
+            
+            const idInput = document.createElement('input');
+            idInput.type = 'hidden';
+            idInput.name = 'id';
+            idInput.value = campaignId;
+            form.appendChild(idInput);
+            
+            const countInput = document.createElement('input');
+            countInput.type = 'hidden';
+            countInput.name = 'eligible_count';
+            countInput.value = eligibleCount;
+            form.appendChild(countInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    // Check for resend confirmation on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // If we have resend info in session, show confirmation
+        <?php if (isset($_SESSION['resend_campaign_id']) && isset($_SESSION['resend_eligible_count'])): ?>
+            setTimeout(() => {
+                if (confirmResend(<?php echo $_SESSION['resend_campaign_id']; ?>, <?php echo $_SESSION['resend_eligible_count']; ?>)) {
+                    // Clear session data
+                    fetch('clear-resend-session.php').then(() => {
+                        window.location.reload();
+                    });
+                }
+            }, 500);
+            <?php 
+            // Clear session data after showing
+            unset($_SESSION['resend_campaign_id']);
+            unset($_SESSION['resend_eligible_count']);
+            ?>
+        <?php endif; ?>
     });
     </script>
 
