@@ -704,23 +704,44 @@ class CampaignManager {
         }, $content);
     }
     
-    /**
-     * Create tracking link for a URL
-     */
     private function createTrackingLink($originalUrl, $trackingToken) {
         $linkToken = $this->generateTrackingToken();
         
-        // Store the link in database
+        // Get the recipient_id for this tracking token
         $stmt = $this->db->prepare("
-            INSERT INTO phishing_campaign_links 
-            (campaign_id, original_url, tracking_url, tracking_token) 
-            SELECT campaign_id, ?, ?, ? 
+            SELECT id, campaign_id, email 
             FROM phishing_campaign_recipients 
             WHERE tracking_token = ?
         ");
+        $stmt->execute([$trackingToken]);
+        $recipient = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$recipient) {
+            error_log("ERROR in createTrackingLink: No recipient found for tracking token: " . $trackingToken);
+            throw new Exception("Recipient not found for tracking token");
+        }
+        
+        // Store the link with recipient_id
+        $stmt = $this->db->prepare("
+            INSERT INTO phishing_campaign_links 
+            (campaign_id, recipient_id, original_url, tracking_url, tracking_token, click_count, unique_clicks, created_at) 
+            VALUES (?, ?, ?, ?, ?, 0, 0, NOW())
+        ");
         
         $trackingUrl = APP_URL . "/track/click.php?token=" . urlencode($linkToken);
-        $stmt->execute([$originalUrl, $trackingUrl, $linkToken, $trackingToken]);
+        $stmt->execute([
+            $recipient['campaign_id'],
+            $recipient['id'],  // Store which recipient this link belongs to
+            $originalUrl,
+            $trackingUrl,
+            $linkToken
+        ]);
+        
+        // Debug log
+        error_log("Created tracking link: Recipient=" . $recipient['email'] . 
+                " (ID=" . $recipient['id'] . "), " .
+                "Token=" . $linkToken . ", " .
+                "URL=" . $originalUrl);
         
         return $trackingUrl;
     }
@@ -772,7 +793,6 @@ class CampaignManager {
         }
     }
 
-    // In CampaignManager.php, update trackEmailOpen method:
     public function trackEmailOpen($trackingToken) {
         try {
             // First verify this is a legitimate open (not a preview)
@@ -780,8 +800,51 @@ class CampaignManager {
             $ip = $_SERVER['REMOTE_ADDR'] ?? '';
             
             // Check for email client previews
-            $previewClients = ['Outlook', 'AppleMail', 'Gmail', 'Thunderbird', 'Yahoo'];
+            $previewClients = [
+                'Outlook',      // Microsoft Outlook
+                'AppleMail',    // Apple Mail
+                'Gmail',        // Google Gmail
+                'Thunderbird',  // Mozilla Thunderbird
+                'Yahoo',        // Yahoo Mail
+                'ProtonMail',   // ProtonMail
+                'Zoho',         // Zoho Mail
+                'AOL',          // AOL Mail
+                'iCloud',       // Apple iCloud Mail
+                'RoundCube',    // RoundCube Webmail
+                'SquirrelMail', // SquirrelMail
+                'Horde',        // Horde Webmail
+                'RainLoop',     // RainLoop Webmail
+                'Mail.ru',      // Mail.ru
+                'GMX',          // GMX Mail
+                'FastMail',     // FastMail
+                'Tutanota',     // Tutanota
+                'Mailbird',     // Mailbird
+                'eM Client',    // eM Client
+                'Mailspring',   // Mailspring
+                'Spark'         // Spark Mail
+            ];
+
+            // Enhanced preview detection
+            $previewPatterns = [
+                '/preview/i',
+                '/safe/i',
+                '/security.*scan/i',
+                '/content.*scan/i',
+                '/link.*scan/i',
+                '/virus.*scan/i',
+                '/spam.*scan/i',
+                '/attachment.*scan/i'
+            ];
+
             $isPreview = false;
+
+            foreach ($previewPatterns as $pattern) {
+                if (preg_match($pattern, $userAgent)) {
+                    $isPreview = true;
+                    error_log("Preview detected via pattern: {$pattern}");
+                    break;
+                }
+            }
             
             foreach ($previewClients as $client) {
                 if (stripos($userAgent, $client) !== false && 
@@ -857,71 +920,19 @@ class CampaignManager {
             return false;
         }
     }
-    
+
     /**
-     * Handle email open tracking
-     */
-    // public function trackEmailOpen($trackingToken) {
-    //     try {
-    //         // Get recipient by tracking token
-    //         $stmt = $this->db->prepare("
-    //             SELECT r.*, c.id as campaign_id 
-    //             FROM phishing_campaign_recipients r
-    //             JOIN phishing_campaigns c ON r.campaign_id = c.id
-    //             WHERE r.tracking_token = ? AND r.status != 'bounced'
-    //         ");
-            
-    //         $stmt->execute([$trackingToken]);
-    //         $recipient = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-    //         if (!$recipient) {
-    //             return false;
-    //         }
-            
-    //         // Update recipient status if first open
-    //         if ($recipient['status'] != 'opened') {
-    //             $this->updateRecipientStatus($recipient['id'], 'opened', [
-    //                 'opened_at' => date('Y-m-d H:i:s'),
-    //                 'opened_count' => 1
-    //             ]);
-                
-    //             // Update unique opens in campaign results
-    //             $this->updateCampaignMetrics($recipient['campaign_id'], 'unique_opens', 1);
-    //         } else {
-    //             // Increment open count
-    //             $this->incrementOpenCount($recipient['id']);
-    //         }
-            
-    //         // Update total opens in campaign results
-    //         $this->updateCampaignMetrics($recipient['campaign_id'], 'total_opened', 1);
-            
-    //         // Log tracking event
-    //         $this->logTrackingEvent($recipient['id'], $recipient['campaign_id'], 'open', [
-    //             'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
-    //             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null
-    //         ]);
-            
-    //         // Recalculate rates
-    //         $this->recalculateCampaignRates($recipient['campaign_id']);
-            
-    //         return true;
-            
-    //     } catch (Exception $e) {
-    //         error_log("Track email open error: " . $e->getMessage());
-    //         return false;
-    //     }
-    // }
-    
-    /**
-     * Handle link click tracking
+     * Handle link click tracking - FIXED VERSION
      */
     public function trackLinkClick($linkToken) {
         try {
-            // Get link details
+            error_log("trackLinkClick called with token: " . $linkToken);
+            
+            // Get link details WITH the correct recipient
             $stmt = $this->db->prepare("
-                SELECT l.*, r.id as recipient_id, r.campaign_id, r.tracking_token
+                SELECT l.*, r.id as recipient_id, r.campaign_id, r.status, r.email, r.tracking_token as recipient_tracking_token
                 FROM phishing_campaign_links l
-                JOIN phishing_campaign_recipients r ON l.campaign_id = r.campaign_id
+                JOIN phishing_campaign_recipients r ON l.recipient_id = r.id
                 WHERE l.tracking_token = ?
             ");
             
@@ -929,30 +940,44 @@ class CampaignManager {
             $link = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$link) {
+                error_log("ERROR: No link found for token: " . $linkToken);
+                
+                // Try alternative: find any link with this token
+                $stmt2 = $this->db->prepare("
+                    SELECT * FROM phishing_campaign_links 
+                    WHERE tracking_token = ?
+                ");
+                $stmt2->execute([$linkToken]);
+                $rawLink = $stmt2->fetch(PDO::FETCH_ASSOC);
+                
+                if ($rawLink) {
+                    error_log("Found link but no recipient: Link ID=" . $rawLink['id'] . 
+                            ", Recipient ID in link=" . ($rawLink['recipient_id'] ?? 'NULL'));
+                }
+                
                 return ['success' => false, 'redirect_url' => null];
             }
             
+            error_log("Link found for: " . $link['email'] . " (Recipient ID: " . $link['recipient_id'] . 
+                    ", Status: " . $link['status'] . ")");
+            
             // Update recipient status if first click
-            $recipientStmt = $this->db->prepare("
-                SELECT status FROM phishing_campaign_recipients 
-                WHERE id = ? AND status != 'bounced'
-            ");
-            $recipientStmt->execute([$link['recipient_id']]);
-            $recipient = $recipientStmt->fetch(PDO::FETCH_ASSOC);
-            
-            if ($recipient && $recipient['status'] != 'clicked') {
-            // Use validated status update
-            $this->updateRecipientStatusWithValidation($link['recipient_id'], 'clicked', [
-                'clicked_at' => date('Y-m-d H:i:s'),
-                'click_count' => 1,
-                'clicked_links' => $link['original_url'],
-                'opened_at' => $recipient['opened_at'] ?? date('Y-m-d H:i:s') // Ensure opened_at is set
-            ]);
-            
-            // Update unique clicks in campaign results
-            $this->updateCampaignMetrics($link['campaign_id'], 'unique_clicks', 1);
-        } else {
-                // Increment click count
+            if ($link['status'] != 'clicked') {
+                error_log("First click for recipient " . $link['recipient_id']);
+                
+                $this->updateRecipientStatus($link['recipient_id'], 'clicked', [
+                    'clicked_at' => date('Y-m-d H:i:s'),
+                    'click_count' => 1,
+                    'clicked_links' => $link['original_url']
+                ]);
+                
+                // Update unique clicks in campaign results
+                $this->updateCampaignMetrics($link['campaign_id'], 'unique_clicks', 1);
+                
+                error_log("Recipient status updated to 'clicked'");
+            } else {
+                // Increment click count for this specific recipient
+                error_log("Additional click for recipient " . $link['recipient_id']);
                 $this->incrementClickCount($link['recipient_id']);
                 
                 // Add to clicked links if not already there
@@ -975,16 +1000,93 @@ class CampaignManager {
             // Recalculate rates
             $this->recalculateCampaignRates($link['campaign_id']);
             
+            error_log("Successfully tracked click, redirecting to: " . $link['original_url']);
+            
             return [
                 'success' => true,
                 'redirect_url' => $link['original_url']
             ];
             
         } catch (Exception $e) {
-            error_log("Track link click error: " . $e->getMessage());
+            error_log("Track link click ERROR: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
             return ['success' => false, 'redirect_url' => null];
         }
     }
+    
+    /**
+     * Handle link click tracking
+     */
+    // public function trackLinkClick($linkToken) {
+    //     try {
+    //         // Get link details
+    //         $stmt = $this->db->prepare("
+    //             SELECT l.*, r.id as recipient_id, r.campaign_id, r.tracking_token
+    //             FROM phishing_campaign_links l
+    //             JOIN phishing_campaign_recipients r ON l.campaign_id = r.campaign_id
+    //             WHERE l.tracking_token = ?
+    //         ");
+            
+    //         $stmt->execute([$linkToken]);
+    //         $link = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+    //         if (!$link) {
+    //             return ['success' => false, 'redirect_url' => null];
+    //         }
+            
+    //         // Update recipient status if first click
+    //         $recipientStmt = $this->db->prepare("
+    //             SELECT status FROM phishing_campaign_recipients 
+    //             WHERE id = ? AND status != 'bounced'
+    //         ");
+    //         $recipientStmt->execute([$link['recipient_id']]);
+    //         $recipient = $recipientStmt->fetch(PDO::FETCH_ASSOC);
+            
+    //         if ($recipient && $recipient['status'] != 'clicked') {
+    //         // Use validated status update
+    //         $this->updateRecipientStatusWithValidation($link['recipient_id'], 'clicked', [
+    //             'clicked_at' => date('Y-m-d H:i:s'),
+    //             'click_count' => 1,
+    //             'clicked_links' => $link['original_url'],
+    //             'opened_at' => $recipient['opened_at'] ?? date('Y-m-d H:i:s') // Ensure opened_at is set
+    //         ]);
+            
+    //         // Update unique clicks in campaign results
+    //         $this->updateCampaignMetrics($link['campaign_id'], 'unique_clicks', 1);
+    //     } else {
+    //             // Increment click count
+    //             $this->incrementClickCount($link['recipient_id']);
+                
+    //             // Add to clicked links if not already there
+    //             $this->addClickedLink($link['recipient_id'], $link['original_url']);
+    //         }
+            
+    //         // Update link click counts
+    //         $this->updateLinkClickCount($link['id']);
+            
+    //         // Update total clicks in campaign results
+    //         $this->updateCampaignMetrics($link['campaign_id'], 'total_clicked', 1);
+            
+    //         // Log tracking event
+    //         $this->logTrackingEvent($link['recipient_id'], $link['campaign_id'], 'click', [
+    //             'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+    //             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+    //             'link_url' => $link['original_url']
+    //         ]);
+            
+    //         // Recalculate rates
+    //         $this->recalculateCampaignRates($link['campaign_id']);
+            
+    //         return [
+    //             'success' => true,
+    //             'redirect_url' => $link['original_url']
+    //         ];
+            
+    //     } catch (Exception $e) {
+    //         error_log("Track link click error: " . $e->getMessage());
+    //         return ['success' => false, 'redirect_url' => null];
+    //     }
+    // }
     
     /**
      * Get campaign statistics
@@ -2320,6 +2422,61 @@ class CampaignManager {
         } catch (Exception $e) {
             error_log("Get resend eligible recipients error: " . $e->getMessage());
             return 0;
+        }
+    }
+
+    /**
+ * Diagnostic method to check link assignments
+ */
+    public function diagnoseLinkIssues($campaignId) {
+        try {
+            $results = [];
+            
+            // Check all links
+            $stmt = $this->db->prepare("
+                SELECT 
+                    l.id as link_id,
+                    l.tracking_token,
+                    l.recipient_id,
+                    l.click_count,
+                    r.email,
+                    r.status as recipient_status,
+                    r.click_count as recipient_click_count,
+                    COUNT(t.id) as tracking_events
+                FROM phishing_campaign_links l
+                LEFT JOIN phishing_campaign_recipients r ON l.recipient_id = r.id
+                LEFT JOIN phishing_campaign_tracking t ON l.tracking_token = t.link_url
+                WHERE l.campaign_id = ?
+                GROUP BY l.id
+                ORDER BY l.id
+            ");
+            $stmt->execute([$campaignId]);
+            $links = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            $results['links'] = $links;
+            
+            // Check recipients
+            $stmt2 = $this->db->prepare("
+                SELECT 
+                    id,
+                    email,
+                    status,
+                    click_count,
+                    tracking_token
+                FROM phishing_campaign_recipients
+                WHERE campaign_id = ?
+                ORDER BY id
+            ");
+            $stmt2->execute([$campaignId]);
+            $recipients = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+            
+            $results['recipients'] = $recipients;
+            
+            return $results;
+            
+        } catch (Exception $e) {
+            error_log("Diagnose link issues error: " . $e->getMessage());
+            return ['error' => $e->getMessage()];
         }
     }
 }
