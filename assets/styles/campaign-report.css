@@ -350,7 +350,7 @@ canvas {
 }
 
 .progress-bar.bg-danger {
-    background: linear-gradient(90deg, var(--danger), #ff7675) !important;
+    background: linear-gradient(90deg, var(--danger), #ff7675);
 }
 
 .progress-bar.bg-info {

@@ -1455,12 +1455,16 @@ class CampaignManager {
             return null;
         }
         
-        if ($format == 'pdf') {
-            return $this->generatePdfReport($stats);
-        } elseif ($format == 'csv') {
-            return $this->generateCsvReport($stats);
-        } else {
+        // Only HTML format is supported for now
+        if ($format == 'html') {
             return $this->generateHtmlReport($stats);
+        } else {
+            // For PDF/CSV requests, redirect back to HTML view with message
+            return [
+                'error' => true,
+                'message' => 'Export feature coming soon! Currently only HTML view is available.',
+                'html' => $this->generateHtmlReport($stats)
+            ];
         }
     }
 

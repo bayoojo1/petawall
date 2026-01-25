@@ -42,16 +42,55 @@ $export = $_GET['export'] ?? '';
 if ($export) {
     $report = $campaignManager->generateDetailedReport($campaignId, $export);
     
-    if ($export == 'pdf') {
-        header('Content-Type: application/pdf');
-        header('Content-Disposition: attachment; filename="campaign-report-' . $campaignId . '.pdf"');
-        echo $report;
+    if ($export == 'pdf' && isset($report['html'])) {
+        // Show HTML with PDF message
+        echo $report['html'];
+        exit;
     } elseif ($export == 'csv') {
+        // Simple CSV export
         header('Content-Type: text/csv');
         header('Content-Disposition: attachment; filename="campaign-report-' . $campaignId . '.csv"');
-        echo $report;
+        
+        // Create basic CSV
+        $csv = "Campaign Report: " . htmlspecialchars($campaignStats['name']) . "\n";
+        $csv .= "Generated: " . date('Y-m-d H:i:s') . "\n\n";
+        $csv .= "Summary\n";
+        $csv .= "Total Recipients," . $campaignStats['total_recipients'] . "\n";
+        $csv .= "Open Rate," . $campaignStats['open_rate'] . "%\n";
+        $csv .= "Click Rate," . $campaignStats['click_rate'] . "%\n";
+        $csv .= "Vulnerability Score," . $campaignStats['vulnerability_scores']['organization_score'] . "\n";
+        $csv .= "Risk Level," . $campaignStats['vulnerability_scores']['risk_level'] . "\n\n";
+        
+        // Department stats
+        $csv .= "Department Performance\n";
+        $csv .= "Department,Total,Opened,Clicked,Open Rate,Click Rate\n";
+        foreach ($campaignStats['department_stats'] as $dept) {
+            $csv .= $dept['department'] . "," . $dept['total'] . "," . $dept['opened'] . "," . $dept['clicked'] . "," . $dept['open_rate'] . "%," . $dept['click_rate'] . "%\n";
+        }
+        
+        echo $csv;
+        exit;
+    } elseif ($export == 'pdf') {
+        // Simple HTML that can be printed as PDF
+        header('Content-Type: text/html');
+        echo '<!DOCTYPE html>
+        <html>
+        <head>
+            <title>Campaign Report: ' . htmlspecialchars($campaignStats['name']) . '</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1 { color: #333; }
+                .note { color: #666; font-style: italic; margin: 20px 0; }
+            </style>
+        </head>
+        <body>
+            <h1>Campaign Report: ' . htmlspecialchars($campaignStats['name']) . '</h1>
+            <p class="note">PDF export feature is coming soon. Please print this page or use Print to PDF in your browser.</p>
+            <p>Generated: ' . date('F j, Y \a\t g:i A') . '</p>
+        </body>
+        </html>';
+        exit;
     }
-    exit;
 }
 
 require_once __DIR__ . '/includes/header.php';
@@ -435,7 +474,11 @@ require_once __DIR__ . '/includes/header.php';
                     data: [
                         <?php echo $campaignStats['total_opened']; ?>,
                         <?php echo $campaignStats['total_clicked']; ?>,
-                        <?php echo $campaignStats['total_recipients'] - $campaignStats['total_opened']; ?>,
+                        <?php
+                            if($campaignStats['total_recipients'] > $campaignStats['total_opened']) {
+                                echo $campaignStats['total_recipients'] - $campaignStats['total_opened'];
+                            }
+                        ?>,
                         <?php echo $campaignStats['total_bounced']; ?>
                     ],
                     backgroundColor: [
