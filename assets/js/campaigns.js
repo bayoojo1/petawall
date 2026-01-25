@@ -489,7 +489,7 @@ class CampaignManager {
             </div>
             
             <div style="background: #f5f5f5; padding: 20px; border-radius: 6px; margin-top: 30px; border: 1px solid #e0e0e0;">
-                <h4 style="margin-top: 0; color: #333; font-size: 15px; margin-bottom: 10px;">📞 Need Help?</h4>
+                <h4 style="margin-top: 0; color: #333; font-size: 15px; margin-bottom: 10px;"> Need Help?</h4>
                 <p style="font-size: 14px; color: #555; margin-bottom: 5px;">
                     <strong>Emergency Security Hotline:</strong> (555) 789-0123 (24/7)
                 </p>
