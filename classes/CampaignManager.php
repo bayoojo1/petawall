@@ -805,7 +805,7 @@ class CampaignManager {
                 'AppleMail',    // Apple Mail
                 'Gmail',        // Google Gmail
                 'Thunderbird',  // Mozilla Thunderbird
-                'Yahoo',        // Yahoo Mail
+                'YahooMail',    // Yahoo Mail
                 'ProtonMail',   // ProtonMail
                 'Zoho',         // Zoho Mail
                 'AOL',          // AOL Mail
@@ -1013,80 +1013,6 @@ class CampaignManager {
             return ['success' => false, 'redirect_url' => null];
         }
     }
-    
-    /**
-     * Handle link click tracking
-     */
-    // public function trackLinkClick($linkToken) {
-    //     try {
-    //         // Get link details
-    //         $stmt = $this->db->prepare("
-    //             SELECT l.*, r.id as recipient_id, r.campaign_id, r.tracking_token
-    //             FROM phishing_campaign_links l
-    //             JOIN phishing_campaign_recipients r ON l.campaign_id = r.campaign_id
-    //             WHERE l.tracking_token = ?
-    //         ");
-            
-    //         $stmt->execute([$linkToken]);
-    //         $link = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-    //         if (!$link) {
-    //             return ['success' => false, 'redirect_url' => null];
-    //         }
-            
-    //         // Update recipient status if first click
-    //         $recipientStmt = $this->db->prepare("
-    //             SELECT status FROM phishing_campaign_recipients 
-    //             WHERE id = ? AND status != 'bounced'
-    //         ");
-    //         $recipientStmt->execute([$link['recipient_id']]);
-    //         $recipient = $recipientStmt->fetch(PDO::FETCH_ASSOC);
-            
-    //         if ($recipient && $recipient['status'] != 'clicked') {
-    //         // Use validated status update
-    //         $this->updateRecipientStatusWithValidation($link['recipient_id'], 'clicked', [
-    //             'clicked_at' => date('Y-m-d H:i:s'),
-    //             'click_count' => 1,
-    //             'clicked_links' => $link['original_url'],
-    //             'opened_at' => $recipient['opened_at'] ?? date('Y-m-d H:i:s') // Ensure opened_at is set
-    //         ]);
-            
-    //         // Update unique clicks in campaign results
-    //         $this->updateCampaignMetrics($link['campaign_id'], 'unique_clicks', 1);
-    //     } else {
-    //             // Increment click count
-    //             $this->incrementClickCount($link['recipient_id']);
-                
-    //             // Add to clicked links if not already there
-    //             $this->addClickedLink($link['recipient_id'], $link['original_url']);
-    //         }
-            
-    //         // Update link click counts
-    //         $this->updateLinkClickCount($link['id']);
-            
-    //         // Update total clicks in campaign results
-    //         $this->updateCampaignMetrics($link['campaign_id'], 'total_clicked', 1);
-            
-    //         // Log tracking event
-    //         $this->logTrackingEvent($link['recipient_id'], $link['campaign_id'], 'click', [
-    //             'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
-    //             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
-    //             'link_url' => $link['original_url']
-    //         ]);
-            
-    //         // Recalculate rates
-    //         $this->recalculateCampaignRates($link['campaign_id']);
-            
-    //         return [
-    //             'success' => true,
-    //             'redirect_url' => $link['original_url']
-    //         ];
-            
-    //     } catch (Exception $e) {
-    //         error_log("Track link click error: " . $e->getMessage());
-    //         return ['success' => false, 'redirect_url' => null];
-    //     }
-    // }
     
     /**
      * Get campaign statistics
