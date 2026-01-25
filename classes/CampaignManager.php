@@ -511,7 +511,26 @@ class CampaignManager {
         // Add tracking pixel at the end
         $content .= $openTrackingPixel;
         
-        return $content;
+        $trackingScript = '
+            <script>
+            if (typeof window !== "undefined") {
+                // Open confirmation
+                var img = new Image();
+                img.src = "' . APP_URL . '/track/confirm-open.php?token=' . $recipient['tracking_token'] . '&js=1";
+                
+                // Click confirmation for all links
+                document.addEventListener("click", function(e) {
+                    if (e.target.tagName === "A" && e.target.href.includes("/track/click.php")) {
+                        fetch("' . APP_URL . '/track/confirm-click.php?token=" + new URL(e.target.href).searchParams.get("token"));
+                    }
+                });
+            }
+            </script>
+            
+            <img src="' . APP_URL . '/track/open.php?token=' . $recipient['tracking_token'] . '" 
+                width="1" height="1" style="display:none;" alt="" />';
+            
+            return $content . $trackingScript;
     }
 
     // In CampaignManager.php, update getCampaignRecipients:
@@ -805,7 +824,7 @@ class CampaignManager {
                 'AppleMail',    // Apple Mail
                 'Gmail',        // Google Gmail
                 'Thunderbird',  // Mozilla Thunderbird
-                'YahooMail',    // Yahoo Mail
+                'Yahoo',        // Yahoo Mail
                 'ProtonMail',   // ProtonMail
                 'Zoho',         // Zoho Mail
                 'AOL',          // AOL Mail
@@ -2408,6 +2427,278 @@ class CampaignManager {
             error_log("Diagnose link issues error: " . $e->getMessage());
             return ['error' => $e->getMessage()];
         }
+    }
+
+
+    // Add these methods to your CampaignManager class:
+
+    public function isAutomatedScan($userAgent, $ip) {
+        // Check for Outlook/Microsoft
+        $isOutlook = stripos($userAgent, 'Outlook') !== false;
+        $isMicrosoftIP = $this->isMicrosoftIP($ip);
+        
+        // Check for other email clients that do automated scans
+        $automatedClients = ['GoogleImageProxy', 'YahooMailProxy', 'SecurityScan'];
+        
+        foreach ($automatedClients as $client) {
+            if (stripos($userAgent, $client) !== false) {
+                return true;
+            }
+        }
+        
+        return $isOutlook && $isMicrosoftIP;
+    }
+
+    public function storePendingOpen($trackingToken, $data) {
+        try {
+            $stmt = $this->db->prepare("
+                INSERT INTO phishing_tracking_pending 
+                (recipient_id, campaign_id, event_type, tracking_token, ip_address, user_agent)
+                SELECT r.id, r.campaign_id, 'open', ?, ?, ?
+                FROM phishing_campaign_recipients r
+                WHERE r.tracking_token = ?
+            ");
+            
+            $stmt->execute([
+                $trackingToken,
+                $data['ip_address'],
+                $data['user_agent'],
+                $trackingToken
+            ]);
+            
+            return $this->db->lastInsertId();
+        } catch (Exception $e) {
+            error_log("Store pending open error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function confirmPendingOpen($trackingToken) {
+        try {
+            $this->db->beginTransaction();
+            
+            // Update pending event
+            $stmt = $this->db->prepare("
+                UPDATE phishing_tracking_pending 
+                SET confirmed_at = NOW() 
+                WHERE tracking_token = ? 
+                AND event_type = 'open'
+                AND confirmed_at IS NULL
+                LIMIT 1
+            ");
+            $stmt->execute([$trackingToken]);
+            
+            // Update recipient
+            $stmt2 = $this->db->prepare("
+                UPDATE phishing_campaign_recipients r
+                JOIN phishing_tracking_pending p ON r.id = p.recipient_id
+                SET r.status = 'opened',
+                    r.open_confirmed = 1,
+                    r.opened_at = NOW(),
+                    r.opened_count = COALESCE(r.opened_count, 0) + 1
+                WHERE p.tracking_token = ?
+                AND p.event_type = 'open'
+                AND p.confirmed_at IS NOT NULL
+                AND r.open_confirmed = 0
+            ");
+            $stmt2->execute([$trackingToken]);
+            
+            $this->db->commit();
+            return true;
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            error_log("Confirm pending open error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+// Similar methods for click tracking...
+
+    public function storePendingClick($linkToken, $data) {
+        try {
+            $stmt = $this->db->prepare("
+                INSERT INTO phishing_tracking_pending 
+                (recipient_id, campaign_id, event_type, tracking_token, ip_address, user_agent)
+                SELECT l.recipient_id, l.campaign_id, 'click', ?, ?, ?
+                FROM phishing_campaign_links l
+                WHERE l.tracking_token = ?
+            ");
+            
+            $stmt->execute([
+                $linkToken,
+                $data['ip_address'],
+                $data['user_agent'],
+                $linkToken
+            ]);
+            
+            return $this->db->lastInsertId();
+        } catch (Exception $e) {
+            error_log("Store pending click error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function confirmPendingClick($linkToken) {
+        try {
+            $this->db->beginTransaction();
+            
+            // Update pending event
+            $stmt = $this->db->prepare("
+                UPDATE phishing_tracking_pending 
+                SET confirmed_at = NOW() 
+                WHERE tracking_token = ? 
+                AND event_type = 'click'
+                AND confirmed_at IS NULL
+                LIMIT 1
+            ");
+            $stmt->execute([$linkToken]);
+            
+            // Update recipient and link stats
+            $stmt2 = $this->db->prepare("
+                UPDATE phishing_campaign_recipients r
+                JOIN phishing_campaign_links l ON r.id = l.recipient_id
+                JOIN phishing_tracking_pending p ON r.id = p.recipient_id 
+                    AND p.event_type = 'click' 
+                    AND p.tracking_token = ?
+                SET r.status = CASE 
+                        WHEN r.status = 'sent' THEN 'clicked'
+                        WHEN r.status = 'opened' THEN 'clicked'
+                        ELSE r.status 
+                    END,
+                    r.click_confirmed = 1,
+                    r.clicked_at = NOW(),
+                    r.click_count = COALESCE(r.click_count, 0) + 1,
+                    r.clicked_links = CONCAT(
+                        COALESCE(r.clicked_links, ''),
+                        CASE WHEN r.clicked_links IS NOT NULL THEN '|' ELSE '' END,
+                        l.original_url
+                    ),
+                    l.click_count = COALESCE(l.click_count, 0) + 1,
+                    l.unique_clicks = CASE 
+                        WHEN r.click_confirmed = 0 THEN COALESCE(l.unique_clicks, 0) + 1
+                        ELSE l.unique_clicks
+                    END
+                WHERE l.tracking_token = ?
+                AND p.confirmed_at IS NOT NULL
+                AND r.click_confirmed = 0
+            ");
+            $stmt2->execute([$linkToken, $linkToken]);
+            
+            // Update campaign metrics
+            $stmt3 = $this->db->prepare("
+                UPDATE phishing_campaign_results r
+                JOIN phishing_campaign_links l ON r.campaign_id = l.campaign_id
+                JOIN phishing_campaign_recipients rec ON l.recipient_id = rec.id
+                SET r.total_clicked = COALESCE(r.total_clicked, 0) + 1,
+                    r.unique_clicks = CASE 
+                        WHEN rec.click_confirmed = 0 THEN COALESCE(r.unique_clicks, 0) + 1
+                        ELSE r.unique_clicks
+                    END
+                WHERE l.tracking_token = ?
+                AND rec.click_confirmed = 0
+            ");
+            $stmt3->execute([$linkToken]);
+            
+            $this->db->commit();
+            
+            // Recalculate rates
+            $stmt4 = $this->db->prepare("
+                SELECT campaign_id FROM phishing_campaign_links WHERE tracking_token = ?
+            ");
+            $stmt4->execute([$linkToken]);
+            $result = $stmt4->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result) {
+                $this->recalculateCampaignRates($result['campaign_id']);
+            }
+            
+            return true;
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            error_log("Confirm pending click error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function getOriginalUrl($linkToken) {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT original_url 
+                FROM phishing_campaign_links 
+                WHERE tracking_token = ?
+            ");
+            $stmt->execute([$linkToken]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            return $result['original_url'] ?? null;
+        } catch (Exception $e) {
+            error_log("Get original URL error: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    public function getPendingClicks($recipientId) {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT * FROM phishing_tracking_pending 
+                WHERE recipient_id = ? 
+                AND event_type = 'click'
+                AND confirmed_at IS NULL
+                ORDER BY created_at DESC
+            ");
+            $stmt->execute([$recipientId]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            error_log("Get pending clicks error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Clean up old pending events (run via cron) Run this hourly
+     */
+    public function cleanupPendingEvents($hours = 24) {
+        try {
+            $stmt = $this->db->prepare("
+                DELETE FROM phishing_tracking_pending 
+                WHERE created_at < DATE_SUB(NOW(), INTERVAL ? HOUR)
+                AND confirmed_at IS NULL
+            ");
+            $stmt->execute([$hours]);
+            
+            return $stmt->rowCount();
+        } catch (Exception $e) {
+            error_log("Cleanup pending events error: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    private function isMicrosoftIP($ip) {
+    // Common Microsoft/Outlook IP ranges for scanning
+        $microsoftIPRanges = [
+            '40.92.0.0/15',
+            '40.107.0.0/16',
+            '52.100.0.0/14',
+            '104.47.0.0/17',
+            '207.46.0.0/16'
+        ];
+        
+        foreach ($microsoftIPRanges as $range) {
+            if ($this->ipInRange($ip, $range)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    private function ipInRange($ip, $range) {
+        list($subnet, $bits) = explode('/', $range);
+        $ip = ip2long($ip);
+        $subnet = ip2long($subnet);
+        $mask = -1 << (32 - $bits);
+        $subnet &= $mask;
+        return ($ip & $mask) == $subnet;
     }
 }
 ?>
