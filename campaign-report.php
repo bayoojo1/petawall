@@ -367,7 +367,8 @@ require_once __DIR__ . '/includes/header.php';
     <?php require_once __DIR__ . '/includes/footer.php'; ?>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="assets/styles/campaign-report.css">
+    <script src="assets/js/nav.js"></script>
+    <script src="assets/js/auth.js"></script>
     
     <script>
     // Enhanced Chart Styling
@@ -535,5 +536,7 @@ require_once __DIR__ . '/includes/header.php';
         });
     });
 </script>
+<link rel="stylesheet" href="assets/styles/campaign-report.css">
+<link rel="stylesheet" href="assets/styles/modal.css">
 </body>
 </html>

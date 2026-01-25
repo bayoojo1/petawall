@@ -158,14 +158,28 @@ class CampaignManager {
                 this.formatEmailText(format);
             });
         });
-        
-        // Template buttons
-        const templateButtons = toolbar.querySelectorAll('[data-template]');
-        templateButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
+
+        const templateBtns = toolbar.querySelectorAll('[data-template]'); // Use different variable name
+        templateBtns.forEach(btn => {
+            // Remove and clone to clear existing listeners
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+        });
+
+        // Get fresh references
+        const freshTemplateBtns = toolbar.querySelectorAll('[data-template]');
+        freshTemplateBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                
+                // Clear textarea to prevent duplication
+                const textarea = toolbar.closest('.campaign-email-editor').querySelector('.campaign-editor-textarea');
+                if (textarea) textarea.value = '';
+                
                 const template = btn.dataset.template;
                 this.insertEmailTemplate(template);
-            });
+            }, { once: true });
         });
     }
     

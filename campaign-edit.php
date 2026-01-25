@@ -198,11 +198,13 @@ require_once __DIR__ . '/includes/header.php';
         </form>
         </div>
     </div>
+    <?php require_once __DIR__ . '/includes/login-modal.php'; ?>
     <?php require_once __DIR__ . '/includes/footer.php' ?>
-        
-    <link rel="stylesheet" href="assets/styles/campaign.css">
 
     <script src="assets/js/campaigns.js"></script>
+    <script src="assets/js/nav.js"></script>
+    <script src="assets/js/auth.js"></script>
+
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize CSV upload for this page
@@ -282,5 +284,7 @@ require_once __DIR__ . '/includes/header.php';
         }
     });
     </script>
+<link rel="stylesheet" href="assets/styles/campaign.css">
+<link rel="stylesheet" href="assets/styles/modal.css">
 </body>
 </html>

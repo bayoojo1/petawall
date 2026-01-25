@@ -100,6 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'email_content' => $_POST['email_content'] ?? '',
                 'sender_email' => $_POST['sender_email'] ?? '',
                 'sender_name' => $_POST['sender_name'] ?? '',
+                'recipients' => $_POST['recipients'] ?? '',
                 'status' => 'draft'
             ]);
             
@@ -150,26 +151,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: phishing-campaigns.php');
             exit;
             break;
-
-        // case 'resume':
-        //     // Resume a paused campaign
-        //     $result = $campaignManager->resumeCampaign($postCampaignId, $organizationId);
-        //     if ($result['success']) {
-        //         $_SESSION['success_message'] = 'Campaign resumed!';
-                
-        //         // Optionally send to pending recipients immediately
-        //         if (isset($_POST['send_now']) && $_POST['send_now'] == '1') {
-        //             $sendResult = $campaignManager->sendCampaign($postCampaignId);
-        //             if ($sendResult['success']) {
-        //                 $_SESSION['success_message'] .= ' ' . $sendResult['sent_count'] . ' emails sent to pending recipients.';
-        //             }
-        //         }
-        //     } else {
-        //         $_SESSION['error_message'] = $result['error'] ?? 'Failed to resume campaign';
-        //     }
-        //     header('Location: phishing-campaigns.php');
-        //     exit;
-        //     break;
 
         case 'pause':
             // Pause a running campaign
@@ -634,11 +615,11 @@ require_once __DIR__ . '/includes/header.php';
     <div class="campaign-modal" id="createCampaignModal">
         <div class="campaign-modal-content">
             <div class="campaign-modal-header">
-                <h3><i class="fas fa-plus-circle"></i> Create New Campaign</h3>
+                <h3 style="color: white;"><i class="fas fa-plus-circle"></i> Create New Campaign</h3>
                 <button class="campaign-modal-close">&times;</button>
             </div>
             
-            <form method="post" action="<?php echo $_SERVER['PHP_SELF']; ?>" data-campaign-form>
+            <form method="post" action="<?php echo $_SERVER['PHP_SELF']; ?>" data-campaign-form style="background-color: cornflowerblue">
                 <div class="campaign-modal-body">
                     <input type="hidden" name="action" value="create">
                     
@@ -646,8 +627,8 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="campaign-form-group">
                         <label class="campaign-form-label">Organization</label>
                         <div class="campaign-organization-display">
-                            <i class="fas fa-building"></i>
-                            <span><?php echo htmlspecialchars($organizationInfo['name'] ?? 'Your Organization'); ?></span>
+                            <i class="fas fa-building" style="color:lightcyan"></i>
+                            <span style="color:lightcyan"><?php echo htmlspecialchars($organizationInfo['name'] ?? 'Your Organization'); ?></span>
                         </div>
                         <span class="campaign-form-text">Campaigns are associated with your organization</span>
                     </div>
@@ -796,6 +777,7 @@ require_once __DIR__ . '/includes/header.php';
             </form>
         </div>
     </div>
+    <?php require_once __DIR__ . '/includes/login-modal.php'; ?>
     <?php require_once __DIR__ . '/includes/footer.php' ?>
 
     
@@ -902,9 +884,12 @@ require_once __DIR__ . '/includes/header.php';
         <?php endif; ?>
     });
     </script>
-
-     <link rel="stylesheet" href="assets/styles/campaign.css">
     <!-- JavaScript -->
     <script src="assets/js/campaigns.js"></script>
+    <script src="assets/js/nav.js"></script>
+    <script src="assets/js/auth.js"></script>
+
+    <link rel="stylesheet" href="assets/styles/campaign.css">
+    <link rel="stylesheet" href="assets/styles/modal.css">
 </body>
 </html>
