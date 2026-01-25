@@ -201,10 +201,6 @@ require_once __DIR__ . '/includes/header.php';
     <?php require_once __DIR__ . '/includes/login-modal.php'; ?>
     <?php require_once __DIR__ . '/includes/footer.php' ?>
 
-    <script src="assets/js/campaigns.js"></script>
-    <script src="assets/js/nav.js"></script>
-    <script src="assets/js/auth.js"></script>
-
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize CSV upload for this page
@@ -284,6 +280,10 @@ require_once __DIR__ . '/includes/header.php';
         }
     });
     </script>
+ <script src="assets/js/campaigns.js"></script>
+<script src="assets/js/nav.js"></script>
+<script src="assets/js/auth.js"></script>
+
 <link rel="stylesheet" href="assets/styles/campaign.css">
 <link rel="stylesheet" href="assets/styles/modal.css">
 </body>

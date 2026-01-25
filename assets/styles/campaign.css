@@ -288,7 +288,8 @@
 }
 
 .campaign-table thead {
-    background: var(--campaign-bg);
+    background: deepskyblue;
+    color: white;
 }
 
 .campaign-table th {
@@ -807,6 +808,10 @@
         flex-direction: column;
         gap: 1rem;
         text-align: center;
+    }
+
+    .campaign-header .campaign-header-content h1 i {
+        color: var(--campaign-primary);
     }
     
     .campaign-table th,

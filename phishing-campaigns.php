@@ -286,7 +286,7 @@ require_once __DIR__ . '/includes/header.php';
         <!-- Header with Organization Info -->
         <div class="campaign-header">
             <div class="campaign-header-content">
-                <h1><i class="fas fa-bullhorn"></i> Phishing Campaigns</h1>
+                <h1><i class="fas fa-bullhorn" style="color: #4361ee"></i> Phishing Campaigns</h1>
                 <div class="campaign-organization-info">
                     <span class="campaign-organization-label">
                         <i class="fas fa-building"></i> Organization:

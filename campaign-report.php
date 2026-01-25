@@ -366,10 +366,6 @@ require_once __DIR__ . '/includes/header.php';
     <?php require_once __DIR__ . '/includes/login-modal.php'; ?>
     <?php require_once __DIR__ . '/includes/footer.php'; ?>
     
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="assets/js/nav.js"></script>
-    <script src="assets/js/auth.js"></script>
-    
     <script>
     // Enhanced Chart Styling
     document.addEventListener('DOMContentLoaded', function() {
@@ -535,7 +531,12 @@ require_once __DIR__ . '/includes/header.php';
             }
         });
     });
-</script>
+</script>,
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="assets/js/nav.js"></script>
+<script src="assets/js/auth.js"></script>
+
+
 <link rel="stylesheet" href="assets/styles/campaign-report.css">
 <link rel="stylesheet" href="assets/styles/modal.css">
 </body>
