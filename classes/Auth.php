@@ -114,12 +114,14 @@ class Auth {
 
         // Get user roles for session
         $userRoles = $this->getUserRoles($userId);
+        $userEmail = $this->getUserByUsername($user['username']);
 
         $_SESSION['user_id'] = $userId;
         $_SESSION['session_token'] = $sessionToken;
         $_SESSION['logged_in'] = true;
         $_SESSION['user_roles'] = $userRoles;
         $_SESSION['username'] = $user['username']; // Store username
+        $_SESSION['email'] = $userEmail['email']; // Store email
 
         // Update last login
         $this->updateLastLogin($userId);

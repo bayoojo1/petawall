@@ -55,22 +55,46 @@ class OrganizationManager {
     /**
      * Extract domain from email
      */
-    private function extractDomainFromEmail($email) {
-        $parts = explode('@', $email);
-        if (count($parts) === 2) {
-            return $parts[1];
+    public function extractDomainFromEmail(string $email): string {
+        if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return substr(strrchr($email, '@'), 1);
         }
+
         return 'unknown.com';
     }
+
     
     /**
      * Generate organization name from domain
      */
-    private function generateOrganizationName($domain) {
-        $domainParts = explode('.', $domain);
-        $companyName = ucfirst($domainParts[0]);
-        return $companyName . " Company";
+    public function generateOrganizationName(string $domain): string {
+        $domain = strtolower($domain);
+
+        // Remove subdomains
+        $domain = preg_replace('/^www\./', '', $domain);
+
+        $parts = explode('.', $domain);
+
+        if (count($parts) < 2) {
+            return 'Unknown Company';
+        }
+
+        // Handle common multi-part TLDs
+        $tlds = ['co.uk', 'org.uk', 'ac.uk', 'gov.uk'];
+
+        $base = implode('.', array_slice($parts, -2));
+        foreach ($tlds as $tld) {
+            if (str_ends_with($domain, $tld)) {
+                $base = $parts[count($parts) - 3];
+                break;
+            }
+        }
+
+        $name = str_replace('-', ' ', $base);
+
+        return ucwords($name) . ' Company';
     }
+
     
     /**
      * Create organization with custom name

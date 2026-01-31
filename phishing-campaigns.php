@@ -25,7 +25,7 @@ $userEmail = $_SESSION['email'] ?? '';
 $organizationManager = new OrganizationManager();
 $campaignManager = new CampaignManager();
 
-// Get or create organization for user
+// Get or create organization for user 
 $organizationId = $organizationManager->getOrCreateUserOrganization($userId, $userEmail);
 
 // Store in session
