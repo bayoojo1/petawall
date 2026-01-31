@@ -30,7 +30,7 @@ class OrganizationManager {
             $domain = $this->extractDomainFromEmail($userEmail);
             $organizationName = $this->generateOrganizationName($domain);
             
-            // Create new organization
+            // Create new organization WITH DOMAIN
             $stmt = $this->db->prepare("
                 INSERT INTO phishing_organizations (name, domain) 
                 VALUES (?, ?)
@@ -146,7 +146,7 @@ class OrganizationManager {
                 FROM phishing_organizations o
                 JOIN users u ON o.id = u.organization_id
                 WHERE u.user_id = ?
-            ");
+            ");+
             $stmt->execute([$userId]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (Exception $e) {

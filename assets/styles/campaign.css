@@ -544,7 +544,7 @@
     justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
-    background-color: #1e3f61
+    background-color: #195189
 }
 
 .campaign-modal-body {
@@ -905,6 +905,7 @@
     background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
     color: white;
     border: none;
+    margin-top: 20px;
 }
 
 .campaign-welcome-content {
@@ -913,8 +914,8 @@
 }
 
 .campaign-welcome-content i {
-    font-size: 4rem;
-    margin-bottom: 1.5rem;
+    font-size: 2rem;
+    /* margin-bottom: 1.5rem; */
     opacity: 0.9;
 }
 
@@ -1077,4 +1078,38 @@
 .add-recipients-form h4 {
     margin-top: 0;
     margin-bottom: 15px;
+}
+
+.campaign-input-with-hint {
+    position: relative;
+}
+
+.campaign-input-hint {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: #6c757d;
+    background: #f8f9fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+    pointer-events: none;
+}
+
+.campaign-form-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 10px;
+    background-color: #b7d6f5;
+    border-radius: 4px;
+    border-left: 3px solid #007bff;
+    font-size: 14px;
+}
+
+.campaign-form-info i {
+    color: #007bff;
+    font-size: 16px;
 }

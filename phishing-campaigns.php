@@ -200,14 +200,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
             
         case 'update_organization':
-            // Handle organization name update
+            // Handle organization name and domain update
             $orgName = $_POST['organization_name'] ?? '';
+            $orgDomain = $_POST['organization_domain'] ?? '';
+            
             if ($orgName) {
-                $result = $organizationManager->updateOrganizationName($organizationId, $orgName);
+                // Clean domain input
+                if ($orgDomain) {
+                    $orgDomain = strtolower(trim($orgDomain));
+                    // Remove protocol and www
+                    $orgDomain = preg_replace('/^(https?:\/\/)?(www\.)?/', '', $orgDomain);
+                    // Remove trailing slash
+                    $orgDomain = rtrim($orgDomain, '/');
+                }
+                
+                // Use the EXISTING updateOrganization() method
+                $result = $organizationManager->updateOrganization($organizationId, [
+                    'name' => $orgName,
+                    'domain' => $orgDomain
+                ]);
+                
                 if ($result['success']) {
-                    $_SESSION['success_message'] = 'Organization name updated!';
+                    $_SESSION['success_message'] = 'Organization details updated!';
+                    
+                    // Refresh organization info
+                    $organizationInfo = $organizationManager->getUserOrganization($userId);
                 } else {
-                    $_SESSION['error_message'] = $result['error'] ?? 'Failed to update organization name';
+                    $_SESSION['error_message'] = $result['error'] ?? 'Failed to update organization';
                 }
             }
             header('Location: phishing-campaigns.php');
@@ -323,7 +342,7 @@ require_once __DIR__ . '/includes/header.php';
         <?php endif; ?>
         
         <!-- Organization Setup Card (shown only for new organizations) -->
-        <?php if (empty($campaigns) && (!$organizationInfo || empty($organizationInfo['name']))): ?>
+        <?php if (empty($campaigns) && (!$organizationInfo || $organizationInfo['name'] == 'Unknown Company')): ?>
         <div class="campaign-card campaign-welcome-card">
             <div class="campaign-card-body">
                 <div class="campaign-welcome-content">
@@ -335,11 +354,29 @@ require_once __DIR__ . '/includes/header.php';
                         <input type="hidden" name="action" value="update_organization">
                         
                         <div class="campaign-form-group">
-                            <label class="campaign-form-label">Organization Name</label>
+                            <label class="campaign-form-label">Organization Name *</label>
                             <input type="text" class="campaign-form-control" name="organization_name" 
-                                   value="<?php echo htmlspecialchars($organizationInfo['name'] ?? ''); ?>"
-                                   placeholder="e.g., Acme Inc." required>
+                                value="<?php echo htmlspecialchars($organizationInfo['name'] ?? ''); ?>"
+                                placeholder="e.g., Acme Inc." required>
                             <span class="campaign-form-text">Enter your company or organization name</span>
+                        </div>
+                        
+                        <!-- ADD THIS: Domain field -->
+                        <div class="campaign-form-group">
+                            <label class="campaign-form-label">Organization Domain *</label>
+                            <div class="campaign-input-with-hint">
+                                <input type="text" class="campaign-form-control" name="organization_domain" 
+                                    value="<?php echo htmlspecialchars($organizationInfo['domain'] ?? ''); ?>"
+                                    placeholder="e.g., acme.com" required>
+                                <div class="campaign-input-hint">Without http:// or www</div>
+                            </div>
+                            <span class="campaign-form-text">This will be your email domain (e.g., acme.com)</span>
+                            <?php if (isset($organizationInfo['domain']) && !empty($organizationInfo['domain'])): ?>
+                            <div class="campaign-form-info">
+                                <i class="fas fa-info-circle"></i>
+                                <span>Auto-detected from your email: <?php echo htmlspecialchars($organizationInfo['domain']); ?></span>
+                            </div>
+                            <?php endif; ?>
                         </div>
                         
                         <div class="campaign-form-actions">
@@ -749,20 +786,31 @@ require_once __DIR__ . '/includes/header.php';
     <div class="campaign-modal" id="editOrganizationModal">
         <div class="campaign-modal-content">
             <div class="campaign-modal-header">
-                <h3><i class="fas fa-building"></i> Edit Organization</h3>
+                <h3 style="color:white;"><i class="fas fa-building"></i> Edit Organization</h3>
                 <button class="campaign-modal-close">&times;</button>
             </div>
             
-            <form method="post" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+            <form method="post" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="background-color:deepskyblue;">
                 <div class="campaign-modal-body">
                     <input type="hidden" name="action" value="update_organization">
                     
                     <div class="campaign-form-group">
                         <label class="campaign-form-label">Organization Name *</label>
                         <input type="text" class="campaign-form-control" name="organization_name" required
-                               value="<?php echo htmlspecialchars($organizationInfo['name'] ?? ''); ?>"
-                               placeholder="e.g., Acme Inc.">
+                            value="<?php echo htmlspecialchars($organizationInfo['name'] ?? ''); ?>"
+                            placeholder="e.g., Acme Inc.">
                         <span class="campaign-form-text">This name will be used in reports and campaign settings</span>
+                    </div>
+                    
+                    <div class="campaign-form-group">
+                        <label class="campaign-form-label">Organization Domain *</label>
+                        <div class="campaign-input-with-hint">
+                            <input type="text" class="campaign-form-control" name="organization_domain" required
+                                value="<?php echo htmlspecialchars($organizationInfo['domain'] ?? ''); ?>"
+                                placeholder="e.g., acme.com">
+                            <div class="campaign-input-hint">Without http:// or www</div>
+                        </div>
+                        <span class="campaign-form-text">Used to validate sender emails in campaigns</span>
                     </div>
                 </div>
                 
