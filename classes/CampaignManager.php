@@ -176,6 +176,9 @@ class CampaignManager {
             
             // Delete results
             $this->db->prepare("DELETE FROM phishing_campaign_results WHERE campaign_id = ?")->execute([$campaignId]);
+
+            // Delete results
+            $this->db->prepare("DELETE FROM phishing_tracking_pending WHERE campaign_id = ?")->execute([$campaignId]);
             
             // Delete recipients
             $this->db->prepare("DELETE FROM phishing_campaign_recipients WHERE campaign_id = ?")->execute([$campaignId]);
@@ -501,36 +504,165 @@ class CampaignManager {
     /**
      * Process email content to add tracking
      */
-    private function processEmailContent($content, $recipient) {
-        // Add open tracking pixel
-        $openTrackingPixel = $this->generateOpenTrackingPixel($recipient['tracking_token']);
+    // private function processEmailContent($content, $recipient) {
+    //     // Process links for click tracking
+    //     $content = $this->processLinksForTracking($content, $recipient['tracking_token']);
         
-        // Process links for click tracking
+    //     // Build the final email HTML with BOTH tracking methods
+    //     $emailContent = '<!DOCTYPE html>
+    //     <html>
+    //     <head>
+    //         <meta charset="UTF-8">
+    //         <title>Email</title>
+    //         <style>
+    //             body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    //             a { color: #0066cc; text-decoration: none; }
+    //             a:hover { text-decoration: underline; }
+    //         </style>
+    //     </head>
+    //     <body>
+    //     ' . $content . '
+
+    //     <!-- TRACKING SECTION -->
+    //     <div style="display: none;">
+
+    //     <!-- METHOD 1: Basic tracking pixel (works for all email clients) -->
+    //     <img src="' . APP_URL . '/track/open.php?token=' . $recipient['tracking_token'] . '" 
+    //         width="1" height="1" alt="" />
+
+    //     <!-- METHOD 2: JavaScript confirmation (filters Outlook scans) -->
+    //     <script type="text/javascript">
+    //     // Only execute in browsers (not in email client previews)
+    //     if (typeof window !== "undefined" && window.document) {
+    //         // Confirm open via JavaScript
+    //         (function() {
+    //             var img = new Image();
+    //             img.src = "' . APP_URL . '/track/confirm-open.php?token=' . $recipient['tracking_token'] . '&_=" + new Date().getTime();
+                
+    //             // Enhanced click tracking
+    //             document.addEventListener("click", function(e) {
+    //                 var target = e.target;
+    //                 while (target && target.tagName !== "A") {
+    //                     target = target.parentElement;
+    //                 }
+                    
+    //                 if (target && target.href && target.href.indexOf("/track/click.php") !== -1) {
+    //                     // Allow normal navigation - click.php will handle tracking
+    //                     return true;
+    //                 }
+    //             }, true);
+    //         })();
+    //     }
+    //     </script>
+
+    //     <noscript>
+    //         <!-- Fallback for no JavaScript -->
+    //         <img src="' . APP_URL . '/track/open.php?token=' . $recipient['tracking_token'] . '&noscript=1" 
+    //             width="1" height="1" alt="" />
+    //     </noscript>
+
+    //     </div>
+
+    //     </body>
+    //     </html>';
+        
+    //     return $emailContent;
+    // }
+
+    private function processEmailContent($content, $recipient) {
+    // Process links for click tracking
         $content = $this->processLinksForTracking($content, $recipient['tracking_token']);
         
-        // Add tracking pixel at the end
-        $content .= $openTrackingPixel;
-        
-        $trackingScript = '
+        // Yahoo/Gmail workaround: Add tracking to link clicks as backup
+        $content .= '
+        <div style="display:none;">
+            <!-- Tracking pixel (works when images are enabled) -->
+            <img src="' . APP_URL . '/track/open.php?token=' . $recipient['tracking_token'] . '" width="1" height="1" alt="">
+            
+            <!-- JavaScript for Gmail and modern clients -->
             <script>
             if (typeof window !== "undefined") {
-                // Open confirmation
-                var img = new Image();
-                img.src = "' . APP_URL . '/track/confirm-open.php?token=' . $recipient['tracking_token'] . '&js=1";
+                // Open tracking fallback
+                try {
+                    var img = new Image();
+                    img.src = "' . APP_URL . '/track/open.php?token=' . $recipient['tracking_token'] . '&js=1";
+                } catch(e) {}
                 
-                // Click confirmation for all links
+                // Click tracking confirmation
                 document.addEventListener("click", function(e) {
-                    if (e.target.tagName === "A" && e.target.href.includes("/track/click.php")) {
-                        fetch("' . APP_URL . '/track/confirm-click.php?token=" + new URL(e.target.href).searchParams.get("token"));
+                    var target = e.target;
+                    while(target && target.tagName !== "A") {
+                        target = target.parentElement;
+                    }
+                    if(target && target.href) {
+                        var url = target.href.toString();
+                        if(url.indexOf("/track/click.php") > -1) {
+                            // Track click via JavaScript as backup
+                            try {
+                                navigator.sendBeacon && navigator.sendBeacon(
+                                    "' . APP_URL . '/track/click-beacon.php?token=" + 
+                                    new URL(url).searchParams.get("token")
+                                );
+                            } catch(e) {}
+                        }
                     }
                 });
             }
             </script>
+        </div>';
+        
+        return $content;
+    }
+
+    public function trackBeaconClick($linkToken) {
+        try {
+            // Get link details
+            $stmt = $this->db->prepare("
+                SELECT l.*, r.id as recipient_id, r.campaign_id, r.status
+                FROM phishing_campaign_links l
+                JOIN phishing_campaign_recipients r ON l.recipient_id = r.id
+                WHERE l.tracking_token = ?
+            ");
             
-            <img src="' . APP_URL . '/track/open.php?token=' . $recipient['tracking_token'] . '" 
-                width="1" height="1" style="display:none;" alt="" />';
+            $stmt->execute([$linkToken]);
+            $link = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            return $content . $trackingScript;
+            if (!$link) {
+                return false;
+            }
+            
+            // Check if already clicked recently
+            if ($link['status'] == 'clicked') {
+                return true;
+            }
+            
+            // Update as beacon click (less weight than direct click)
+            $stmt = $this->db->prepare("
+                UPDATE phishing_campaign_recipients 
+                SET beacon_clicks = COALESCE(beacon_clicks, 0) + 1,
+                    clicked_at = COALESCE(clicked_at, NOW()),
+                    status = CASE 
+                        WHEN status != 'clicked' THEN 'clicked' 
+                        ELSE status 
+                    END
+                WHERE id = ?
+            ");
+            
+            $stmt->execute([$link['recipient_id']]);
+            
+            // Log beacon event
+            $this->logTrackingEvent($link['recipient_id'], $link['campaign_id'], 'click_beacon', [
+                'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+                'link_url' => $link['original_url']
+            ]);
+            
+            return true;
+            
+        } catch (Exception $e) {
+            error_log("Track beacon click error: " . $e->getMessage());
+            return false;
+        }
     }
 
     // In CampaignManager.php, update getCampaignRecipients:
@@ -814,142 +946,201 @@ class CampaignManager {
 
     public function trackEmailOpen($trackingToken) {
         try {
-            // First verify this is a legitimate open (not a preview)
+            // Get request details
             $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
             $ip = $_SERVER['REMOTE_ADDR'] ?? '';
             
-            // Check for email client previews
-            $previewClients = [
-                'Outlook',      // Microsoft Outlook
-                'AppleMail',    // Apple Mail
-                'Gmail',        // Google Gmail
-                'Thunderbird',  // Mozilla Thunderbird
-                'Yahoo',        // Yahoo Mail
-                'ProtonMail',   // ProtonMail
-                'Zoho',         // Zoho Mail
-                'AOL',          // AOL Mail
-                'iCloud',       // Apple iCloud Mail
-                'RoundCube',    // RoundCube Webmail
-                'SquirrelMail', // SquirrelMail
-                'Horde',        // Horde Webmail
-                'RainLoop',     // RainLoop Webmail
-                'Mail.ru',      // Mail.ru
-                'GMX',          // GMX Mail
-                'FastMail',     // FastMail
-                'Tutanota',     // Tutanota
-                'Mailbird',     // Mailbird
-                'eM Client',    // eM Client
-                'Mailspring',   // Mailspring
-                'Spark'         // Spark Mail
-            ];
-
-            // Enhanced preview detection
-            $previewPatterns = [
-                '/preview/i',
-                '/safe/i',
-                '/security.*scan/i',
-                '/content.*scan/i',
-                '/link.*scan/i',
-                '/virus.*scan/i',
-                '/spam.*scan/i',
-                '/attachment.*scan/i'
-            ];
-
-            $isPreview = false;
-
-            foreach ($previewPatterns as $pattern) {
-                if (preg_match($pattern, $userAgent)) {
-                    $isPreview = true;
-                    error_log("Preview detected via pattern: {$pattern}");
-                    break;
-                }
-            }
-            
-            foreach ($previewClients as $client) {
-                if (stripos($userAgent, $client) !== false && 
-                    (stripos($userAgent, 'preview') !== false || 
-                    stripos($userAgent, 'safe') !== false)) {
-                    $isPreview = true;
-                    break;
-                }
-            }
-            
-            if ($isPreview) {
-                return false; // Don't track preview opens
-            }
-            
-            // Get recipient by tracking token
+            // Get recipient
             $stmt = $this->db->prepare("
                 SELECT r.*, c.id as campaign_id 
                 FROM phishing_campaign_recipients r
                 JOIN phishing_campaigns c ON r.campaign_id = c.id
                 WHERE r.tracking_token = ? 
                 AND r.status IN ('sent', 'pending')
-                AND (r.opened_at IS NULL OR TIMESTAMPDIFF(MINUTE, r.opened_at, NOW()) > 5)
             ");
             
             $stmt->execute([$trackingToken]);
             $recipient = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$recipient) {
-                // Check if already opened recently to prevent duplicate counting
-                $stmt2 = $this->db->prepare("
-                    SELECT r.*, c.id as campaign_id 
-                    FROM phishing_campaign_recipients r
-                    JOIN phishing_campaigns c ON r.campaign_id = c.id
-                    WHERE r.tracking_token = ? 
-                    AND r.status = 'opened'
-                ");
-                $stmt2->execute([$trackingToken]);
-                $alreadyOpened = $stmt2->fetch(PDO::FETCH_ASSOC);
-                
-                if ($alreadyOpened) {
-                    // Just increment open count but don't change status
-                    $this->incrementOpenCount($alreadyOpened['id']);
-                    $this->updateCampaignMetrics($alreadyOpened['campaign_id'], 'total_opened', 1);
-                    return true;
-                }
+                error_log("Recipient not found for token: {$trackingToken}");
                 return false;
             }
             
-            // Update recipient status
+            // VERIFICATION: Check if this looks like a real user
+            $isVerifiedRealUser = $this->verifyRealUser($userAgent, $ip, $trackingToken);
+            
+            if (!$isVerifiedRealUser) {
+                error_log("Open NOT verified as real user - treating as scan");
+                
+                // Log as scan instead
+                $this->logScanEvent($trackingToken, [
+                    'ip_address' => $ip,
+                    'user_agent' => $userAgent,
+                    'scan_type' => 'failed_verification'
+                ]);
+                
+                return false;
+            }
+            
+            // Check if already opened in last 30 minutes
+            if ($recipient['opened_at'] && 
+                strtotime($recipient['opened_at']) > time() - 1800) {
+                // Just update count
+                $this->incrementOpenCount($recipient['id']);
+                $this->updateCampaignMetrics($recipient['campaign_id'], 'total_opened', 1);
+                return true;
+            }
+            
+            $this->db->beginTransaction();
+            
+            // Update recipient with verification flag
             $this->updateRecipientStatus($recipient['id'], 'opened', [
                 'opened_at' => date('Y-m-d H:i:s'),
-                'opened_count' => 1
+                'opened_count' => ($recipient['opened_count'] ?? 0) + 1,
+                'open_confirmed' => 1,
+                'open_verified' => 1  // New flag for verified opens
             ]);
             
             // Update campaign metrics
             $this->updateCampaignMetrics($recipient['campaign_id'], 'unique_opens', 1);
             $this->updateCampaignMetrics($recipient['campaign_id'], 'total_opened', 1);
             
-            // Log tracking event
-            $this->logTrackingEvent($recipient['id'], $recipient['campaign_id'], 'open', [
+            // Log tracking event with verification
+            $this->logTrackingEvent($recipient['id'], $recipient['campaign_id'], 'open_verified', [
                 'ip_address' => $ip,
                 'user_agent' => $userAgent,
-                'is_preview' => false
+                'verified' => 1
             ]);
+            
+            $this->db->commit();
             
             // Recalculate rates
             $this->recalculateCampaignRates($recipient['campaign_id']);
             
+            error_log("VERIFIED open tracked for: " . $recipient['email']);
             return true;
             
         } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("Track email open error: " . $e->getMessage());
             return false;
         }
     }
 
     /**
-     * Handle link click tracking - FIXED VERSION
+     * Additional verification for real users
      */
+    public function verifyRealUser($userAgent, $ip, $trackingToken = '') {
+        // Rule 1: Must have a reasonable user agent length
+        if (strlen($userAgent) < 20) {
+            error_log("Verification failed: UA too short");
+            return false;
+        }
+        
+        // Rule 2: Check for real browser patterns (not just "Mozilla")
+        $browserPatterns = [
+            'chrome\/[0-9]+\.[0-9]+',      // chrome/109.0.5414.119
+            'firefox\/[0-9]+\.[0-9]+',     // firefox/120.0
+            'safari\/[0-9]+\.[0-9]+',      // safari/16.6
+            'version\/[0-9]+\.[0-9]+',     // version/16.6
+            'edge\/[0-9]+\.[0-9]+',        // edge/120.0.2210.91
+            'opr\/[0-9]+\.[0-9]+'          // opr/106.0.0.0
+        ];
+
+        $hasRealBrowser = false;
+        foreach ($browserPatterns as $pattern) {
+            if (preg_match('/' . $pattern . '/i', $userAgent)) {
+                $hasRealBrowser = true;
+                break;
+            }
+        }
+        
+        // Rule 3: Not from known Microsoft scanning ranges
+        if ($this->isMicrosoftScanningRange($ip)) {
+            error_log("Verification warning: Microsoft range - checking further");
+            
+            // Additional check for Microsoft: Must have platform info
+            $platformPatterns = ['windows', 'mac', 'linux', 'android', 'iphone', 'ipad'];
+            $hasPlatform = false;
+            foreach ($platformPatterns as $pattern) {
+                if (stripos($userAgent, $pattern) !== false) {
+                    $hasPlatform = true;
+                    break;
+                }
+            }
+            
+            if (!$hasPlatform) {
+                error_log("Verification failed: Microsoft IP without platform");
+                return false;
+            }
+        }
+        
+        // Rule 4: Check timing (not too fast after send)
+        try {
+            $stmt = $this->db->prepare("
+                SELECT r.sent_at 
+                FROM phishing_campaign_recipients r
+                WHERE r.tracking_token = ?
+            ");
+            $stmt->execute([$trackingToken]);
+            $recipient = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($recipient && $recipient['sent_at']) {
+                $sentTime = strtotime($recipient['sent_at']);
+                $currentTime = time();
+                
+                // If opened less than 10 seconds after send, suspicious
+                if (($currentTime - $sentTime) < 10) {
+                    error_log("Verification failed: Too fast (".($currentTime - $sentTime)."s after send)");
+                    return false;
+                }
+            }
+        } catch (Exception $e) {
+            // Continue if timing check fails
+        }
+        
+        error_log("Verification passed for IP: {$ip}");
+        return true;
+    }
+
     public function trackLinkClick($linkToken) {
         try {
-            error_log("trackLinkClick called with token: " . $linkToken);
+            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '';
             
-            // Get link details WITH the correct recipient
+            error_log("Click attempt - Token: {$linkToken}, UA: " . substr($userAgent, 0, 100));
+            
+            // Check if automated scan
+            $isAutomated = $this->isAutomatedScan($userAgent, $ip);
+            
+            if ($isAutomated) {
+                error_log("AUTOMATED CLICK SCAN - NOT counting");
+                
+                // Log as scan event
+                $this->logScanEventByLinkToken($linkToken, [
+                    'ip_address' => $ip,
+                    'user_agent' => $userAgent,
+                    'scan_type' => 'automated_link_scan'
+                ]);
+                
+                // Get URL for redirect but don't count as click
+                $url = $this->getOriginalUrl($linkToken);
+                return [
+                    'success' => true,
+                    'redirect_url' => $url,
+                    'is_automated' => true
+                ];
+            }
+            
+            // REAL CLICK - track it
+            error_log("REAL CLICK - tracking now");
+            
+            // Get link details
             $stmt = $this->db->prepare("
-                SELECT l.*, r.id as recipient_id, r.campaign_id, r.status, r.email, r.tracking_token as recipient_tracking_token
+                SELECT l.*, r.id as recipient_id, r.campaign_id, r.status, r.email
                 FROM phishing_campaign_links l
                 JOIN phishing_campaign_recipients r ON l.recipient_id = r.id
                 WHERE l.tracking_token = ?
@@ -959,78 +1150,213 @@ class CampaignManager {
             $link = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$link) {
-                error_log("ERROR: No link found for token: " . $linkToken);
-                
-                // Try alternative: find any link with this token
-                $stmt2 = $this->db->prepare("
-                    SELECT * FROM phishing_campaign_links 
-                    WHERE tracking_token = ?
-                ");
-                $stmt2->execute([$linkToken]);
-                $rawLink = $stmt2->fetch(PDO::FETCH_ASSOC);
-                
-                if ($rawLink) {
-                    error_log("Found link but no recipient: Link ID=" . $rawLink['id'] . 
-                            ", Recipient ID in link=" . ($rawLink['recipient_id'] ?? 'NULL'));
-                }
-                
+                error_log("Link not found for token: {$linkToken}");
                 return ['success' => false, 'redirect_url' => null];
             }
             
-            error_log("Link found for: " . $link['email'] . " (Recipient ID: " . $link['recipient_id'] . 
-                    ", Status: " . $link['status'] . ")");
+            $this->db->beginTransaction();
             
-            // Update recipient status if first click
+            // Update recipient if first click
             if ($link['status'] != 'clicked') {
-                error_log("First click for recipient " . $link['recipient_id']);
-                
                 $this->updateRecipientStatus($link['recipient_id'], 'clicked', [
                     'clicked_at' => date('Y-m-d H:i:s'),
                     'click_count' => 1,
-                    'clicked_links' => $link['original_url']
+                    'click_confirmed' => 1
                 ]);
                 
-                // Update unique clicks in campaign results
                 $this->updateCampaignMetrics($link['campaign_id'], 'unique_clicks', 1);
-                
-                error_log("Recipient status updated to 'clicked'");
             } else {
-                // Increment click count for this specific recipient
-                error_log("Additional click for recipient " . $link['recipient_id']);
                 $this->incrementClickCount($link['recipient_id']);
-                
-                // Add to clicked links if not already there
-                $this->addClickedLink($link['recipient_id'], $link['original_url']);
             }
             
-            // Update link click counts
+            // Update link and campaign
             $this->updateLinkClickCount($link['id']);
-            
-            // Update total clicks in campaign results
             $this->updateCampaignMetrics($link['campaign_id'], 'total_clicked', 1);
             
-            // Log tracking event
+            // Log tracking
             $this->logTrackingEvent($link['recipient_id'], $link['campaign_id'], 'click', [
-                'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
-                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+                'ip_address' => $ip,
+                'user_agent' => $userAgent,
                 'link_url' => $link['original_url']
             ]);
+            
+            $this->db->commit();
             
             // Recalculate rates
             $this->recalculateCampaignRates($link['campaign_id']);
             
-            error_log("Successfully tracked click, redirecting to: " . $link['original_url']);
-            
             return [
                 'success' => true,
-                'redirect_url' => $link['original_url']
+                'redirect_url' => $link['original_url'],
+                'is_automated' => false
             ];
             
         } catch (Exception $e) {
-            error_log("Track link click ERROR: " . $e->getMessage());
-            error_log("Stack trace: " . $e->getTraceAsString());
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            error_log("Track link click error: " . $e->getMessage());
             return ['success' => false, 'redirect_url' => null];
         }
+    }
+
+    private function logScanEventByLinkToken($linkToken, $data = []) {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT r.id as recipient_id, r.campaign_id 
+                FROM phishing_campaign_links l
+                JOIN phishing_campaign_recipients r ON l.recipient_id = r.id
+                WHERE l.tracking_token = ?
+            ");
+            
+            $stmt->execute([$linkToken]);
+            $link = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($link) {
+                return $this->logScanEventByRecipientId($link['recipient_id'], $data);
+            }
+            
+            return false;
+            
+        } catch (Exception $e) {
+            error_log("Log scan by link token error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function logScanEventByRecipientId($recipientId, $data = []) {
+        try {
+            // Get campaign ID from recipient
+            $stmt = $this->db->prepare("
+                SELECT campaign_id FROM phishing_campaign_recipients WHERE id = ?
+            ");
+            $stmt->execute([$recipientId]);
+            $recipient = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$recipient) {
+                return false;
+            }
+            
+            // Insert into scans table
+            $stmt = $this->db->prepare("
+                INSERT INTO phishing_scan_events 
+                (recipient_id, campaign_id, scan_type, ip_address, user_agent, created_at)
+                VALUES (?, ?, ?, ?, ?, NOW())
+            ");
+            
+            $stmt->execute([
+                $recipientId,
+                $recipient['campaign_id'],
+                $data['scan_type'] ?? 'automated',
+                $data['ip_address'] ?? null,
+                $data['user_agent'] ?? null
+            ]);
+            
+            return true;
+            
+        } catch (Exception $e) {
+            error_log("Log scan by recipient ID error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function confirmEmailOpen($trackingToken) {
+        try {
+            $this->db->beginTransaction();
+            
+            // Find recipient
+            $stmt = $this->db->prepare("
+                SELECT r.*, c.id as campaign_id 
+                FROM phishing_campaign_recipients r
+                JOIN phishing_campaigns c ON r.campaign_id = c.id
+                WHERE r.tracking_token = ? 
+                AND r.open_confirmed = 0
+            ");
+            
+            $stmt->execute([$trackingToken]);
+            $recipient = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($recipient) {
+                // This is a JavaScript confirmation, so it's definitely a real user
+                // Update to confirmed open
+                $this->updateRecipientStatus($recipient['id'], 'opened', [
+                    'opened_at' => date('Y-m-d H:i:s'),
+                    'opened_count' => ($recipient['opened_count'] ?? 0) + 1,
+                    'open_confirmed' => 1
+                ]);
+                
+                // Update campaign metrics
+                $this->updateCampaignMetrics($recipient['campaign_id'], 'unique_opens', 1);
+                $this->updateCampaignMetrics($recipient['campaign_id'], 'total_opened', 1);
+                
+                // Update tracking log to mark as confirmed
+                $updateStmt = $this->db->prepare("
+                    UPDATE phishing_campaign_tracking 
+                    SET open_confirmed = 1 
+                    WHERE recipient_id = ? 
+                    AND event_type = 'open'
+                    ORDER BY created_at DESC 
+                    LIMIT 1
+                ");
+                $updateStmt->execute([$recipient['id']]);
+                
+                // Recalculate rates
+                $this->recalculateCampaignRates($recipient['campaign_id']);
+                
+                error_log("Open confirmed via JavaScript for: " . $recipient['email']);
+            }
+            
+            $this->db->commit();
+            return true;
+            
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            error_log("Confirm email open error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function isOutlookAutomatedScan($userAgent, $ip) {
+        $userAgent = strtolower($userAgent);
+        
+        // Outlook/Microsoft specific patterns that indicate automated scanning
+        $outlookPatterns = [
+            'microsoft.*outlook',
+            'outlook.*safelinks',
+            'outlook.*security.*scan',
+            'ms-office',
+            'exchange.*online',
+            'office.*365',
+            // These are definitely automated
+            'security.*scan',
+            'content.*filter',
+            'safelinks.*protection'
+        ];
+        
+        foreach ($outlookPatterns as $pattern) {
+            if (preg_match("/{$pattern}/i", $userAgent)) {
+                return true;
+            }
+        }
+        
+        // Check for Microsoft IP ranges (but not all Microsoft IPs are scanners)
+        $microsoftIPs = [
+            '40.92.0.0/15',
+            '40.107.0.0/16',
+            '52.100.0.0/14',
+            '104.47.0.0/17'
+        ];
+        
+        foreach ($microsoftIPs as $range) {
+            if ($this->ipInRange($ip, $range)) {
+                // Additional check: If user agent is empty or very short, likely automated
+                if (strlen($userAgent) < 20 || empty($userAgent)) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
     }
     
     /**
@@ -2429,24 +2755,717 @@ class CampaignManager {
         }
     }
 
-
-    // Add these methods to your CampaignManager class:
-
     public function isAutomatedScan($userAgent, $ip) {
-        // Check for Outlook/Microsoft
-        $isOutlook = stripos($userAgent, 'Outlook') !== false;
-        $isMicrosoftIP = $this->isMicrosoftIP($ip);
-        
-        // Check for other email clients that do automated scans
-        $automatedClients = ['GoogleImageProxy', 'YahooMailProxy', 'SecurityScan'];
-        
-        foreach ($automatedClients as $client) {
-            if (stripos($userAgent, $client) !== false) {
+        // Normalize
+        $ua = strtolower($userAgent);
+
+        // LAYER 0: Quick Microsoft scanner check
+        if ($this->isMicrosoftScanningRange($ip)) {
+            // Immediate extra scrutiny for Microsoft IPs
+            if ($this->isMicrosoftScannerPattern($userAgent, $ip)) {
+                error_log("Layer 0: Microsoft scanner pattern detected");
                 return true;
             }
         }
         
-        return $isOutlook && $isMicrosoftIP;
+        // === LAYER 1: DEFINITE SCANNERS (always block) ===
+        
+        // 1A. Google Image Proxy (for Gmail)
+        if (strpos($ua, 'googleimageproxy') !== false || 
+            strpos($ua, 'via ggpht.com') !== false) {
+            error_log("Layer 1A: Google Image Proxy detected");
+            $this->addToScanningIPs($ip, 'google_image_proxy');
+            return true;
+        }
+        
+        // 1B. Empty/short user agents
+        if (empty($ua) || strlen($ua) < 20) {
+            error_log("Layer 1B: Empty/short UA: " . strlen($ua) . " chars");
+            return true;
+        }
+        
+        // 1C. Known scanner patterns
+        $definiteScannerPatterns = [
+            'security.*scan',
+            'virus.*scan',
+            'spam.*scan',
+            'content.*filter',
+            'safelinks',
+            'proofpoint',
+            'mimecast',
+            'barracuda',
+            'symantec',
+            'mcafee',
+            'trendmicro',
+            'threat',
+            'bot[^a-z]',     // bot but not "both", "bottom"
+            'crawler',
+            'spider',
+            'scanner[^a-z]'  // scanner but not "scanners"
+        ];
+        
+        foreach ($definiteScannerPatterns as $pattern) {
+            if (preg_match('/' . preg_quote($pattern, '/') . '/i', $ua)) {
+                error_log("Layer 1C: Definite scanner pattern: {$pattern}");
+                $this->addToScanningIPs($ip, 'scanner_pattern');
+                return true;
+            }
+        }
+        
+        // === LAYER 2: EMAIL CLIENT DETECTION (allow real, block automated) ===
+        
+        // 2A. Check for Outlook desktop app (ALLOW this)
+        if (strpos($ua, 'oneoutlook') !== false) {
+            error_log("Layer 2A: Outlook desktop app detected - ALLOWING");
+            return false; // This is a real email client
+        }
+        
+        // 2B. Check for suspicious email client patterns (automated scans)
+        $suspiciousEmailPatterns = [
+            'chrome\/109\.0\.0\.0',      // Outlook scanner pattern
+            'chrome\/142\.0\.7444\.1',    // Another scanner pattern
+            'outlook.*safelinks',
+            'exchange.*protection',
+            'office.*protection',
+            'microsoft.*safelinks'
+        ];
+        
+        foreach ($suspiciousEmailPatterns as $pattern) {
+            if (preg_match('/' . preg_quote($pattern, '/') . '/i', $ua)) {
+                error_log("Layer 2B: Suspicious email pattern: {$pattern}");
+                $this->addToScanningIPs($ip, 'email_scanner');
+                return true;
+            }
+        }
+        
+        // === LAYER 3: IP-BASED CHECKS ===
+        
+        // 3A. Check known scanning IPs database (but allow if it's a real browser)
+        if ($this->isKnownScanningIP($ip)) {
+            // Double-check: if it looks like a real user, allow it
+            if ($this->isLikelyRealUser($userAgent, $ip)) {
+                error_log("Layer 3A: Known IP but looks like real user - ALLOWING");
+                return false;
+            }
+            error_log("Layer 3A: Known scanning IP: {$ip}");
+            return true;
+        }
+        
+        // 3B. Check Microsoft scanning ranges
+        if ($this->isMicrosoftScanningRange($ip)) {
+            // Check if this is likely a real user from Microsoft
+            if (!$this->isLikelyRealUserFromMicrosoft($userAgent, $ip)) {
+                error_log("Layer 3B: Microsoft IP not real user");
+                $this->addToScanningIPs($ip, 'microsoft_scanner');
+                return true;
+            }
+        }
+        
+        // 3C. Check for rapid requests (automated behavior)
+        if ($this->hasRapidRequests($ip)) {
+            error_log("Layer 3C: Rapid requests from IP: {$ip}");
+            $this->addToScanningIPs($ip, 'rapid_requests');
+            return true;
+        }
+        
+        // === LAYER 4: REAL USER VERIFICATION ===
+        
+        // If it passes all the above checks, verify it's a real user
+        if (!$this->isLikelyRealUser($userAgent, $ip)) {
+            error_log("Layer 4: Failed real user verification");
+            $this->addToScanningIPs($ip, 'failed_verification');
+            return true;
+        }
+        
+        // Passed all checks - this is a real user
+        error_log("All checks passed: Real user from IP: {$ip}");
+        return false;
+    }
+
+    private function isMicrosoftScannerPattern($userAgent, $ip) {
+        $ua = strtolower($userAgent);
+        
+        // Known Microsoft scanner user agents
+        $microsoftScannerPatterns = [
+            'chrome\/\d+\.0\.\d{4}\.[01]',  // Ends in .0 or .1 (suspicious)
+            'chrome\/109\.0\.0\.0',
+            'chrome\/142\.0\.7444\.1',
+            'chrome\/141\.0\.7390\.0',  // From your logs
+        ];
+        
+        foreach ($microsoftScannerPatterns as $pattern) {
+            if (preg_match('/' . preg_quote($pattern, '/') . '/i', $userAgent)) {
+                error_log("Microsoft scanner pattern: {$pattern}");
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    private function hasRapidRequests($ip) {
+        try {
+            // Check for multiple requests within 2 seconds
+            $stmt = $this->db->prepare("
+                SELECT COUNT(*) as request_count 
+                FROM phishing_scan_events 
+                WHERE ip_address = ? 
+                AND created_at > DATE_SUB(NOW(), INTERVAL 2 SECOND)
+            ");
+            $stmt->execute([$ip]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+            if ($result['request_count'] > 3) {
+                return true;
+            }
+            
+            return false;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    private function isLikelyRealUser($userAgent, $ip) {
+        $ua = strtolower($userAgent);
+        
+        // Rule 1: Must have reasonable length
+        if (strlen($ua) < 50) {
+            error_log("Real user check failed: UA too short");
+            return false;
+        }
+        
+        // Rule 2: Must have browser with version
+        $realBrowserPatterns = [
+            'chrome\/[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+',  // chrome/144.0.0.0
+            'firefox\/[0-9]+\.[0-9]+',                 // firefox/120.0
+            'safari\/[0-9]+\.[0-9]+',                  // safari/17.2
+            'edge\/[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+',    // edge/144.0.0.0
+            'version\/[0-9]+\.[0-9]+'                  // version/17.2
+        ];
+        
+        $hasRealBrowser = false;
+        foreach ($realBrowserPatterns as $pattern) {
+            if (preg_match('/' . $pattern . '/', $ua)) {
+                $hasRealBrowser = true;
+                break;
+            }
+        }
+        
+        if (!$hasRealBrowser) {
+            error_log("Real user check failed: No real browser pattern");
+            return false;
+        }
+        
+        // Rule 3: Must have platform info (except for some mobile)
+        $platformPatterns = [
+            'windows nt',
+            'mac os',
+            'macintosh',
+            'linux',
+            'android',
+            'iphone',
+            'ipad',
+            'x11',
+            'mobile',
+            'tablet'
+        ];
+        
+        $hasPlatform = false;
+        foreach ($platformPatterns as $platform) {
+            if (strpos($ua, $platform) !== false) {
+                $hasPlatform = true;
+                break;
+            }
+        }
+        
+        if (!$hasPlatform) {
+            error_log("Real user check failed: No platform info");
+            return false;
+        }
+        
+        // Special case: Outlook desktop app
+        if (strpos($ua, 'oneoutlook') !== false) {
+            error_log("Real user: Outlook desktop app");
+            return true;
+        }
+        
+        // Special case: Mobile browsers might have different patterns
+        if (strpos($ua, 'mobile') !== false || strpos($ua, 'android') !== false) {
+            error_log("Real user: Mobile device detected");
+            return true;
+        }
+        
+        error_log("Real user check passed");
+        return true;
+    }
+
+    private function isOutlookScanner($userAgent, $ip) {
+        $ua = strtolower($userAgent);
+        
+        // Pattern 1: Chrome with suspicious version (109.0.0.0, 142.0.7444.1)
+        if (preg_match('/chrome\/(109\.0\.0\.0|142\.0\.7444\.1)/i', $userAgent)) {
+            error_log("Outlook pattern 1: Suspicious Chrome version");
+            return true;
+        }
+        
+        // Pattern 2: From Microsoft IP ranges with Chrome UA
+        if ($this->isMicrosoftScanningRange($ip) && strpos($ua, 'chrome') !== false) {
+            // Check if it has Windows platform (real users do)
+            if (strpos($ua, 'windows nt') === false) {
+                error_log("Outlook pattern 2: Chrome from Microsoft IP without Windows");
+                return true;
+            }
+            
+            // Check Chrome version format
+            if (preg_match('/chrome\/\d+\.0\.\d+\.\d+/i', $userAgent)) {
+                // Real Chrome versions have 4 parts: 109.0.5414.119
+                // Check if it's a real-looking version
+                if (preg_match('/chrome\/\d+\.0\.\d{4,}\.\d+/i', $userAgent)) {
+                    // Has 4+ digits in third part = real version
+                    return false;
+                }
+                error_log("Outlook pattern 2b: Suspicious Chrome version format");
+                return true;
+            }
+        }
+        
+        // Pattern 3: Specific IPs from your logs
+        $knownOutlookScannerIPs = [
+            '85.210.240.71',
+            '85.210.240.79',
+            '95.147.191.122',
+            '172.186.8.156'
+        ];
+        
+        if (in_array($ip, $knownOutlookScannerIPs)) {
+            error_log("Outlook pattern 3: Known scanner IP: {$ip}");
+            return true;
+        }
+        
+        return false;
+    }
+
+    private function isLikelyRealUserFromMicrosoft($userAgent, $ip) {
+        $ua = strtolower($userAgent);
+        
+        // First, check for specific Microsoft scanning patterns that pretend to be browsers
+        $suspiciousMicrosoftPatterns = [
+            'chrome\/141\.0\.7390\.0',  // From your log - Chrome version is suspicious
+            'chrome\/142\.0\.7444\.1',   // Another known scanner version
+            'chrome\/109\.0\.0\.0',      // Known scanner version
+        ];
+        
+        foreach ($suspiciousMicrosoftPatterns as $pattern) {
+            if (preg_match('/' . preg_quote($pattern, '/') . '/', $ua)) {
+                error_log("Microsoft scanner pattern detected: {$pattern}");
+                return false; // This is a scanner pretending to be Chrome
+            }
+        }
+        
+        // Check for real Outlook desktop app
+        if (strpos($ua, 'oneoutlook') !== false) {
+            return true; // Real Outlook app
+        }
+        
+        // Check for suspicious combinations
+        // Microsoft IP + Chrome without normal Chrome version pattern
+        if (strpos($ua, 'chrome') !== false) {
+            // Real Chrome versions have more digits in the build number
+            // Suspicious: Chrome/141.0.7390.0 (too clean)
+            // Real: Chrome/120.0.6099.129 or Chrome/120.0.6099.130
+            
+            // Check if it's a suspiciously "clean" version number
+            if (preg_match('/chrome\/\d+\.0\.\d{4}\.0/', $ua)) {
+                // Ends with .0 - suspicious
+                error_log("Suspicious Chrome version format from Microsoft IP");
+                return false;
+            }
+        }
+        
+        // If it passes the general real user check, allow it
+        if ($this->isLikelyRealUser($userAgent, $ip)) {
+            // But double-check for Microsoft-specific anomalies
+            if ($this->hasMicrosoftScannerAnomalies($userAgent, $ip)) {
+                return false;
+            }
+            return true;
+        }
+        
+        return false;
+    }
+
+    private function hasMicrosoftScannerAnomalies($userAgent, $ip) {
+        $ua = strtolower($userAgent);
+        
+        // Anomaly 1: Microsoft IP but user agent claims to be from Windows NT 10.0
+        // This could be legitimate OR it could be Microsoft's scanner
+        // Let's add additional checks
+        
+        // Anomaly 2: Chrome version is too "clean"
+        if (preg_match('/chrome\/(\d+)\.0\.(\d+)\.0/', $ua, $matches)) {
+            $major = intval($matches[1]);
+            $build = intval($matches[2]);
+            
+            // Real Chrome versions rarely end in .0
+            // Known scanner versions: 141.0.7390.0, 142.0.7444.1, 109.0.0.0
+            if ($build % 1000 === 0) {
+                // Build number divisible by 1000 - suspicious
+                error_log("Suspicious Chrome build number: {$matches[0]}");
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    private function isMicrosoftScanningRange($ip) {
+        // Add ALL Microsoft ranges including the one from your logs
+        $microsoftEmailScanningRanges = [
+            '40.92.0.0/15',      // Outlook.com protection service
+            '40.107.0.0/16',     // Office 365 Advanced Threat Protection
+            '52.100.0.0/14',     // Exchange Online Protection
+            '104.47.0.0/17',     // Microsoft security scanner
+            '207.46.0.0/16',     // Hotmail/Outlook.com scanners
+            '65.55.0.0/16',      // Microsoft
+            '94.245.0.0/16',     // Microsoft (Europe)
+            '131.253.0.0/16',    // Microsoft
+            '134.170.0.0/16',    // Microsoft
+            '157.55.0.0/16',     // Microsoft
+            '157.56.0.0/16',     // Microsoft
+            '85.210.241.0/24',   // Microsoft - ADD THIS ONE!
+            '85.210.240.0/24',   // Also add the broader range
+            '172.186.8.0/24'     // Another from your logs
+        ];
+        
+        foreach ($microsoftEmailScanningRanges as $range) {
+            if ($this->ipInRange($ip, $range)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    private function isLikelyAutomatedMicrosoft($userAgent, $ip) {
+        $ua = strtolower($userAgent);
+        
+        // Real browser indicators
+        $browserIndicators = [
+            'chrome/',
+            'firefox/',
+            'safari/',
+            'edge/',
+            'opera/',
+            'version/',
+            'mobile',
+            'android',
+            'iphone',
+            'ipad'
+        ];
+        
+        // Check if it has ANY browser-like behavior
+        $hasBrowserBehavior = false;
+        foreach ($browserIndicators as $indicator) {
+            if (strpos($ua, $indicator) !== false) {
+                $hasBrowserBehavior = true;
+                break;
+            }
+        }
+        
+        // If it's from Microsoft range but doesn't look like a real browser, it's likely automated
+        if (!$hasBrowserBehavior) {
+            return true;
+        }
+        
+        // Additional check: Real browsers usually have longer, more detailed UAs
+        if (strlen($ua) < 50) {
+            return true;
+        }
+        
+        // Check for Outlook scanning patterns even with browser UA
+        $outlookScanPatterns = [
+            'outlook',
+            'safelinks',
+            'security.*scan',
+            'exchange',
+            'office.*365',
+            'eop', // Exchange Online Protection
+            'atp'  // Advanced Threat Protection
+        ];
+        
+        foreach ($outlookScanPatterns as $pattern) {
+            if (preg_match('/' . $pattern . '/i', $ua)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Layer 3: Check for scanning patterns in User Agent - FIXED REGEX
+     */
+    private function hasScanningPatterns($userAgent) {
+        $ua = strtolower($userAgent);
+        
+        // List of patterns that ALWAYS indicate scanning
+        $definiteScanPatterns = [
+            // Security scanning (escaped properly)
+            'security.*scan',
+            'content.*filter',
+            'virus.*scan',
+            'spam.*scan',
+            'malware.*scan',
+            'safelinks',
+            'safelink',
+            'link.*scan',
+            
+            // Email gateway providers
+            'proofpoint',
+            'mimecast',
+            'barracuda',
+            'symantec',
+            'mcafee.*email',
+            'trend.*micro',
+            'forcepoint',
+            'cisco.*esa',
+            'fortimail',
+            
+            // Microsoft scanning
+            'outlook.*safelinks',
+            'exchange.*online.*protection',
+            'office.*365.*protection',
+            'microsoft.*safelinks',
+            
+            // Generic scanners
+            'bot',
+            'crawler',
+            'spider',
+            'scanner',
+            'checker',
+            'monitor',
+            'validator'
+        ];
+        
+        foreach ($definiteScanPatterns as $pattern) {
+            // Use preg_quote to escape special characters
+            $quotedPattern = preg_quote($pattern, '/');
+            if (preg_match('/' . $quotedPattern . '/i', $ua)) {
+                return true;
+            }
+        }
+        
+        // Check for very generic UAs that scanners use
+        $genericUAs = ['', '-', 'unknown', 'mozilla', 'mozilla/5.0'];
+        if (in_array($ua, $genericUAs)) {
+            return true;
+        }
+        
+        // Check for suspiciously perfect Chrome UAs (Outlook scanners)
+        if (preg_match('/chrome\/\d+\.0\.0\.0/i', $ua)) {
+            // Chrome/109.0.0.0 is suspicious (round version numbers)
+            return true;
+        }
+        
+        // Check for Chrome without platform details (suspicious)
+        if (strpos($ua, 'chrome') !== false && 
+            strpos($ua, 'windows') === false &&
+            strpos($ua, 'mac') === false &&
+            strpos($ua, 'linux') === false &&
+            strpos($ua, 'android') === false) {
+            // Chrome without platform = likely automated
+            return true;
+        }
+        
+        return false;
+    }
+
+    private function hasSuspiciousTiming($ip) {
+        try {
+            // Check if we've seen this IP recently (within last 5 seconds)
+            $stmt = $this->db->prepare("
+                SELECT COUNT(*) as recent_requests 
+                FROM phishing_scan_events 
+                WHERE ip_address = ? 
+                AND created_at > DATE_SUB(NOW(), INTERVAL 5 SECOND)
+            ");
+            $stmt->execute([$ip]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result['recent_requests'] > 2) {
+                // More than 2 requests from same IP in 5 seconds = automated
+                return true;
+            }
+            
+            // Check for multiple campaigns scanned quickly
+            $stmt2 = $this->db->prepare("
+                SELECT COUNT(DISTINCT campaign_id) as campaign_count 
+                FROM phishing_scan_events 
+                WHERE ip_address = ? 
+                AND created_at > DATE_SUB(NOW(), INTERVAL 10 SECOND)
+            ");
+            $stmt2->execute([$ip]);
+            $result2 = $stmt2->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result2['campaign_count'] > 1) {
+                // Scanning multiple campaigns quickly = automated
+                return true;
+            }
+            
+            return false;
+        } catch (Exception $e) {
+            error_log("Timing analysis error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function isEmailSecurityProvider($userAgent, $ip) {
+        // Known email security provider IP ranges
+        $securityProviderRanges = [
+            // Proofpoint
+            '148.163.0.0/16',
+            '204.15.0.0/16',
+            
+            // Mimecast
+            '205.139.0.0/16',
+            '38.100.0.0/16',
+            
+            // Barracuda
+            '64.235.0.0/16',
+            '208.71.0.0/16',
+            
+            // Cisco IronPort
+            '72.163.0.0/16',
+            
+            // Fortinet
+            '66.171.0.0/16'
+        ];
+        
+        foreach ($securityProviderRanges as $range) {
+            if ($this->ipInRange($ip, $range)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    private function addToScanningIPs($ip, $reason = 'detected') {
+        try {
+            $stmt = $this->db->prepare("
+                INSERT INTO known_scanning_ips 
+                (ip_address, provider, first_seen, last_seen, scan_count)
+                VALUES (?, ?, NOW(), NOW(), 1)
+                ON DUPLICATE KEY UPDATE 
+                    last_seen = NOW(),
+                    scan_count = scan_count + 1,
+                    is_active = 1
+            ");
+            
+            // Try to determine provider
+            $provider = 'unknown';
+            if ($this->isMicrosoftScanningRange($ip)) {
+                $provider = 'microsoft_outlook';
+            } elseif ($this->isEmailSecurityProvider('', $ip)) {
+                $provider = 'email_security';
+            }
+            
+            $stmt->execute([$ip, $provider]);
+            
+            error_log("Added to scanning IPs: {$ip} - {$reason}");
+            return true;
+        } catch (Exception $e) {
+            error_log("Add to scanning IPs error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function isMicrosoftScanningIP($ip) {
+    // These are specifically Microsoft's EMAIL SCANNING IPs, not all Microsoft IPs
+        $microsoftScanningIPs = [
+            '40.92.0.0/15',      // Outlook.com protection
+            '40.107.0.0/16',     // Office 365 protection
+            '52.100.0.0/14',     // Exchange Online Protection
+            '104.47.0.0/17',     // Microsoft security
+            '207.46.0.0/16'      // Microsoft network
+        ];
+        
+        foreach ($microsoftScanningIPs as $range) {
+            if ($this->ipInRange($ip, $range)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    public function logScanEvent($trackingToken, $data = []) {
+        try {
+            // Get recipient info
+            $stmt = $this->db->prepare("
+                SELECT r.id as recipient_id, r.campaign_id 
+                FROM phishing_campaign_recipients r
+                WHERE r.tracking_token = ?
+            ");
+            
+            $stmt->execute([$trackingToken]);
+            $recipient = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$recipient) {
+                return false;
+            }
+            
+            // Insert into a separate scans table (or tracking table with scan type)
+            $stmt = $this->db->prepare("
+                INSERT INTO phishing_scan_events 
+                (recipient_id, campaign_id, scan_type, ip_address, user_agent, created_at)
+                VALUES (?, ?, ?, ?, ?, NOW())
+            ");
+            
+            $stmt->execute([
+                $recipient['recipient_id'],
+                $recipient['campaign_id'],
+                $data['scan_type'] ?? 'automated',
+                $data['ip_address'] ?? null,
+                $data['user_agent'] ?? null
+            ]);
+            
+            return true;
+            
+        } catch (Exception $e) {
+            error_log("Log scan event error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function isKnownScanningIP($ip) {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT COUNT(*) as count 
+                FROM known_scanning_ips 
+                WHERE ip_address = ? 
+                AND is_active = 1
+            ");
+            $stmt->execute([$ip]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result['count'] > 0) {
+                // Update last seen
+                $updateStmt = $this->db->prepare("
+                    UPDATE known_scanning_ips 
+                    SET last_seen = NOW(), 
+                        scan_count = scan_count + 1 
+                    WHERE ip_address = ?
+                ");
+                $updateStmt->execute([$ip]);
+                return true;
+            }
+            
+            return false;
+        } catch (Exception $e) {
+            error_log("Check known scanning IP error: " . $e->getMessage());
+            return false;
+        }
     }
 
     public function storePendingOpen($trackingToken, $data) {
@@ -2542,77 +3561,87 @@ class CampaignManager {
         try {
             $this->db->beginTransaction();
             
-            // Update pending event
+            // Get pending click
             $stmt = $this->db->prepare("
-                UPDATE phishing_tracking_pending 
-                SET confirmed_at = NOW() 
-                WHERE tracking_token = ? 
-                AND event_type = 'click'
-                AND confirmed_at IS NULL
+                SELECT p.*, r.id as recipient_id, r.campaign_id
+                FROM phishing_tracking_pending p
+                JOIN phishing_campaign_recipients r ON p.recipient_id = r.id
+                WHERE p.tracking_token = ? 
+                AND p.event_type = 'click'
+                AND p.confirmed_at IS NULL
+                ORDER BY p.created_at DESC
                 LIMIT 1
             ");
             $stmt->execute([$linkToken]);
+            $pending = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            // Update recipient and link stats
-            $stmt2 = $this->db->prepare("
-                UPDATE phishing_campaign_recipients r
-                JOIN phishing_campaign_links l ON r.id = l.recipient_id
-                JOIN phishing_tracking_pending p ON r.id = p.recipient_id 
-                    AND p.event_type = 'click' 
-                    AND p.tracking_token = ?
-                SET r.status = CASE 
-                        WHEN r.status = 'sent' THEN 'clicked'
-                        WHEN r.status = 'opened' THEN 'clicked'
-                        ELSE r.status 
-                    END,
-                    r.click_confirmed = 1,
-                    r.clicked_at = NOW(),
-                    r.click_count = COALESCE(r.click_count, 0) + 1,
-                    r.clicked_links = CONCAT(
-                        COALESCE(r.clicked_links, ''),
-                        CASE WHEN r.clicked_links IS NOT NULL THEN '|' ELSE '' END,
-                        l.original_url
-                    ),
-                    l.click_count = COALESCE(l.click_count, 0) + 1,
-                    l.unique_clicks = CASE 
-                        WHEN r.click_confirmed = 0 THEN COALESCE(l.unique_clicks, 0) + 1
-                        ELSE l.unique_clicks
-                    END
-                WHERE l.tracking_token = ?
-                AND p.confirmed_at IS NOT NULL
-                AND r.click_confirmed = 0
-            ");
-            $stmt2->execute([$linkToken, $linkToken]);
-            
-            // Update campaign metrics
-            $stmt3 = $this->db->prepare("
-                UPDATE phishing_campaign_results r
-                JOIN phishing_campaign_links l ON r.campaign_id = l.campaign_id
-                JOIN phishing_campaign_recipients rec ON l.recipient_id = rec.id
-                SET r.total_clicked = COALESCE(r.total_clicked, 0) + 1,
-                    r.unique_clicks = CASE 
-                        WHEN rec.click_confirmed = 0 THEN COALESCE(r.unique_clicks, 0) + 1
-                        ELSE r.unique_clicks
-                    END
-                WHERE l.tracking_token = ?
-                AND rec.click_confirmed = 0
-            ");
-            $stmt3->execute([$linkToken]);
-            
-            $this->db->commit();
-            
-            // Recalculate rates
-            $stmt4 = $this->db->prepare("
-                SELECT campaign_id FROM phishing_campaign_links WHERE tracking_token = ?
-            ");
-            $stmt4->execute([$linkToken]);
-            $result = $stmt4->fetch(PDO::FETCH_ASSOC);
-            
-            if ($result) {
-                $this->recalculateCampaignRates($result['campaign_id']);
+            if ($pending) {
+                // Mark as confirmed
+                $updateStmt = $this->db->prepare("
+                    UPDATE phishing_tracking_pending 
+                    SET confirmed_at = NOW() 
+                    WHERE id = ?
+                ");
+                $updateStmt->execute([$pending['id']]);
+                
+                // Get the original URL
+                $linkStmt = $this->db->prepare("
+                    SELECT original_url FROM phishing_campaign_links 
+                    WHERE tracking_token = ?
+                ");
+                $linkStmt->execute([$linkToken]);
+                $link = $linkStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($link) {
+                    // Update recipient
+                    $recipientStmt = $this->db->prepare("
+                        UPDATE phishing_campaign_recipients 
+                        SET status = 'clicked',
+                            clicked_at = NOW(),
+                            click_count = COALESCE(click_count, 0) + 1,
+                            click_confirmed = 1
+                        WHERE id = ? 
+                        AND (status != 'clicked' OR click_confirmed = 0)
+                    ");
+                    $recipientStmt->execute([$pending['recipient_id']]);
+                    
+                    // Update link counts
+                    $linkUpdateStmt = $this->db->prepare("
+                        UPDATE phishing_campaign_links 
+                        SET click_count = COALESCE(click_count, 0) + 1,
+                            unique_clicks = CASE 
+                                WHEN EXISTS (
+                                    SELECT 1 FROM phishing_campaign_tracking 
+                                    WHERE recipient_id = ? AND event_type = 'click'
+                                ) THEN unique_clicks 
+                                ELSE COALESCE(unique_clicks, 0) + 1 
+                            END
+                        WHERE tracking_token = ?
+                    ");
+                    $linkUpdateStmt->execute([$pending['recipient_id'], $linkToken]);
+                    
+                    // Update campaign metrics
+                    $this->updateCampaignMetrics($pending['campaign_id'], 'total_clicked', 1);
+                    
+                    // Log to tracking table
+                    $this->logTrackingEvent($pending['recipient_id'], $pending['campaign_id'], 'click', [
+                        'ip_address' => $pending['ip_address'],
+                        'user_agent' => $pending['user_agent'],
+                        'link_url' => $link['original_url']
+                    ]);
+                    
+                    $this->db->commit();
+                    
+                    // Recalculate rates
+                    $this->recalculateCampaignRates($pending['campaign_id']);
+                    
+                    return true;
+                }
             }
             
-            return true;
+            $this->db->rollBack();
+            return false;
+            
         } catch (Exception $e) {
             $this->db->rollBack();
             error_log("Confirm pending click error: " . $e->getMessage());
@@ -2693,12 +3722,51 @@ class CampaignManager {
     }
 
     private function ipInRange($ip, $range) {
+        if (strpos($range, '/') === false) {
+            return $ip === $range;
+        }
+        
         list($subnet, $bits) = explode('/', $range);
+        
+        // Convert to long
         $ip = ip2long($ip);
         $subnet = ip2long($subnet);
+        
+        if ($ip === false || $subnet === false) {
+            return false;
+        }
+        
         $mask = -1 << (32 - $bits);
         $subnet &= $mask;
+        
         return ($ip & $mask) == $subnet;
+    }
+
+    public function checkAndBlockScanner($ip, $userAgent) {
+        $ua = strtolower($userAgent);
+        
+        $scannerPatterns = [
+            'chrome\/109\.0\.0\.0',
+            'chrome\/142\.0\.7444\.1',
+            'security.*scan',
+            'googleimageproxy'
+        ];
+            
+        foreach ($scannerPatterns as $pattern) {
+            if (preg_match('/' . preg_quote($pattern, '/') . '/i', $ua)) {
+                error_log("Blocking {$ip}: Scanner pattern detected");
+                return true;
+            }
+        }
+        
+        // Google Image Proxy (always block)
+        if (strpos($ua, 'googleimageproxy') !== false || 
+            strpos($ua, 'via ggpht.com') !== false) {
+            error_log("Blocking: Google Image Proxy");
+            return true;
+        }
+        
+        return false;
     }
 }
 ?>

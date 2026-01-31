@@ -1,24 +1,21 @@
 <?php
-// confirm-open.php
+// confirm-open.php - This is called by JavaScript for confirmation
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../classes/CampaignManager.php';
+
+header('Content-Type: image/gif');
 
 $trackingToken = $_GET['token'] ?? '';
 
 if ($trackingToken) {
     $campaignManager = new CampaignManager();
     
-    // Only confirm if JavaScript executed (real user)
-    if (isset($_SERVER['HTTP_REFERER']) || isset($_GET['js'])) {
-        $campaignManager->confirmPendingOpen($trackingToken);
-    }
-    
-    // Return a 1x1 pixel
-    header('Content-Type: image/gif');
-    echo base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
-    exit;
+    // This is called by JavaScript, so it's definitely a real user
+    // Mark this as CONFIRMED open (not automated)
+    $campaignManager->confirmEmailOpen($trackingToken);
 }
 
-http_response_code(400);
+// Return 1x1 transparent GIF
+echo base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
 exit;
 ?>
