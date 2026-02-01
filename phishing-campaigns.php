@@ -284,6 +284,21 @@ foreach ($campaigns as $campaign) {
 $avgOpenRate = $totalRecipients > 0 ? round(($totalOpened / $totalRecipients) * 100, 1) : 0;
 $avgClickRate = $totalRecipients > 0 ? round(($totalClicked / $totalRecipients) * 100, 1) : 0;
 
+$excludedOrganizations = [
+    'Unknown Company',
+    'Gmail Company',
+    'Outlook Company',
+    'Neo Company',
+    'Yahoo Company',
+    'Proton Company',
+    'iCloud Company',
+    'Zoho Company',
+    'AOL Company',
+    'Mail Company',
+    'Tuta Company',
+    'Mailfence Company',
+];
+
 require_once __DIR__ . '/includes/header.php';
 ?>
 <body>
@@ -319,9 +334,11 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <p class="campaign-subtitle">Test your organization's security awareness with simulated phishing attacks</p>
             </div>
-            <button class="campaign-btn campaign-btn-primary" data-action="create-campaign">
-                <i class="fas fa-plus-circle"></i> New Campaign
-            </button>
+            <?php if (!in_array($organizationInfo['name'], $excludedOrganizations, true)): ?>
+                <button class="campaign-btn campaign-btn-primary" data-action="create-campaign">
+                    <i class="fas fa-plus-circle"></i> New Campaign
+                </button>
+            <?php endif; ?>
         </div>
         
         <!-- Messages -->
@@ -336,20 +353,29 @@ require_once __DIR__ . '/includes/header.php';
         <?php if ($error): ?>
         <div class="campaign-alert campaign-alert-danger">
             <i class="fas fa-exclamation-circle"></i>
-            <span><?php echo htmlspecialchars($error); ?></span>
+            <span><?php echo htmlspecialchars($error); ?></span>        
             <button class="campaign-alert-close">&times;</button>
         </div>
         <?php endif; ?>
         
         <!-- Organization Setup Card (shown only for new organizations) -->
-        <?php if (empty($campaigns) && (!$organizationInfo || $organizationInfo['name'] == 'Unknown Company')): ?>
+        <?php if (empty($campaigns) && (!$organizationInfo || in_array($organizationInfo['name'], $excludedOrganizations, true))): ?>
         <div class="campaign-card campaign-welcome-card">
             <div class="campaign-card-body">
                 <div class="campaign-welcome-content">
                     <i class="fas fa-rocket"></i>
-                    <h3>Welcome to Phishing Campaigns!</h3>
-                    <p>Set up your organization to start creating security awareness campaigns.</p>
-                    
+                        <h3>Welcome to Phishing Campaigns!</h3> 
+                            <div class="simple-setup">
+                                <h2>Ready to start?</h2>
+                                <div class="note-box">
+                                    <p><strong>First things first:</strong> Set up your organization and domain name.</p>
+                                    <p class="small-note">The organization and domain name below are guessed from your email and might need fixing.</p>
+                                </div>
+                                <div class="steps" style="text-align:center;">
+                                    <div class="step">
+                                        <span class="step-text">You need to contact <a href="contactus.php">Support</a> to finish the setup</span>
+                                    </div>
+                                </div>
                     <form method="post" class="campaign-organization-setup">
                         <input type="hidden" name="action" value="update_organization">
                         
@@ -372,10 +398,6 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                             <span class="campaign-form-text">This will be your email domain (e.g., acme.com)</span>
                             <?php if (isset($organizationInfo['domain']) && !empty($organizationInfo['domain'])): ?>
-                            <div class="campaign-form-info">
-                                <i class="fas fa-info-circle"></i>
-                                <span>Auto-detected from your email: <?php echo htmlspecialchars($organizationInfo['domain']); ?></span>
-                            </div>
                             <?php endif; ?>
                         </div>
                         

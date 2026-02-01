@@ -68,9 +68,9 @@ class OrganizationManager {
      * Generate organization name from domain
      */
     public function generateOrganizationName(string $domain): string {
-        $domain = strtolower($domain);
+        $domain = strtolower(trim($domain));
 
-        // Remove subdomains
+        // Remove www.
         $domain = preg_replace('/^www\./', '', $domain);
 
         $parts = explode('.', $domain);
@@ -79,20 +79,24 @@ class OrganizationManager {
             return 'Unknown Company';
         }
 
-        // Handle common multi-part TLDs
-        $tlds = ['co.uk', 'org.uk', 'ac.uk', 'gov.uk'];
+        // Common multi-part TLDs
+        $multiPartTlds = ['co.uk', 'org.uk', 'ac.uk', 'gov.uk'];
 
-        $base = implode('.', array_slice($parts, -2));
-        foreach ($tlds as $tld) {
-            if (str_ends_with($domain, $tld)) {
-                $base = $parts[count($parts) - 3];
+        // Default: use second-level domain
+        $namePart = $parts[count($parts) - 2];
+
+        // Handle multi-part TLDs (e.g. bbc.co.uk → bbc)
+        foreach ($multiPartTlds as $tld) {
+            if (str_ends_with($domain, $tld) && count($parts) >= 3) {
+                $namePart = $parts[count($parts) - 3];
                 break;
             }
         }
 
-        $name = str_replace('-', ' ', $base);
+        // Normalize name
+        $namePart = str_replace('-', ' ', $namePart);
 
-        return ucwords($name) . ' Company';
+        return ucwords($namePart) . ' Company';
     }
 
     
