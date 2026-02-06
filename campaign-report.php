@@ -18,10 +18,10 @@ if (!$auth->isLoggedIn()) {
 
 // Get user organization
 $userId = $_SESSION['user_id'];
-$organizationId = $_SESSION['organization_id'] ?? 0;
+$organizationId = $_SESSION['phishing_org_id'] ?? 0;
 
 // Get campaign ID
-$campaignId = $_GET['id'] ?? 0;
+$campaignId = $_GET['phishing_campaign_id'] ?? 0;
 if (!$campaignId) {
     header('Location: phishing-campaigns.php');
     exit;

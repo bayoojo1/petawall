@@ -17,34 +17,35 @@ class OrganizationManager {
         try {
             // Check if user already has an organization
             $stmt = $this->db->prepare("
-                SELECT organization_id FROM users WHERE user_id = ?
+                SELECT phishing_org_id FROM users WHERE user_id = ?
             ");
             $stmt->execute([$userId]);
             $userData = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            if ($userData && $userData['organization_id']) {
-                return $userData['organization_id'];
+            if ($userData && $userData['phishing_org_id']) {
+                return $userData['phishing_org_id'];
             }
             
             // Extract domain from email
             $domain = $this->extractDomainFromEmail($userEmail);
             $organizationName = $this->generateOrganizationName($domain);
+            $orgId = 'org_'.bin2hex(random_bytes(8));
             
             // Create new organization WITH DOMAIN
             $stmt = $this->db->prepare("
-                INSERT INTO phishing_organizations (name, domain) 
-                VALUES (?, ?)
+                INSERT INTO phishing_organizations (phishing_org_id, name, domain) 
+                VALUES (?, ?, ?)
             ");
-            $stmt->execute([$organizationName, $domain]);
-            $organizationId = $this->db->lastInsertId();
+            $stmt->execute([$orgId, $organizationName, $domain]);
+            //$organizationId = $this->db->lastInsertId();
             
             // Update user with organization ID
             $stmt = $this->db->prepare("
-                UPDATE users SET organization_id = ? WHERE user_id = ?
+                UPDATE users SET phishing_org_id = ? WHERE user_id = ?
             ");
-            $stmt->execute([$organizationId, $userId]);
+            $stmt->execute([$orgId, $userId]);
             
-            return $organizationId;
+            return $orgId;
             
         } catch (Exception $e) {
             error_log("Organization creation error: " . $e->getMessage());
@@ -106,20 +107,20 @@ class OrganizationManager {
     public function createOrganization($name, $domain = null, $userId = null) {
         try {
             $stmt = $this->db->prepare("
-                INSERT INTO phishing_organizations (name, domain) 
+                INSERT INTO phishing_organizations (phishing_org_id, name, domain) 
                 VALUES (?, ?)
             ");
-            $stmt->execute([$name, $domain]);
-            $organizationId = $this->db->lastInsertId();
+            $orgId = 'org_'.bin2hex(random_bytes(8));
+            $stmt->execute([$orgId, $name, $domain]);
             
             // If user ID provided, associate user with organization
             if ($userId) {
-                $this->associateUserWithOrganization($userId, $organizationId);
+                $this->associateUserWithOrganization($userId, $orgId);
             }
             
             return [
                 'success' => true,
-                'organization_id' => $organizationId,
+                'phishing_org_id' => $orgId,
                 'message' => 'Organization created successfully'
             ];
             
@@ -134,12 +135,12 @@ class OrganizationManager {
     /**
      * Associate user with organization
      */
-    public function associateUserWithOrganization($userId, $organizationId) {
+    public function associateUserWithOrganization($userId, $orgId) {
         try {
             $stmt = $this->db->prepare("
-                UPDATE users SET organization_id = ? WHERE user_id = ?
+                UPDATE users SET phishing_org_id = ? WHERE user_id = ?
             ");
-            $stmt->execute([$organizationId, $userId]);
+            $stmt->execute([$orgId, $userId]);
             
             return true;
         } catch (Exception $e) {
@@ -154,7 +155,7 @@ class OrganizationManager {
     public function getOrganization($organizationId) {
         try {
             $stmt = $this->db->prepare("
-                SELECT * FROM phishing_organizations WHERE id = ?
+                SELECT * FROM phishing_organizations WHERE phishing_org_id = ?
             ");
             $stmt->execute([$organizationId]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
@@ -172,7 +173,7 @@ class OrganizationManager {
             $stmt = $this->db->prepare("
                 SELECT o.* 
                 FROM phishing_organizations o
-                JOIN users u ON o.id = u.organization_id
+                JOIN users u ON o.phishing_org_id = u.phishing_org_id
                 WHERE u.user_id = ?
             ");+
             $stmt->execute([$userId]);
@@ -189,12 +190,12 @@ class OrganizationManager {
     public function userHasOrganization($userId) {
         try {
             $stmt = $this->db->prepare("
-                SELECT organization_id FROM users WHERE user_id = ?
+                SELECT phishing_org_id FROM users WHERE user_id = ?
             ");
             $stmt->execute([$userId]);
             $userData = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            return !empty($userData['organization_id']);
+            return !empty($userData['phishing_org_id']);
         } catch (Exception $e) {
             error_log("Check user organization error: " . $e->getMessage());
             return false;
@@ -207,7 +208,7 @@ class OrganizationManager {
     public function updateOrganizationName($organizationId, $name) {
         try {
             $stmt = $this->db->prepare("
-                UPDATE phishing_organizations SET name = ? WHERE id = ?
+                UPDATE phishing_organizations SET name = ? WHERE phishing_org_id = ?
             ");
             $stmt->execute([$name, $organizationId]);
             
@@ -246,7 +247,7 @@ class OrganizationManager {
                 return ['success' => false, 'error' => 'No data to update'];
             }
             
-            $sql .= implode(', ', $updates) . " WHERE id = ?";
+            $sql .= implode(', ', $updates) . " WHERE phishing_org_id = ?";
             $params[] = $organizationId;
             
             $stmt = $this->db->prepare($sql);
@@ -273,7 +274,7 @@ class OrganizationManager {
             $sql = "
                 SELECT u.user_id, u.email, u.username
                 FROM users u
-                WHERE u.organization_id = ?
+                WHERE u.phishing_org_id = ?
             ";
             
             $params = [$organizationId];
@@ -306,7 +307,7 @@ class OrganizationManager {
             $stmt = $this->db->prepare("
                 SELECT COUNT(*) as total_users 
                 FROM users 
-                WHERE organization_id = ?
+                WHERE phishing_org_id = ?
             ");
             $stmt->execute([$organizationId]);
             $stats['total_users'] = $stmt->fetch(PDO::FETCH_ASSOC)['total_users'] ?? 0;
@@ -315,7 +316,7 @@ class OrganizationManager {
             $stmt = $this->db->prepare("
                 SELECT COUNT(*) as total_campaigns 
                 FROM phishing_campaigns 
-                WHERE organization_id = ?
+                WHERE phishing_org_id = ?
             ");
             $stmt->execute([$organizationId]);
             $stats['total_campaigns'] = $stmt->fetch(PDO::FETCH_ASSOC)['total_campaigns'] ?? 0;
@@ -326,10 +327,10 @@ class OrganizationManager {
                     COALESCE(SUM(total_recipients), 0) as total_recipients,
                     COALESCE(SUM(total_opened), 0) as total_opens,
                     COALESCE(SUM(total_clicked), 0) as total_clicks,
-                    COUNT(DISTINCT c.id) as active_campaigns
+                    COUNT(DISTINCT c.phishing_campaign_id) as active_campaigns
                 FROM phishing_campaigns c
-                LEFT JOIN phishing_campaign_results r ON c.id = r.campaign_id
-                WHERE c.organization_id = ?
+                LEFT JOIN phishing_campaign_results r ON c.phishing_campaign_id = r.phishing_campaign_id
+                WHERE c.phishing_org_id = ?
             ");
             $stmt->execute([$organizationId]);
             $campaignStats = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -370,7 +371,7 @@ class OrganizationManager {
             $stmt = $this->db->prepare("
                 SELECT COUNT(*) as count 
                 FROM users 
-                WHERE user_id = ? AND organization_id = ?
+                WHERE user_id = ? AND phishing_org_id = ?
             ");
             $stmt->execute([$userId, $organizationId]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -391,13 +392,13 @@ class OrganizationManager {
             
             // Remove organization from users
             $stmt = $this->db->prepare("
-                UPDATE users SET organization_id = NULL WHERE organization_id = ?
+                UPDATE users SET phishing_org_id = NULL WHERE phishing_org_id = ?
             ");
             $stmt->execute([$organizationId]);
             
             // Delete organization
             $stmt = $this->db->prepare("
-                DELETE FROM organizations WHERE id = ?
+                DELETE FROM phishing_organizations WHERE phishing_org_id = ?
             ");
             $stmt->execute([$organizationId]);
             

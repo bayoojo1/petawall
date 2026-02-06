@@ -20,10 +20,10 @@ if (!$auth->isLoggedIn()) {
 
 // Get user info
 $userId = $_SESSION['user_id'] ?? 0;
-$organizationId = $_SESSION['organization_id'] ?? 0;
+$organizationId = $_SESSION['phishing_org_id'] ?? 0;
 
 // Get campaign ID
-$campaignId = $_GET['id'] ?? 0;
+$campaignId = $_GET['phishing_campaign_id'] ?? 0;
 if (!$campaignId) {
     header('Location: phishing-campaigns.php');
     exit;
@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         
-        header("Location: campaign-edit.php?id={$campaignId}");
+        header("Location: campaign-edit.php?phishing_campaign_id={$campaignId}");
         exit;
     }
 }

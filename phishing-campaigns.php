@@ -29,11 +29,7 @@ $campaignManager = new CampaignManager();
 $organizationId = $organizationManager->getOrCreateUserOrganization($userId, $userEmail);
 
 // Store in session
-$_SESSION['organization_id'] = $organizationId;
-
-// Handle actions
-// $action = $_GET['action'] ?? '';
-// $campaignId = $_GET['id'] ?? 0;
+$_SESSION['phishing_org_id'] = $organizationId;
 
 // Helper functions
 function getStatusColor($status) {
@@ -72,16 +68,16 @@ $campaignId = 0;
 // Determine action and ID based on request method
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
-    $campaignId = $_POST['id'] ?? 0;
+    $campaignId = $_POST['phishing_campaign_id'] ?? 0;
 } else {
     $action = $_GET['action'] ?? '';
-    $campaignId = $_GET['id'] ?? 0;
+    $campaignId = $_GET['phishing_campaign_id'] ?? 0;
 }
 
 // Process form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $postAction = $_POST['action'] ?? '';
-    $postCampaignId = $_POST['id'] ?? 0;
+    $postCampaignId = $_POST['phishing_campaign_id'] ?? 0;
     
     switch ($postAction) {
         case 'create':
@@ -93,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             $result = $campaignManager->createCampaign([
-                'organization_id' => $organizationId,
+                'phishing_org_id' => $organizationId,
                 'user_id' => $userId,
                 'name' => $_POST['name'] ?? '',
                 'subject' => $_POST['subject'] ?? '',
@@ -106,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             if ($result['success']) {
                 $_SESSION['success_message'] = 'Campaign created successfully!';
-                header('Location: campaign-report.php?id=' . $result['campaign_id']);
+                header('Location: campaign-report.php?phishing_campaign_id=' . $result['phishing_campaign_id']);
                 exit;
             } else {
                 $_SESSION['error_message'] = $result['error'] ?? 'Failed to create campaign';
@@ -121,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $_SESSION['error_message'] = $result['error'] ?? 'Failed to send campaign';
             }
-            header('Location: ?action=view&id=' . $postCampaignId);
+            header('Location: ?action=view&phishing_campaign_id=' . $postCampaignId);
             exit;
             break;
 
@@ -447,12 +443,12 @@ require_once __DIR__ . '/includes/header.php';
                                 <?php foreach ($campaigns as $campaign): ?>
                                 <?php 
                                 $status = $campaign['status'] ?? 'draft';
-                                $pendingCount = $campaignManager->pendingOrBouncedRecipient($campaign['id']);
+                                $pendingCount = $campaignManager->pendingOrBouncedRecipient($campaign['phishing_campaign_id']);
 
                                 // If campaign shows as running but all recipients are done, update status
                                 if ($status == 'running' && $pendingCount == 0) {
                                     // Update campaign status to completed
-                                    $campaignManager->updateCampaignStatus($campaign['id'], 'completed');
+                                    $campaignManager->updateCampaignStatus($campaign['phishing_campaign_id'], 'completed');
                                     $status = 'completed';
                                 }
                                 ?>
@@ -528,12 +524,12 @@ require_once __DIR__ . '/includes/header.php';
 
                                     <td>
                                         <div class="campaign-actions">
-                                            <a href="campaign-report.php?id=<?php echo $campaign['id']; ?>" 
+                                            <a href="campaign-report.php?phishing_campaign_id=<?php echo $campaign['phishing_campaign_id']; ?>" 
                                             class="campaign-action-btn campaign-action-info"
                                             data-tooltip="View Report">
                                                 <i class="fas fa-chart-bar"></i>
                                             </a>
-                                            <a href="campaign-edit.php?id=<?php echo $campaign['id']; ?>" 
+                                            <a href="campaign-edit.php?phishing_campaign_id=<?php echo $campaign['phishing_campaign_id']; ?>" 
                                             class="campaign-action-btn campaign-action-edit"
                                             data-tooltip="Edit/Add Recipients">
                                                 <i class="fas fa-edit"></i>
@@ -542,7 +538,7 @@ require_once __DIR__ . '/includes/header.php';
                                             <?php if ($status == 'draft'): ?>
                                             <form method="post" style="display: inline;">
                                                 <input type="hidden" name="action" value="send">
-                                                <input type="hidden" name="id" value="<?php echo $campaign['id']; ?>">
+                                                <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
                                                 <button type="submit" 
                                                         class="campaign-action-btn campaign-action-send"
                                                         data-tooltip="Send Campaign"
@@ -553,7 +549,7 @@ require_once __DIR__ . '/includes/header.php';
                                             <?php elseif ($status == 'running'): ?>
                                             <form method="post" style="display: inline;">
                                                 <input type="hidden" name="action" value="pause">
-                                                <input type="hidden" name="id" value="<?php echo $campaign['id']; ?>">
+                                                <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
                                                 <button type="submit" 
                                                         class="campaign-action-btn campaign-action-warning"
                                                         data-tooltip="Pause Campaign">
@@ -563,7 +559,7 @@ require_once __DIR__ . '/includes/header.php';
                                             <?php elseif ($status == 'paused'): ?>
                                             <form method="post" style="display: inline;">
                                                 <input type="hidden" name="action" value="resume">
-                                                <input type="hidden" name="id" value="<?php echo $campaign['id']; ?>">
+                                                <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
                                                 <button type="submit" 
                                                         class="campaign-action-btn campaign-action-success"
                                                         data-tooltip="Resume Campaign">
@@ -572,7 +568,7 @@ require_once __DIR__ . '/includes/header.php';
                                             </form>
                                             <form method="post" style="display: inline;">
                                                 <input type="hidden" name="action" value="stop">
-                                                <input type="hidden" name="id" value="<?php echo $campaign['id']; ?>">
+                                                <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
                                                 <button type="submit" 
                                                         class="campaign-action-btn campaign-action-danger"
                                                         data-tooltip="Stop Campaign"
@@ -583,7 +579,7 @@ require_once __DIR__ . '/includes/header.php';
                                             <?php elseif ($status == 'completed' && $pendingCount > 0): ?>
                                                 <form method="post" style="display: inline;">
                                                     <input type="hidden" name="action" value="retry_failed">
-                                                    <input type="hidden" name="id" value="<?php echo $campaign['id']; ?>">
+                                                    <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
                                                     <button type="submit" 
                                                             class="campaign-action-btn campaign-action-success"
                                                             data-tooltip="Retry Failed Recipients"
@@ -595,7 +591,7 @@ require_once __DIR__ . '/includes/header.php';
                                             
                                             <form method="post" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this campaign? This action cannot be undone.')">
                                                 <input type="hidden" name="action" value="delete">
-                                                <input type="hidden" name="id" value="<?php echo $campaign['id']; ?>">
+                                                <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
                                                 <button type="submit" 
                                                         class="campaign-action-btn campaign-action-delete"
                                                         data-tooltip="Delete Campaign">
@@ -709,7 +705,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="campaign-form-group">
                             <label class="campaign-form-label">Sender Email *</label>
                             <input type="email" class="campaign-form-control" name="sender_email" required 
-                                   placeholder="e.g., security@yourcompany.com">
+                                   placeholder="e.g., security@<?php echo htmlspecialchars($organizationInfo['domain']); ?>">
                         </div>
                     </div>
                     
@@ -919,7 +915,7 @@ require_once __DIR__ . '/includes/header.php';
             
             const idInput = document.createElement('input');
             idInput.type = 'hidden';
-            idInput.name = 'id';
+            idInput.name = 'phishing_campaign_id';
             idInput.value = campaignId;
             form.appendChild(idInput);
             

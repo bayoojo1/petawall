@@ -19,12 +19,14 @@ class CampaignManager {
             // Insert campaign
             $stmt = $this->db->prepare("
                 INSERT INTO phishing_campaigns 
-                (organization_id, user_id, name, subject, email_content, sender_email, sender_name, status, scheduled_for)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (phishing_campaign_id, phishing_org_id, user_id, name, subject, email_content, sender_email, sender_name, status, scheduled_for)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
+            $campaignId = 'camp_'.bin2hex(random_bytes(8));
             
             $stmt->execute([
-                $data['organization_id'],
+                $campaignId,
+                $data['phishing_org_id'],
                 $data['user_id'],
                 $data['name'],
                 $data['subject'],
@@ -34,8 +36,6 @@ class CampaignManager {
                 $data['status'] ?? 'draft',
                 $data['scheduled_for'] ?? null
             ]);
-            
-            $campaignId = $this->db->lastInsertId();
             
             // Initialize campaign results IMMEDIATELY
             $this->initCampaignResults($campaignId);
@@ -52,7 +52,7 @@ class CampaignManager {
                     $updateStmt = $this->db->prepare("
                         UPDATE phishing_campaign_results 
                         SET total_recipients = ?
-                        WHERE campaign_id = ?
+                        WHERE phishing_campaign_id = ?
                     ");
                     $updateStmt->execute([$added, $campaignId]);
                 }
@@ -62,7 +62,7 @@ class CampaignManager {
             
             return [
                 'success' => true,
-                'campaign_id' => $campaignId,
+                'phishing_campaign_id' => $campaignId,
                 'message' => 'Campaign created successfully'
             ];
             
@@ -85,7 +85,7 @@ class CampaignManager {
             
             $stmt = $this->db->prepare("
                 INSERT INTO phishing_campaign_recipients 
-                (campaign_id, email, first_name, last_name, department, tracking_token)
+                (phishing_campaign_id, email, first_name, last_name, department, tracking_token)
                 VALUES (?, ?, ?, ?, ?, ?)
             ");
             
@@ -159,7 +159,7 @@ class CampaignManager {
             $stmt = $this->db->prepare("
                 SELECT COUNT(*) as count 
                 FROM phishing_campaigns 
-                WHERE id = ? AND organization_id = ?
+                WHERE phishing_campaign_id = ? AND phishing_org_id = ?
             ");
             $stmt->execute([$campaignId, $organizationId]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -169,25 +169,25 @@ class CampaignManager {
             }
             
             // Delete tracking data
-            $this->db->prepare("DELETE FROM phishing_campaign_tracking WHERE campaign_id = ?")->execute([$campaignId]);
+            $this->db->prepare("DELETE FROM phishing_campaign_tracking WHERE phishing_campaign_id = ?")->execute([$campaignId]);
             
             // Delete links
-            $this->db->prepare("DELETE FROM phishing_campaign_links WHERE campaign_id = ?")->execute([$campaignId]);
+            $this->db->prepare("DELETE FROM phishing_campaign_links WHERE phishing_campaign_id = ?")->execute([$campaignId]);
             
             // Delete results
-            $this->db->prepare("DELETE FROM phishing_campaign_results WHERE campaign_id = ?")->execute([$campaignId]);
+            $this->db->prepare("DELETE FROM phishing_campaign_results WHERE phishing_campaign_id = ?")->execute([$campaignId]);
 
             // Delete results
-            $this->db->prepare("DELETE FROM phishing_tracking_pending WHERE campaign_id = ?")->execute([$campaignId]);
+            $this->db->prepare("DELETE FROM phishing_tracking_pending WHERE phishing_campaign_id = ?")->execute([$campaignId]);
             
             // Delete recipients
-            $this->db->prepare("DELETE FROM phishing_campaign_recipients WHERE campaign_id = ?")->execute([$campaignId]);
+            $this->db->prepare("DELETE FROM phishing_campaign_recipients WHERE phishing_campaign_id = ?")->execute([$campaignId]);
             
             // Delete attachments
-            $this->db->prepare("DELETE FROM phishing_campaign_attachments WHERE campaign_id = ?")->execute([$campaignId]);
+            $this->db->prepare("DELETE FROM phishing_campaign_attachments WHERE phishing_campaign_id = ?")->execute([$campaignId]);
             
             // Delete campaign
-            $stmt = $this->db->prepare("DELETE FROM phishing_campaigns WHERE id = ?");
+            $stmt = $this->db->prepare("DELETE FROM phishing_campaigns WHERE phishing_campaign_id = ?");
             $stmt->execute([$campaignId]);
             
             $this->db->commit();
@@ -208,11 +208,11 @@ class CampaignManager {
 
     public function getCampaign($campaignId, $organizationId = null) {
         try {
-            $sql = "SELECT * FROM phishing_campaigns WHERE id = ?";
+            $sql = "SELECT * FROM phishing_campaigns WHERE phishing_campaign_id = ?";
             $params = [$campaignId];
             
             if ($organizationId) {
-                $sql .= " AND organization_id = ?";
+                $sql .= " AND phishing_org_id = ?";
                 $params[] = $organizationId;
             }
             
@@ -234,7 +234,7 @@ class CampaignManager {
         try {
             $stmt = $this->db->prepare("
                 INSERT INTO phishing_campaign_recipients 
-                (campaign_id, email, first_name, last_name, department, tracking_token)
+                (phishing_campaign_id, email, first_name, last_name, department, tracking_token)
                 VALUES (?, ?, ?, ?, ?, ?)
             ");
             
@@ -263,21 +263,21 @@ class CampaignManager {
     public function updateCampaignStatus($campaignId, $status, $organizationId = null) {
         try {
             // Type cast to ensure we have proper values
-            $campaignId = is_array($campaignId) ? ($campaignId['id'] ?? $campaignId[0] ?? 0) : (int)$campaignId;
+            $campaignId = is_array($campaignId) ? ($campaignId['phishing_campaign_id'] ?? $campaignId[0] ?? 0) : (string)$campaignId;
             $status = (string)$status;
             
             if ($organizationId !== null) {
-                $organizationId = is_array($organizationId) ? ($organizationId['id'] ?? $organizationId[0] ?? 0) : (int)$organizationId;
+                $organizationId = is_array($organizationId) ? ($organizationId['phishing_org_id'] ?? $organizationId[0] ?? 0) : (string)$organizationId;
             }
             
             // Log for debugging
-            error_log("updateCampaignStatus: campaignId={$campaignId}, status={$status}, orgId=" . ($organizationId ?? 'null'));
+            error_log("updateCampaignStatus: campaignId={$campaignId}, status={$status}, orgId =" . ($organizationId ?? 'null'));
             
-            $sql = "UPDATE phishing_campaigns SET status = ? WHERE id = ?";
+            $sql = "UPDATE phishing_campaigns SET status = ? WHERE phishing_campaign_id = ?";
             $params = [$status, $campaignId];
             
             if ($organizationId !== null && $organizationId > 0) {
-                $sql .= " AND organization_id = ?";
+                $sql .= " AND phishing_org_id = ?";
                 $params[] = $organizationId;
             }
             
@@ -316,7 +316,7 @@ class CampaignManager {
             $stmt = $this->db->prepare("
                 SELECT COUNT(*) as recipient_count 
                 FROM phishing_campaign_recipients 
-                WHERE campaign_id = ?
+                WHERE phishing_campaign_id = ?
             ");
             $stmt->execute([$campaignId]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -395,7 +395,7 @@ class CampaignManager {
             $stmt = $this->db->prepare("
                 UPDATE phishing_campaign_results 
                 SET $metric = $metric + ?
-                WHERE campaign_id = ?
+                WHERE phishing_campaign_id = ?
             ");
             $stmt->execute([$value, $campaignId]);
         } catch (Exception $e) {
@@ -443,14 +443,14 @@ class CampaignManager {
             }
             
             // Validate organization access
-            if ($organizationId && $campaign['organization_id'] != $organizationId) {
+            if ($organizationId && $campaign['phishing_org_id'] != $organizationId) {
                 throw new Exception("Access denied");
             }
             
             // Get failed recipients (bounced or not sent)
             $stmt = $this->db->prepare("
                 SELECT * FROM phishing_campaign_recipients
-                WHERE campaign_id = ? AND status IN ('pending', 'bounced')
+                WHERE phishing_campaign_id = ? AND status IN ('pending', 'bounced')
                 ORDER BY id
             ");
             $stmt->execute([$campaignId]);
@@ -500,74 +500,6 @@ class CampaignManager {
             ];
         }
     }
-    
-    /**
-     * Process email content to add tracking
-     */
-    // private function processEmailContent($content, $recipient) {
-    //     // Process links for click tracking
-    //     $content = $this->processLinksForTracking($content, $recipient['tracking_token']);
-        
-    //     // Build the final email HTML with BOTH tracking methods
-    //     $emailContent = '<!DOCTYPE html>
-    //     <html>
-    //     <head>
-    //         <meta charset="UTF-8">
-    //         <title>Email</title>
-    //         <style>
-    //             body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    //             a { color: #0066cc; text-decoration: none; }
-    //             a:hover { text-decoration: underline; }
-    //         </style>
-    //     </head>
-    //     <body>
-    //     ' . $content . '
-
-    //     <!-- TRACKING SECTION -->
-    //     <div style="display: none;">
-
-    //     <!-- METHOD 1: Basic tracking pixel (works for all email clients) -->
-    //     <img src="' . APP_URL . '/track/open.php?token=' . $recipient['tracking_token'] . '" 
-    //         width="1" height="1" alt="" />
-
-    //     <!-- METHOD 2: JavaScript confirmation (filters Outlook scans) -->
-    //     <script type="text/javascript">
-    //     // Only execute in browsers (not in email client previews)
-    //     if (typeof window !== "undefined" && window.document) {
-    //         // Confirm open via JavaScript
-    //         (function() {
-    //             var img = new Image();
-    //             img.src = "' . APP_URL . '/track/confirm-open.php?token=' . $recipient['tracking_token'] . '&_=" + new Date().getTime();
-                
-    //             // Enhanced click tracking
-    //             document.addEventListener("click", function(e) {
-    //                 var target = e.target;
-    //                 while (target && target.tagName !== "A") {
-    //                     target = target.parentElement;
-    //                 }
-                    
-    //                 if (target && target.href && target.href.indexOf("/track/click.php") !== -1) {
-    //                     // Allow normal navigation - click.php will handle tracking
-    //                     return true;
-    //                 }
-    //             }, true);
-    //         })();
-    //     }
-    //     </script>
-
-    //     <noscript>
-    //         <!-- Fallback for no JavaScript -->
-    //         <img src="' . APP_URL . '/track/open.php?token=' . $recipient['tracking_token'] . '&noscript=1" 
-    //             width="1" height="1" alt="" />
-    //     </noscript>
-
-    //     </div>
-
-    //     </body>
-    //     </html>';
-        
-    //     return $emailContent;
-    // }
 
     private function processEmailContent($content, $recipient) {
     // Process links for click tracking
@@ -618,7 +550,7 @@ class CampaignManager {
         try {
             // Get link details
             $stmt = $this->db->prepare("
-                SELECT l.*, r.id as recipient_id, r.campaign_id, r.status
+                SELECT l.*, r.id as recipient_id, r.phishing_campaign_id, r.status
                 FROM phishing_campaign_links l
                 JOIN phishing_campaign_recipients r ON l.recipient_id = r.id
                 WHERE l.tracking_token = ?
@@ -651,7 +583,7 @@ class CampaignManager {
             $stmt->execute([$link['recipient_id']]);
             
             // Log beacon event
-            $this->logTrackingEvent($link['recipient_id'], $link['campaign_id'], 'click_beacon', [
+            $this->logTrackingEvent($link['recipient_id'], $link['phishing_campaign_id'], 'click_beacon', [
                 'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
                 'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
                 'link_url' => $link['original_url']
@@ -684,7 +616,7 @@ class CampaignManager {
                     r.opened_at,
                     r.clicked_at
                 FROM phishing_campaign_recipients r
-                WHERE r.campaign_id = ?
+                WHERE r.phishing_campaign_id = ?
             ";
             
             $params = [$campaignId];
@@ -692,7 +624,7 @@ class CampaignManager {
             if ($organizationId) {
                 $sql .= " AND EXISTS (
                     SELECT 1 FROM phishing_campaigns c
-                    WHERE c.id = r.campaign_id AND c.organization_id = ?
+                    WHERE c.phishing_campaign_id = r.phishing_campaign_id AND c.phishing_org_id = ?
                 )";
                 $params[] = $organizationId;
             }
@@ -732,8 +664,8 @@ class CampaignManager {
             // Validate campaign exists and belongs to organization
             if ($organizationId) {
                 $stmt = $this->db->prepare("
-                    SELECT id FROM phishing_campaigns 
-                    WHERE id = ? AND organization_id = ?
+                    SELECT phishing_campaign_id FROM phishing_campaigns 
+                    WHERE phishing_campaign_id = ? AND phishing_org_id = ?
                 ");
                 $stmt->execute([$campaignId, $organizationId]);
                 
@@ -745,7 +677,7 @@ class CampaignManager {
                 }
             } else {
                 // Just check if campaign exists
-                $stmt = $this->db->prepare("SELECT id FROM phishing_campaigns WHERE id = ?");
+                $stmt = $this->db->prepare("SELECT phishing_campaign_id FROM phishing_campaigns WHERE phishing_campaign_id = ?");
                 $stmt->execute([$campaignId]);
                 
                 if (!$stmt->fetch()) {
@@ -773,7 +705,7 @@ class CampaignManager {
                 // Check if recipient already exists for this campaign
                 $checkStmt = $this->db->prepare("
                     SELECT id FROM phishing_campaign_recipients 
-                    WHERE campaign_id = ? AND email = ?
+                    WHERE phishing_campaign_id = ? AND email = ?
                 ");
                 $checkStmt->execute([$campaignId, $recipient['email']]);
                 
@@ -787,7 +719,7 @@ class CampaignManager {
                 
                 $stmt = $this->db->prepare("
                     INSERT INTO phishing_campaign_recipients 
-                    (campaign_id, email, first_name, last_name, department, tracking_token)
+                    (phishing_campaign_id, email, first_name, last_name, department, tracking_token)
                     VALUES (?, ?, ?, ?, ?, ?)
                 ");
                 
@@ -860,7 +792,7 @@ class CampaignManager {
         
         // Get the recipient_id for this tracking token
         $stmt = $this->db->prepare("
-            SELECT id, campaign_id, email 
+            SELECT id, phishing_campaign_id, email 
             FROM phishing_campaign_recipients 
             WHERE tracking_token = ?
         ");
@@ -875,13 +807,13 @@ class CampaignManager {
         // Store the link with recipient_id
         $stmt = $this->db->prepare("
             INSERT INTO phishing_campaign_links 
-            (campaign_id, recipient_id, original_url, tracking_url, tracking_token, click_count, unique_clicks, created_at) 
+            (phishing_campaign_id, recipient_id, original_url, tracking_url, tracking_token, click_count, unique_clicks, created_at) 
             VALUES (?, ?, ?, ?, ?, 0, 0, NOW())
         ");
         
         $trackingUrl = APP_URL . "/track/click.php?token=" . urlencode($linkToken);
         $stmt->execute([
-            $recipient['campaign_id'],
+            $recipient['phishing_campaign_id'],
             $recipient['id'],  // Store which recipient this link belongs to
             $originalUrl,
             $trackingUrl,
@@ -952,9 +884,9 @@ class CampaignManager {
             
             // Get recipient
             $stmt = $this->db->prepare("
-                SELECT r.*, c.id as campaign_id 
+                SELECT r.*, c.phishing_campaign_id as phishing_campaign_id 
                 FROM phishing_campaign_recipients r
-                JOIN phishing_campaigns c ON r.campaign_id = c.id
+                JOIN phishing_campaigns c ON r.phishing_campaign_id = c.phishing_campaign_id
                 WHERE r.tracking_token = ? 
                 AND r.status IN ('sent', 'pending')
             ");
@@ -988,7 +920,7 @@ class CampaignManager {
                 strtotime($recipient['opened_at']) > time() - 1800) {
                 // Just update count
                 $this->incrementOpenCount($recipient['id']);
-                $this->updateCampaignMetrics($recipient['campaign_id'], 'total_opened', 1);
+                $this->updateCampaignMetrics($recipient['phishing_campaign_id'], 'total_opened', 1);
                 return true;
             }
             
@@ -1003,11 +935,11 @@ class CampaignManager {
             ]);
             
             // Update campaign metrics
-            $this->updateCampaignMetrics($recipient['campaign_id'], 'unique_opens', 1);
-            $this->updateCampaignMetrics($recipient['campaign_id'], 'total_opened', 1);
+            $this->updateCampaignMetrics($recipient['phishing_campaign_id'], 'unique_opens', 1);
+            $this->updateCampaignMetrics($recipient['phishing_campaign_id'], 'total_opened', 1);
             
             // Log tracking event with verification
-            $this->logTrackingEvent($recipient['id'], $recipient['campaign_id'], 'open_verified', [
+            $this->logTrackingEvent($recipient['id'], $recipient['phishing_campaign_id'], 'open_verified', [
                 'ip_address' => $ip,
                 'user_agent' => $userAgent,
                 'verified' => 1
@@ -1016,7 +948,7 @@ class CampaignManager {
             $this->db->commit();
             
             // Recalculate rates
-            $this->recalculateCampaignRates($recipient['campaign_id']);
+            $this->recalculateCampaignRates($recipient['phishing_campaign_id']);
             
             error_log("VERIFIED open tracked for: " . $recipient['email']);
             return true;
@@ -1140,7 +1072,7 @@ class CampaignManager {
             
             // Get link details
             $stmt = $this->db->prepare("
-                SELECT l.*, r.id as recipient_id, r.campaign_id, r.status, r.email
+                SELECT l.*, r.id as recipient_id, r.phishing_campaign_id, r.status, r.email
                 FROM phishing_campaign_links l
                 JOIN phishing_campaign_recipients r ON l.recipient_id = r.id
                 WHERE l.tracking_token = ?
@@ -1164,17 +1096,17 @@ class CampaignManager {
                     'click_confirmed' => 1
                 ]);
                 
-                $this->updateCampaignMetrics($link['campaign_id'], 'unique_clicks', 1);
+                $this->updateCampaignMetrics($link['phishing_campaign_id'], 'unique_clicks', 1);
             } else {
                 $this->incrementClickCount($link['recipient_id']);
             }
             
             // Update link and campaign
             $this->updateLinkClickCount($link['id']);
-            $this->updateCampaignMetrics($link['campaign_id'], 'total_clicked', 1);
+            $this->updateCampaignMetrics($link['phishing_campaign_id'], 'total_clicked', 1);
             
             // Log tracking
-            $this->logTrackingEvent($link['recipient_id'], $link['campaign_id'], 'click', [
+            $this->logTrackingEvent($link['recipient_id'], $link['phishing_campaign_id'], 'click', [
                 'ip_address' => $ip,
                 'user_agent' => $userAgent,
                 'link_url' => $link['original_url']
@@ -1183,7 +1115,7 @@ class CampaignManager {
             $this->db->commit();
             
             // Recalculate rates
-            $this->recalculateCampaignRates($link['campaign_id']);
+            $this->recalculateCampaignRates($link['phishing_campaign_id']);
             
             return [
                 'success' => true,
@@ -1203,7 +1135,7 @@ class CampaignManager {
     private function logScanEventByLinkToken($linkToken, $data = []) {
         try {
             $stmt = $this->db->prepare("
-                SELECT r.id as recipient_id, r.campaign_id 
+                SELECT r.id as recipient_id, r.phishing_campaign_id 
                 FROM phishing_campaign_links l
                 JOIN phishing_campaign_recipients r ON l.recipient_id = r.id
                 WHERE l.tracking_token = ?
@@ -1228,7 +1160,7 @@ class CampaignManager {
         try {
             // Get campaign ID from recipient
             $stmt = $this->db->prepare("
-                SELECT campaign_id FROM phishing_campaign_recipients WHERE id = ?
+                SELECT phishing_campaign_id FROM phishing_campaign_recipients WHERE id = ?
             ");
             $stmt->execute([$recipientId]);
             $recipient = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -1240,13 +1172,13 @@ class CampaignManager {
             // Insert into scans table
             $stmt = $this->db->prepare("
                 INSERT INTO phishing_scan_events 
-                (recipient_id, campaign_id, scan_type, ip_address, user_agent, created_at)
+                (recipient_id, phishing_campaign_id, scan_type, ip_address, user_agent, created_at)
                 VALUES (?, ?, ?, ?, ?, NOW())
             ");
             
             $stmt->execute([
                 $recipientId,
-                $recipient['campaign_id'],
+                $recipient['phishing_campaign_id'],
                 $data['scan_type'] ?? 'automated',
                 $data['ip_address'] ?? null,
                 $data['user_agent'] ?? null
@@ -1266,9 +1198,9 @@ class CampaignManager {
             
             // Find recipient
             $stmt = $this->db->prepare("
-                SELECT r.*, c.id as campaign_id 
+                SELECT r.*, c.phishing_campaign_id as phishing_campaign_id 
                 FROM phishing_campaign_recipients r
-                JOIN phishing_campaigns c ON r.campaign_id = c.id
+                JOIN phishing_campaigns c ON r.phishing_campaign_id = c.phishing_campaign_id
                 WHERE r.tracking_token = ? 
                 AND r.open_confirmed = 0
             ");
@@ -1286,8 +1218,8 @@ class CampaignManager {
                 ]);
                 
                 // Update campaign metrics
-                $this->updateCampaignMetrics($recipient['campaign_id'], 'unique_opens', 1);
-                $this->updateCampaignMetrics($recipient['campaign_id'], 'total_opened', 1);
+                $this->updateCampaignMetrics($recipient['phishing_campaign_id'], 'unique_opens', 1);
+                $this->updateCampaignMetrics($recipient['phishing_campaign_id'], 'total_opened', 1);
                 
                 // Update tracking log to mark as confirmed
                 $updateStmt = $this->db->prepare("
@@ -1301,7 +1233,7 @@ class CampaignManager {
                 $updateStmt->execute([$recipient['id']]);
                 
                 // Recalculate rates
-                $this->recalculateCampaignRates($recipient['campaign_id']);
+                $this->recalculateCampaignRates($recipient['phishing_campaign_id']);
                 
                 error_log("Open confirmed via JavaScript for: " . $recipient['email']);
             }
@@ -1364,11 +1296,12 @@ class CampaignManager {
      */
     public function getCampaignStats($campaignId, $organizationId = null) {
         try {
-            $whereClause = "WHERE c.id = ?";
+            $whereClause = "WHERE c.phishing_campaign_id = ?";
             $params = [$campaignId];
             
             if ($organizationId) {
-                $whereClause .= " AND c.organization_id = ?";
+                $whereClause .= " AND c.phishing_org_id
+                 = ?";
                 $params[] = $organizationId;
             }
             
@@ -1392,7 +1325,7 @@ class CampaignManager {
                        r.click_rate
                 FROM phishing_campaigns c
                 LEFT JOIN users u ON c.user_id = u.user_id
-                LEFT JOIN phishing_campaign_results r ON c.id = r.campaign_id
+                LEFT JOIN phishing_campaign_results r ON c.phishing_campaign_id = r.phishing_campaign_id
                 $whereClause
             ");
             
@@ -1442,7 +1375,7 @@ class CampaignManager {
                     SUM(CASE WHEN status = 'bounced' THEN 1 ELSE 0 END) as bounced,
                     SUM(CASE WHEN status = 'unsubscribed' THEN 1 ELSE 0 END) as unsubscribed
                 FROM phishing_campaign_recipients
-                WHERE campaign_id = ?
+                WHERE phishing_campaign_id = ?
             ";
             
             $params = [$campaignId];
@@ -1450,7 +1383,7 @@ class CampaignManager {
             if ($organizationId) {
                 $sql .= " AND EXISTS (
                     SELECT 1 FROM phishing_campaigns c
-                    WHERE c.id = campaign_id AND c.organization_id = ?
+                    WHERE c.phishing_campaign_id = phishing_campaign_id AND c.phishing_org_id = ?
                 )";
                 $params[] = $organizationId;
             }
@@ -1495,7 +1428,7 @@ class CampaignManager {
                 SUM(CASE WHEN opened_at IS NOT NULL THEN 1 ELSE 0 END) as opened,
                 SUM(CASE WHEN clicked_at IS NOT NULL THEN 1 ELSE 0 END) as clicked
             FROM phishing_campaign_recipients
-            WHERE campaign_id = ? AND sent_at IS NOT NULL
+            WHERE phishing_campaign_id = ? AND sent_at IS NOT NULL
             GROUP BY DATE(sent_at)
             ORDER BY date
         ");
@@ -1504,17 +1437,17 @@ class CampaignManager {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function pendingOrBouncedRecipient(int $campaignId): int
+    public function pendingOrBouncedRecipient($campaignId)
     {
         $stmt = $this->db->prepare("
             SELECT COUNT(*)
             FROM phishing_campaign_recipients
-            WHERE campaign_id = ?
+            WHERE phishing_campaign_id = ?
             AND status IN ('pending', 'bounced', 'sent')
         ");
 
         $stmt->execute([$campaignId]);
-        return (int) $stmt->fetchColumn();
+        return $stmt->fetchColumn();
     }
 
 
@@ -1533,7 +1466,7 @@ class CampaignManager {
                  WHERE event_type = 'click' 
                  AND link_url = l.original_url) as total_unique_recipients
             FROM phishing_campaign_links l
-            WHERE campaign_id = ?
+            WHERE phishing_campaign_id = ?
             ORDER BY click_count DESC
         ");
         
@@ -1554,7 +1487,7 @@ class CampaignManager {
                 ROUND(SUM(CASE WHEN status = 'opened' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as open_rate,
                 ROUND(SUM(CASE WHEN status = 'clicked' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as click_rate
             FROM phishing_campaign_recipients
-            WHERE campaign_id = ?
+            WHERE phishing_campaign_id = ?
             GROUP BY COALESCE(department, 'Unknown')
             ORDER BY click_rate DESC
         ");
@@ -1573,7 +1506,7 @@ class CampaignManager {
                 SUM(CASE WHEN status = 'opened' THEN 1 ELSE 0 END) as opened_count,
                 SUM(CASE WHEN status = 'clicked' THEN 1 ELSE 0 END) as clicked_count
             FROM phishing_campaign_recipients
-            WHERE campaign_id = ?
+            WHERE phishing_campaign_id = ?
         ");
         
         $stmt->execute([$campaignId]);
@@ -1687,8 +1620,8 @@ class CampaignManager {
                        r.click_rate
                 FROM phishing_campaigns c
                 LEFT JOIN users u ON c.user_id = u.user_id
-                LEFT JOIN phishing_campaign_results r ON c.id = r.campaign_id
-                WHERE c.organization_id = ?
+                LEFT JOIN phishing_campaign_results r ON c.phishing_campaign_id = r.phishing_campaign_id
+                WHERE c.phishing_org_id = ?
                 ORDER BY c.created_at DESC
                 LIMIT ? OFFSET ?
             ");
@@ -1698,7 +1631,7 @@ class CampaignManager {
             
             // Get total count
             $countStmt = $this->db->prepare("
-                SELECT COUNT(*) as total FROM phishing_campaigns WHERE organization_id = ?
+                SELECT COUNT(*) as total FROM phishing_campaigns WHERE phishing_org_id = ?
             ");
             $countStmt->execute([$organizationId]);
             $total = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
@@ -1977,9 +1910,9 @@ class CampaignManager {
                 SET total_recipients = (
                     SELECT COUNT(*) 
                     FROM phishing_campaign_recipients 
-                    WHERE campaign_id = ?
+                    WHERE phishing_campaign_id = ?
                 )
-                WHERE id = ?
+                WHERE phishing_campaign_id = ?
             ");
             $stmt->execute([$campaignId, $campaignId]);
             
@@ -1989,9 +1922,9 @@ class CampaignManager {
                 SET total_recipients = (
                     SELECT COUNT(*) 
                     FROM phishing_campaign_recipients 
-                    WHERE campaign_id = ?
+                    WHERE phishing_campaign_id = ?
                 )
-                WHERE campaign_id = ?
+                WHERE phishing_campaign_id = ?
             ");
             $stmt->execute([$campaignId, $campaignId]);
             
@@ -2004,7 +1937,7 @@ class CampaignManager {
         try {
             $sql = "
                 DELETE r FROM phishing_campaign_recipients r
-                WHERE r.id = ? AND r.campaign_id = ?
+                WHERE r.id = ? AND r.phishing_campaign_id = ?
             ";
             
             $params = [$recipientId, $campaignId];
@@ -2012,7 +1945,7 @@ class CampaignManager {
             if ($organizationId) {
                 $sql .= " AND EXISTS (
                     SELECT 1 FROM phishing_campaigns c
-                    WHERE c.id = r.campaign_id AND c.organization_id = ?
+                    WHERE c.phishing_campaign_id = r.phishing_campaign_id AND c.phishing_org_id = ?
                 )";
                 $params[] = $organizationId;
             }
@@ -2049,7 +1982,7 @@ class CampaignManager {
         $stmt = $this->db->prepare("
             UPDATE phishing_campaigns 
             SET emails_sent = emails_sent + 1
-            WHERE id = ?
+            WHERE phishing_campaign_id = ?
         ");
         $stmt->execute([$campaignId]);
     }
@@ -2071,11 +2004,11 @@ class CampaignManager {
                 return ['success' => false, 'error' => 'No data to update'];
             }
             
-            $sql .= implode(', ', $updates) . " WHERE id = ?";
+            $sql .= implode(', ', $updates) . " WHERE phishing_campaign_id = ?";
             $params[] = $campaignId;
             
             if ($organizationId) {
-                $sql .= " AND organization_id = ?";
+                $sql .= " AND phishing_org_id = ?";
                 $params[] = $organizationId;
             }
             
@@ -2103,15 +2036,15 @@ class CampaignManager {
             $stmt = $this->db->prepare("
                 SELECT created_at, 'created' as event, 'Campaign Created' as description
                 FROM phishing_campaigns 
-                WHERE id = ?
+                WHERE phishing_campaign_id = ?
                 UNION
                 SELECT started_at, 'started', CONCAT('Campaign Started (', total_recipients, ' recipients)')
                 FROM phishing_campaigns 
-                WHERE id = ? AND started_at IS NOT NULL
+                WHERE phishing_campaign_id = ? AND started_at IS NOT NULL
                 UNION
                 SELECT completed_at, 'completed', 'Campaign Completed'
                 FROM phishing_campaigns 
-                WHERE id = ? AND completed_at IS NOT NULL
+                WHERE phishing_campaign_id = ? AND completed_at IS NOT NULL
                 ORDER BY created_at
             ");
             
@@ -2211,14 +2144,14 @@ class CampaignManager {
     private function recalculateCampaignRates($campaignId) {
         $stmt = $this->db->prepare("
             UPDATE phishing_campaign_results r
-            JOIN phishing_campaigns c ON r.campaign_id = c.id
+            JOIN phishing_campaigns c ON r.phishing_campaign_id = c.phishing_campaign_id
             SET r.open_rate = ROUND(r.total_opened * 100.0 / c.total_recipients, 2),
                 r.click_rate = ROUND(r.total_clicked * 100.0 / c.total_recipients, 2),
                 r.click_to_open_rate = CASE 
                     WHEN r.total_opened > 0 THEN ROUND(r.total_clicked * 100.0 / r.total_opened, 2)
                     ELSE 0 
                 END
-            WHERE r.campaign_id = ?
+            WHERE r.phishing_campaign_id = ?
         ");
         $stmt->execute([$campaignId]);
     }
@@ -2227,7 +2160,7 @@ class CampaignManager {
         try {
             $stmt = $this->db->prepare("
                 INSERT INTO phishing_campaign_tracking 
-                (recipient_id, campaign_id, event_type, ip_address, user_agent, link_url, created_at)
+                (recipient_id, phishing_campaign_id, event_type, ip_address, user_agent, link_url, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, NOW())
             ");
             
@@ -2248,7 +2181,7 @@ class CampaignManager {
     
     private function initCampaignResults($campaignId) {
         $stmt = $this->db->prepare("
-            INSERT INTO phishing_campaign_results (campaign_id)
+            INSERT INTO phishing_campaign_results (phishing_campaign_id)
             VALUES (?)
         ");
         $stmt->execute([$campaignId]);
@@ -2260,7 +2193,7 @@ class CampaignManager {
             $stmt = $this->db->prepare("
                 SELECT COUNT(*) as pending_count
                 FROM phishing_campaign_recipients
-                WHERE campaign_id = ? 
+                WHERE phishing_campaign_id = ? 
                 AND status IN ('pending', 'bounced', 'sent')
             ");
             $stmt->execute([$campaignId]);
@@ -2271,7 +2204,7 @@ class CampaignManager {
                 $stmt2 = $this->db->prepare("
                     SELECT COUNT(*) as total_count
                     FROM phishing_campaign_recipients
-                    WHERE campaign_id = ?
+                    WHERE phishing_campaign_id = ?
                 ");
                 $stmt2->execute([$campaignId]);
                 $totalResult = $stmt2->fetch(PDO::FETCH_ASSOC);
@@ -2292,7 +2225,7 @@ class CampaignManager {
     private function getPendingRecipients($campaignId, $limit) {
         $stmt = $this->db->prepare("
             SELECT * FROM phishing_campaign_recipients
-            WHERE campaign_id = ? AND status = 'pending'
+            WHERE phishing_campaign_id = ? AND status = 'pending'
             LIMIT ?
         ");
         $stmt->execute([$campaignId, $limit]);
@@ -2388,11 +2321,11 @@ class CampaignManager {
 
     public function scheduleCampaign($campaignId, $scheduleTime, $organizationId = null) {
         try {
-            $sql = "UPDATE phishing_campaigns SET status = 'scheduled', scheduled_for = ? WHERE id = ?";
+            $sql = "UPDATE phishing_campaigns SET status = 'scheduled', scheduled_for = ? WHERE phishing_campaign_id = ?";
             $params = [$scheduleTime, $campaignId];
             
             if ($organizationId) {
-                $sql .= " AND organization_id = ?";
+                $sql .= " AND phishing_org_id = ?";
                 $params[] = $organizationId;
             }
             
@@ -2436,9 +2369,9 @@ class CampaignManager {
         $results = [];
         
         foreach ($campaigns as $campaign) {
-            $result = $this->sendCampaign($campaign['id']);
+            $result = $this->sendCampaign($campaign['phishing_campaign_id']);
             $results[] = [
-                'campaign_id' => $campaign['id'],
+                'phishing_campaign_id' => $campaign['phishing_campaign_id'],
                 'campaign_name' => $campaign['name'],
                 'result' => $result
             ];
@@ -2463,8 +2396,8 @@ class CampaignManager {
                     COALESCE(SUM(total_opened), 0) as total_opened,
                     COALESCE(SUM(total_clicked), 0) as total_clicked
                 FROM phishing_campaigns c
-                LEFT JOIN phishing_campaign_results r ON c.id = r.campaign_id
-                WHERE c.organization_id = ?
+                LEFT JOIN phishing_campaign_results r ON c.phishing_campaign_id = r.phishing_campaign_id
+                WHERE c.phishing_org_id = ?
             ");
             
             $stmt->execute([$organizationId]);
@@ -2496,7 +2429,7 @@ class CampaignManager {
                     u.username
                 FROM phishing_campaigns c
                 JOIN users u ON c.user_id = u.user_id
-                WHERE c.organization_id = ?
+                WHERE c.phishing_org_id = ?
                 
                 UNION ALL
                 
@@ -2508,7 +2441,7 @@ class CampaignManager {
                     u.username
                 FROM phishing_campaigns c
                 JOIN users u ON c.user_id = u.user_id
-                WHERE c.organization_id = ? AND c.started_at IS NOT NULL
+                WHERE c.phishing_org_id = ? AND c.started_at IS NOT NULL
                 
                 UNION ALL
                 
@@ -2520,7 +2453,7 @@ class CampaignManager {
                     u.username
                 FROM phishing_campaigns c
                 JOIN users u ON c.user_id = u.user_id
-                WHERE c.organization_id = ? AND c.completed_at IS NOT NULL
+                WHERE c.phishing_org_id = ? AND c.completed_at IS NOT NULL
                 
                 ORDER BY timestamp DESC
                 LIMIT ?
@@ -2546,14 +2479,14 @@ class CampaignManager {
                 return ['success' => false, 'error' => 'Campaign not found'];
             }
             
-            if ($organizationId && $campaign['organization_id'] != $organizationId) {
+            if ($organizationId && $campaign['phishing_org_id'] != $organizationId) {
                 return ['success' => false, 'error' => 'Access denied'];
             }
             
             // Get recipients with status 'sent' or 'pending'
             $stmt = $this->db->prepare("
                 SELECT * FROM phishing_campaign_recipients
-                WHERE campaign_id = ? 
+                WHERE phishing_campaign_id = ? 
                 AND status IN ('sent', 'pending')
                 ORDER BY id
             ");
@@ -2674,7 +2607,7 @@ class CampaignManager {
             $sql = "
                 SELECT COUNT(*) as count
                 FROM phishing_campaign_recipients
-                WHERE campaign_id = ? 
+                WHERE phishing_campaign_id = ? 
                 AND status IN ('sent', 'pending')
             ";
             
@@ -2683,7 +2616,7 @@ class CampaignManager {
             if ($organizationId) {
                 $sql .= " AND EXISTS (
                     SELECT 1 FROM phishing_campaigns c
-                    WHERE c.id = campaign_id AND c.organization_id = ?
+                    WHERE c.phishing_campaign_id = phishing_campaign_id AND c.phishing_org_id = ?
                 )";
                 $params[] = $organizationId;
             }
@@ -2721,7 +2654,7 @@ class CampaignManager {
                 FROM phishing_campaign_links l
                 LEFT JOIN phishing_campaign_recipients r ON l.recipient_id = r.id
                 LEFT JOIN phishing_campaign_tracking t ON l.tracking_token = t.link_url
-                WHERE l.campaign_id = ?
+                WHERE l.phishing_campaign_id = ?
                 GROUP BY l.id
                 ORDER BY l.id
             ");
@@ -2739,7 +2672,7 @@ class CampaignManager {
                     click_count,
                     tracking_token
                 FROM phishing_campaign_recipients
-                WHERE campaign_id = ?
+                WHERE phishing_campaign_id = ?
                 ORDER BY id
             ");
             $stmt2->execute([$campaignId]);
@@ -3299,7 +3232,7 @@ class CampaignManager {
             
             // Check for multiple campaigns scanned quickly
             $stmt2 = $this->db->prepare("
-                SELECT COUNT(DISTINCT campaign_id) as campaign_count 
+                SELECT COUNT(DISTINCT phishing_campaign_id) as campaign_count 
                 FROM phishing_scan_events 
                 WHERE ip_address = ? 
                 AND created_at > DATE_SUB(NOW(), INTERVAL 10 SECOND)
@@ -3403,7 +3336,7 @@ class CampaignManager {
         try {
             // Get recipient info
             $stmt = $this->db->prepare("
-                SELECT r.id as recipient_id, r.campaign_id 
+                SELECT r.id as recipient_id, r.phishing_campaign_id 
                 FROM phishing_campaign_recipients r
                 WHERE r.tracking_token = ?
             ");
@@ -3418,13 +3351,13 @@ class CampaignManager {
             // Insert into a separate scans table (or tracking table with scan type)
             $stmt = $this->db->prepare("
                 INSERT INTO phishing_scan_events 
-                (recipient_id, campaign_id, scan_type, ip_address, user_agent, created_at)
+                (recipient_id, phishing_campaign_id, scan_type, ip_address, user_agent, created_at)
                 VALUES (?, ?, ?, ?, ?, NOW())
             ");
             
             $stmt->execute([
                 $recipient['recipient_id'],
-                $recipient['campaign_id'],
+                $recipient['phishing_campaign_id'],
                 $data['scan_type'] ?? 'automated',
                 $data['ip_address'] ?? null,
                 $data['user_agent'] ?? null
@@ -3472,8 +3405,8 @@ class CampaignManager {
         try {
             $stmt = $this->db->prepare("
                 INSERT INTO phishing_tracking_pending 
-                (recipient_id, campaign_id, event_type, tracking_token, ip_address, user_agent)
-                SELECT r.id, r.campaign_id, 'open', ?, ?, ?
+                (recipient_id, phishing_campaign_id, event_type, tracking_token, ip_address, user_agent)
+                SELECT r.id, r.phishing_campaign_id, 'open', ?, ?, ?
                 FROM phishing_campaign_recipients r
                 WHERE r.tracking_token = ?
             ");
@@ -3513,7 +3446,7 @@ class CampaignManager {
                 JOIN phishing_tracking_pending p ON r.id = p.recipient_id
                 SET r.status = 'opened',
                     r.open_confirmed = 1,
-                    r.opened_at = NOW(),
+                    r.opened_at = NOW(),+
                     r.opened_count = COALESCE(r.opened_count, 0) + 1
                 WHERE p.tracking_token = ?
                 AND p.event_type = 'open'
@@ -3537,8 +3470,8 @@ class CampaignManager {
         try {
             $stmt = $this->db->prepare("
                 INSERT INTO phishing_tracking_pending 
-                (recipient_id, campaign_id, event_type, tracking_token, ip_address, user_agent)
-                SELECT l.recipient_id, l.campaign_id, 'click', ?, ?, ?
+                (recipient_id, phishing_campaign_id, event_type, tracking_token, ip_address, user_agent)
+                SELECT l.recipient_id, l.phishing_campaign_id, 'click', ?, ?, ?
                 FROM phishing_campaign_links l
                 WHERE l.tracking_token = ?
             ");
@@ -3563,7 +3496,7 @@ class CampaignManager {
             
             // Get pending click
             $stmt = $this->db->prepare("
-                SELECT p.*, r.id as recipient_id, r.campaign_id
+                SELECT p.*, r.id as recipient_id, r.phishing_campaign_id
                 FROM phishing_tracking_pending p
                 JOIN phishing_campaign_recipients r ON p.recipient_id = r.id
                 WHERE p.tracking_token = ? 
@@ -3621,10 +3554,10 @@ class CampaignManager {
                     $linkUpdateStmt->execute([$pending['recipient_id'], $linkToken]);
                     
                     // Update campaign metrics
-                    $this->updateCampaignMetrics($pending['campaign_id'], 'total_clicked', 1);
+                    $this->updateCampaignMetrics($pending['phishing_campaign_id'], 'total_clicked', 1);
                     
                     // Log to tracking table
-                    $this->logTrackingEvent($pending['recipient_id'], $pending['campaign_id'], 'click', [
+                    $this->logTrackingEvent($pending['recipient_id'], $pending['phishing_campaign_id'], 'click', [
                         'ip_address' => $pending['ip_address'],
                         'user_agent' => $pending['user_agent'],
                         'link_url' => $link['original_url']
@@ -3633,7 +3566,7 @@ class CampaignManager {
                     $this->db->commit();
                     
                     // Recalculate rates
-                    $this->recalculateCampaignRates($pending['campaign_id']);
+                    $this->recalculateCampaignRates($pending['phishing_campaign_id']);
                     
                     return true;
                 }
