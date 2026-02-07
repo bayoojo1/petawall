@@ -145,7 +145,7 @@ class CampaignManager {
         const form = modal.querySelector('form');
         if (form) form.reset();
     }
-    
+
     initEmailEditor() {
         const toolbar = document.querySelector('.campaign-editor-toolbar');
         if (!toolbar) return;
@@ -153,33 +153,31 @@ class CampaignManager {
         // Format buttons
         const formatButtons = toolbar.querySelectorAll('[data-format]');
         formatButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const format = btn.dataset.format;
+            // Remove existing listeners by cloning and replacing
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            // Add fresh listener
+            newBtn.addEventListener('click', () => {
+                const format = newBtn.dataset.format;
                 this.formatEmailText(format);
             });
         });
 
-        const templateBtns = toolbar.querySelectorAll('[data-template]'); // Use different variable name
+        // Template buttons
+        const templateBtns = toolbar.querySelectorAll('[data-template]');
         templateBtns.forEach(btn => {
-            // Remove and clone to clear existing listeners
+            // Remove existing listeners by cloning and replacing
             const newBtn = btn.cloneNode(true);
             btn.parentNode.replaceChild(newBtn, btn);
-        });
-
-        // Get fresh references
-        const freshTemplateBtns = toolbar.querySelectorAll('[data-template]');
-        freshTemplateBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            
+            // Add fresh listener
+            newBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                
-                // Clear textarea to prevent duplication
-                const textarea = toolbar.closest('.campaign-email-editor').querySelector('.campaign-editor-textarea');
-                if (textarea) textarea.value = '';
-                
-                const template = btn.dataset.template;
+                const template = newBtn.dataset.template;
                 this.insertEmailTemplate(template);
-            }, { once: true });
+            });
         });
     }
     
@@ -190,6 +188,13 @@ class CampaignManager {
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
         const selectedText = textarea.value.substring(start, end);
+
+        // For phishing link, use our custom modal instead of prompt
+        if (format === 'phishing-link') {
+            this.showPhishingLinkModal(textarea, start, end, selectedText);
+            return;
+        }
+
         let formattedText = selectedText;
         
         try {
@@ -243,6 +248,131 @@ class CampaignManager {
             return false;
         }
     }
+
+
+    showPhishingLinkModal(textarea, start, end, selectedText) {
+        // Create custom modal for phishing link
+        const modal = document.createElement('div');
+        modal.className = 'campaign-custom-modal';
+        modal.innerHTML = `
+            <div class="custom-modal-content">
+                <div class="custom-modal-header">
+                    <h4><i class="fas fa-fish"></i> Insert Phishing Link</h4>
+                    <button class="custom-modal-close">&times;</button>
+                </div>
+                <div class="custom-modal-body">
+                    <div class="custom-modal-options">
+                        <h5>Select a template:</h5>
+                        <div class="template-options">
+                            <button class="template-option" data-template="password-reset">
+                                <i class="fas fa-key"></i>
+                                <span>Password Reset</span>
+                                <small>Reset Your Password</small>
+                            </button>
+                            <button class="template-option" data-template="account-verify">
+                                <i class="fas fa-user-check"></i>
+                                <span>Account Verification</span>
+                                <small>Verify Your Account</small>
+                            </button>
+                            <button class="template-option" data-template="security-alert">
+                                <i class="fas fa-shield-alt"></i>
+                                <span>Security Alert</span>
+                                <small>Security Alert Required</small>
+                            </button>
+                            <button class="template-option" data-template="payment-update">
+                                <i class="fas fa-credit-card"></i>
+                                <span>Payment Update</span>
+                                <small>Update Payment Information</small>
+                            </button>
+                        </div>
+                        <div class="custom-modal-divider">
+                            <span>OR</span>
+                        </div>
+                        <div class="custom-url-input">
+                            <label>Custom URL:</label>
+                            <input type="text" class="custom-modal-input" placeholder="https://" value="https://">
+                        </div>
+                        <div class="custom-link-text">
+                            <label>Link Text:</label>
+                            <input type="text" class="custom-modal-input" placeholder="Click here to verify" value="${selectedText || 'Click here'}">
+                        </div>
+                    </div>
+                </div>
+                <div class="custom-modal-footer">
+                    <button class="custom-modal-btn custom-modal-btn-secondary cancel">Cancel</button>
+                    <button class="custom-modal-btn custom-modal-btn-primary insert">Insert Link</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Show modal
+        setTimeout(() => modal.classList.add('show'), 10);
+        
+        // Handle template selection
+        modal.querySelectorAll('.template-option').forEach(option => {
+            option.addEventListener('click', () => {
+                // Update custom URL input with template URL
+                const templates = {
+                    'password-reset': 'https://password-reset.example.com/login',
+                    'account-verify': 'https://verify-account.example.com/confirm',
+                    'security-alert': 'https://security-alert.example.com/check',
+                    'payment-update': 'https://payment-update.example.com/update'
+                };
+                
+                const template = option.dataset.template;
+                const urlInput = modal.querySelector('.custom-modal-input[type="text"]');
+                if (urlInput && templates[template]) {
+                    urlInput.value = templates[template];
+                }
+                
+                // Update link text if selected text is empty
+                if (!selectedText) {
+                    const linkTextInput = modal.querySelectorAll('.custom-modal-input')[1];
+                    const linkText = option.querySelector('span').textContent;
+                    if (linkTextInput) linkTextInput.value = linkText;
+                }
+            });
+        });
+        
+        // Handle insert
+        modal.querySelector('.insert').addEventListener('click', () => {
+            const url = modal.querySelector('.custom-modal-input[type="text"]').value;
+            const linkTextInput = modal.querySelectorAll('.custom-modal-input')[1];
+            const linkText = linkTextInput ? linkTextInput.value : selectedText || 'Click here';
+            
+            if (!this.isValidUrl(url)) {
+                this.showAlert('Please enter a valid URL', 'warning');
+                return;
+            }
+            
+            const link = `<a href="${url}" style="color: #dc3545; font-weight: bold; text-decoration: underline;">${linkText}</a>`;
+            textarea.value = textarea.value.substring(0, start) + link + textarea.value.substring(end);
+            textarea.focus();
+            textarea.setSelectionRange(start + link.length, start + link.length);
+            
+            this.hideCustomModal(modal);
+        });
+        
+        // Handle close/cancel
+        modal.querySelectorAll('.custom-modal-close, .cancel').forEach(btn => {
+            btn.addEventListener('click', () => this.hideCustomModal(modal));
+        });
+        
+        // Close on background click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) this.hideCustomModal(modal);
+        });
+    }
+
+    hideCustomModal(modal) {
+        modal.classList.remove('show');
+        setTimeout(() => {
+            if (modal.parentNode) modal.parentNode.removeChild(modal);
+        }, 300);
+    }
+
     
     insertPhishingLink() {
         const textarea = document.querySelector('.campaign-editor-textarea');
@@ -603,7 +733,7 @@ class CampaignManager {
             textarea.setSelectionRange(start, start + templates[templateName].length);
         }
     }
-    
+
     initFileUpload() {
         // CSV file input
         const csvInput = document.getElementById('csvFileInput');
@@ -611,25 +741,36 @@ class CampaignManager {
         const recipientsTextarea = document.querySelector('textarea[name="recipients"]');
         
         if (uploadBtn && csvInput) {
-            uploadBtn.addEventListener('click', () => {
-                csvInput.click();
+            // Remove existing listeners first
+            const newUploadBtn = uploadBtn.cloneNode(true);
+            uploadBtn.parentNode.replaceChild(newUploadBtn, uploadBtn);
+            
+            const newCsvInput = csvInput.cloneNode(true);
+            csvInput.parentNode.replaceChild(newCsvInput, csvInput);
+            
+            // Reassign variables
+            const freshUploadBtn = newUploadBtn;
+            const freshCsvInput = newCsvInput;
+            
+            freshUploadBtn.addEventListener('click', () => {
+                freshCsvInput.click();
             });
             
-            csvInput.addEventListener('change', (e) => {
+            freshCsvInput.addEventListener('change', (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 
                 // Validate CSV file
                 if (!file.name.toLowerCase().endsWith('.csv')) {
                     this.showAlert('Please select a CSV file', 'danger');
-                    csvInput.value = '';
+                    freshCsvInput.value = '';
                     return;
                 }
                 
                 // Validate file size (max 5MB)
                 if (file.size > 5 * 1024 * 1024) {
                     this.showAlert('File size exceeds 5MB limit', 'danger');
-                    csvInput.value = '';
+                    freshCsvInput.value = '';
                     return;
                 }
                 
@@ -640,31 +781,45 @@ class CampaignManager {
                         const recipients = this.processCSVForCampaign(content);
                         
                         if (recipients.length > 0) {
-                            // Append to textarea
+                            // Only append NEW recipients - don't duplicate existing ones
                             const currentValue = recipientsTextarea.value.trim();
-                            const separator = currentValue ? '\n' : '';
-                            recipientsTextarea.value = currentValue + separator + recipients.join('\n');
+                            const existingRecipients = currentValue ? currentValue.split('\n').map(r => r.trim()) : [];
                             
-                            // Show preview
-                            this.showCSVPreview(recipients.length, file.name);
+                            // Filter out duplicates
+                            const newRecipients = recipients.filter(recipient => 
+                                !existingRecipients.some(existing => 
+                                    existing.split(',')[0] === recipient.split(',')[0]
+                                )
+                            );
                             
-                            this.showAlert(`Added ${recipients.length} recipients from CSV`, 'success');
+                            if (newRecipients.length > 0) {
+                                const separator = currentValue ? '\n' : '';
+                                recipientsTextarea.value = currentValue + separator + newRecipients.join('\n');
+                                
+                                // Show preview
+                                this.showCSVPreview(newRecipients.length, file.name);
+                                
+                                this.showAlert(`Added ${newRecipients.length} new recipients from CSV`, 'success');
+                            } else {
+                                this.showAlert('All recipients from CSV already exist in the list', 'info');
+                            }
                         } else {
                             this.showAlert('No valid email addresses found in CSV', 'warning');
                         }
                         
                         // Reset file input
-                        csvInput.value = '';
+                        freshCsvInput.value = '';
                         
                     } catch (error) {
-                        this.showAlert('Error processing CSV file', 'danger');
-                        csvInput.value = '';
+                        console.error('CSV processing error:', error);
+                        this.showAlert('Error processing CSV file: ' + error.message, 'danger');
+                        freshCsvInput.value = '';
                     }
                 };
                 
                 reader.onerror = () => {
                     this.showAlert('Error reading file', 'danger');
-                    csvInput.value = '';
+                    freshCsvInput.value = '';
                 };
                 
                 reader.readAsText(file);
@@ -1162,3 +1317,362 @@ window.addEventListener('unhandledrejection', (e) => {
         window.campaignManager.showAlert('An unexpected error occurred', 'danger');
     }
 });
+
+
+// ANOTHER CLASS THAT HANDLES CONFIRMATION POPUP MODALS
+// Custom Confirmation System
+// Custom Confirmation System
+class CustomConfirm {
+    constructor() {
+        this.confirmModal = null;
+        this.successModal = null;
+        this.confirmCallback = null;
+        this.cancelCallback = null;
+        this.currentForm = null;
+        this.currentAction = null;
+        this.isInitialized = false;
+        
+        this.init();
+    }
+    
+    init() {
+        // Wait a bit to ensure DOM is ready
+        setTimeout(() => {
+            this.confirmModal = document.getElementById('customConfirmModal');
+            this.successModal = document.getElementById('customSuccessModal');
+            
+            if (!this.confirmModal || !this.successModal) {
+                console.warn('Custom confirm modals not found in DOM. They may not be included on this page.');
+                return;
+            }
+            
+            // Confirm modal event handlers
+            this.confirmModal.querySelector('.confirm-btn-cancel').addEventListener('click', () => this.hideConfirm());
+            this.confirmModal.querySelector('.confirm-modal-close').addEventListener('click', () => this.hideConfirm());
+            this.confirmModal.querySelector('.confirm-btn-confirm').addEventListener('click', () => this.handleConfirm());
+            
+            // Success modal event handlers
+            this.successModal.querySelector('.confirm-btn-ok').addEventListener('click', () => this.hideSuccess());
+            this.successModal.querySelector('.confirm-modal-close').addEventListener('click', () => this.hideSuccess());
+            
+            // Close on background click
+            this.confirmModal.addEventListener('click', (e) => {
+                if (e.target === this.confirmModal) this.hideConfirm();
+            });
+            
+            this.successModal.addEventListener('click', (e) => {
+                if (e.target === this.successModal) this.hideSuccess();
+            });
+            
+            this.isInitialized = true;
+            
+            // Now replace inline confirms
+            this.replaceInlineConfirms();
+        }, 100);
+    }
+    
+    showConfirm(message, type = 'default', confirmCallback = null, cancelCallback = null) {
+        if (!this.isInitialized) {
+            // Fall back to browser confirm if modals aren't ready
+            const result = window.confirm(message);
+            if (result && confirmCallback) confirmCallback();
+            if (!result && cancelCallback) cancelCallback();
+            return;
+        }
+        
+        this.confirmCallback = confirmCallback;
+        this.cancelCallback = cancelCallback;
+        
+        // Set message
+        const messageElement = this.confirmModal.querySelector('#confirmModalMessage');
+        if (messageElement) {
+            messageElement.textContent = message;
+        }
+        
+        // Set type (for styling)
+        const content = this.confirmModal.querySelector('.confirm-modal-content');
+        if (content) {
+            content.className = 'confirm-modal-content';
+            if (type) content.classList.add(type);
+        }
+        
+        // Show modal
+        this.confirmModal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+        
+        // Focus confirm button after animation
+        setTimeout(() => {
+            const confirmBtn = this.confirmModal.querySelector('.confirm-btn-confirm');
+            if (confirmBtn) confirmBtn.focus();
+        }, 300);
+    }
+    
+    hideConfirm() {
+        if (!this.confirmModal) return;
+        
+        this.confirmModal.classList.remove('show');
+        document.body.style.overflow = '';
+        
+        // Call cancel callback if provided
+        if (this.cancelCallback) {
+            this.cancelCallback();
+        }
+        
+        this.reset();
+    }
+    
+    handleConfirm() {
+        this.hideConfirm();
+        
+        // Call confirm callback if provided
+        if (this.confirmCallback) {
+            this.confirmCallback();
+        }
+        
+        // If we have a form to submit, do it
+        if (this.currentForm && this.currentAction) {
+            // Submit the form
+            if (this.currentAction === 'submit') {
+                this.currentForm.submit();
+            } else if (this.currentAction === 'click') {
+                // Trigger click on the button that opened the modal
+                if (this.originalButton) {
+                    this.originalButton.click();
+                }
+            }
+        }
+    }
+    
+    showSuccess(message, type = 'success') {
+        if (!this.isInitialized) {
+            alert(message);
+            return;
+        }
+        
+        // Set message
+        const messageElement = this.successModal.querySelector('#successModalMessage');
+        if (messageElement) {
+            messageElement.textContent = message;
+        }
+        
+        // Set type (for styling)
+        const content = this.successModal.querySelector('.confirm-modal-content');
+        if (content) {
+            content.className = 'confirm-modal-content';
+            if (type) content.classList.add(type);
+        }
+        
+        // Show modal
+        this.successModal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+        
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+            if (this.successModal && this.successModal.classList.contains('show')) {
+                this.hideSuccess();
+            }
+        }, 3000);
+    }
+    
+    hideSuccess() {
+        if (!this.successModal) return;
+        
+        this.successModal.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+    
+    reset() {
+        this.confirmCallback = null;
+        this.cancelCallback = null;
+        this.currentForm = null;
+        this.currentAction = null;
+        this.originalButton = null;
+    }
+    
+    // Helper method to replace inline onclick handlers
+    attachFormConfirm(form, button) {
+        if (!button) return;
+        
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Store form and action type
+            this.currentForm = form;
+            this.currentAction = 'submit';
+            this.originalButton = button;
+            
+            // Get message from data attribute or use default
+            const message = button.dataset.confirmMessage || 
+                           form.dataset.confirmMessage || 
+                           'Are you sure you want to proceed?';
+            
+            // Get type from data attribute
+            const type = button.dataset.confirmType || 
+                        form.dataset.confirmType || 
+                        'default';
+            
+            // Show confirmation
+            this.showConfirm(message, type);
+        });
+    }
+    
+    replaceInlineConfirms() {
+        // Find all elements with onclick that contains confirm
+        document.querySelectorAll('[onclick*="confirm("]').forEach(element => {
+            const onclick = element.getAttribute('onclick');
+            
+            // Extract confirm message
+            const match = onclick.match(/confirm\(['"]([^'"]+)['"]\)/);
+            if (match) {
+                const message = match[1];
+                
+                // Remove original onclick
+                element.removeAttribute('onclick');
+                
+                // Add data attributes for our custom system
+                element.dataset.confirmMessage = message;
+                element.dataset.confirmType = 'default';
+                
+                // If it's a form button, attach to parent form
+                if (element.closest('form')) {
+                    const form = element.closest('form');
+                    this.attachFormConfirm(form, element);
+                } else {
+                    // For non-form buttons, attach directly
+                    element.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        const message = element.dataset.confirmMessage;
+                        const type = element.dataset.confirmType || 'default';
+                        
+                        this.showConfirm(message, type, () => {
+                            // Execute original action if there's a data-action
+                            if (element.dataset.actionUrl) {
+                                window.location.href = element.dataset.actionUrl;
+                            } else if (element.dataset.action) {
+                                // Handle custom actions
+                                this.handleCustomAction(element.dataset.action, element);
+                            }
+                        });
+                    });
+                }
+            }
+        });
+        
+        // Also replace form onsubmit handlers
+        document.querySelectorAll('form[onsubmit*="confirm("]').forEach(form => {
+            const onsubmit = form.getAttribute('onsubmit');
+            const match = onsubmit.match(/return confirm\(['"]([^'"]+)['"]\)/);
+            
+            if (match) {
+                const message = match[1];
+                
+                // Remove original onsubmit
+                form.removeAttribute('onsubmit');
+                
+                // Add data attributes
+                form.dataset.confirmMessage = message;
+                form.dataset.confirmType = 'default';
+                
+                // Find submit button
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    this.attachFormConfirm(form, submitBtn);
+                }
+            }
+        });
+    }
+    
+    // Helper function for custom actions
+    handleCustomAction(action, element) {
+        switch (action) {
+            case 'delete':
+                // Handle delete action
+                if (element.dataset.url) {
+                    fetch(element.dataset.url, { method: 'DELETE' })
+                        .then(response => response.json())
+                        .then(data => {
+                            this.showSuccess('Item deleted successfully!', 'success');
+                            if (element.closest('tr')) {
+                                element.closest('tr').remove();
+                            }
+                        })
+                        .catch(error => {
+                            this.showSuccess('Error deleting item', 'danger');
+                        });
+                }
+                break;
+            // Add more custom actions as needed
+        }
+    }
+}
+
+// Initialize custom confirm system when DOM loads
+let customConfirm;
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Check if modals exist on this page
+    const confirmModalExists = document.getElementById('customConfirmModal');
+    const successModalExists = document.getElementById('customSuccessModal');
+    
+    if (confirmModalExists && successModalExists) {
+        customConfirm = new CustomConfirm();
+    } else {
+        console.log('Custom confirm modals not found on this page. Using default browser confirm.');
+        // Still handle inline confirms with browser confirm
+        replaceBrowserConfirms();
+    }
+});
+
+// Fallback function for pages without custom modals
+function replaceBrowserConfirms() {
+    document.querySelectorAll('[onclick*="confirm("]').forEach(element => {
+        const onclick = element.getAttribute('onclick');
+        const match = onclick.match(/confirm\(['"]([^'"]+)['"]\)/);
+        
+        if (match) {
+            const message = match[1];
+            element.removeAttribute('onclick');
+            
+            element.addEventListener('click', (e) => {
+                if (element.type === 'submit' || element.closest('form')) {
+                    e.preventDefault();
+                    if (window.confirm(message)) {
+                        if (element.closest('form')) {
+                            element.closest('form').submit();
+                        }
+                    }
+                } else {
+                    e.preventDefault();
+                    if (window.confirm(message)) {
+                        // Handle other actions
+                        const href = element.getAttribute('href');
+                        if (href) window.location.href = href;
+                    }
+                }
+            });
+        }
+    });
+}
+
+// Global helper function that can be called from anywhere
+window.showConfirm = function(message, type = 'default', onConfirm = null, onCancel = null) {
+    if (window.customConfirm && window.customConfirm.isInitialized) {
+        window.customConfirm.showConfirm(message, type, onConfirm, onCancel);
+    } else {
+        // Fallback to browser confirm
+        const result = window.confirm(message);
+        if (result && onConfirm) onConfirm();
+        if (!result && onCancel) onCancel();
+    }
+};
+
+window.showSuccess = function(message, type = 'success') {
+    if (window.customConfirm && window.customConfirm.isInitialized) {
+        window.customConfirm.showSuccess(message, type);
+    } else {
+        alert(message);
+    }
+};

@@ -536,23 +536,26 @@ require_once __DIR__ . '/includes/header.php';
                                             </a>
                                             
                                             <?php if ($status == 'draft'): ?>
-                                            <form method="post" style="display: inline;">
-                                                <input type="hidden" name="action" value="send">
-                                                <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
-                                                <button type="submit" 
-                                                        class="campaign-action-btn campaign-action-send"
-                                                        data-tooltip="Send Campaign"
-                                                        onclick="return confirm('Send this campaign to all pending recipients?')">
-                                                    <i class="fas fa-paper-plane"></i>
-                                                </button>
-                                            </form>
+                                                <form method="post" style="display: inline;" data-confirm-type="primary">
+                                                    <input type="hidden" name="action" value="send">
+                                                    <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
+                                                    <button type="submit" 
+                                                            class="campaign-action-btn campaign-action-send"
+                                                            data-tooltip="Send Campaign"
+                                                            data-confirm-message="Send this campaign to all pending recipients?"
+                                                            data-confirm-type="primary">
+                                                        <i class="fas fa-paper-plane"></i>
+                                                    </button>
+                                                </form>
                                             <?php elseif ($status == 'running'): ?>
-                                            <form method="post" style="display: inline;">
+                                            <form method="post" style="display: inline;" data-confirm-type="warning">
                                                 <input type="hidden" name="action" value="pause">
                                                 <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
                                                 <button type="submit" 
                                                         class="campaign-action-btn campaign-action-warning"
-                                                        data-tooltip="Pause Campaign">
+                                                        data-tooltip="Pause Campaign"
+                                                        data-confirm-message="Pause this campaign? No new emails will be sent until resumed."
+                                                        data-confirm-type="warning">
                                                     <i class="fas fa-pause"></i>
                                                 </button>
                                             </form>
@@ -588,13 +591,14 @@ require_once __DIR__ . '/includes/header.php';
                                                     </button>
                                                 </form>
                                             <?php endif; ?>
-                                            
-                                            <form method="post" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this campaign? This action cannot be undone.')">
+                                            <form method="post" style="display: inline;" data-confirm-type="danger">
                                                 <input type="hidden" name="action" value="delete">
                                                 <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
                                                 <button type="submit" 
                                                         class="campaign-action-btn campaign-action-delete"
-                                                        data-tooltip="Delete Campaign">
+                                                        data-tooltip="Delete Campaign"
+                                                        data-confirm-message="Are you sure you want to delete this campaign? This action cannot be undone."
+                                                        data-confirm-type="danger">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </form>
@@ -674,7 +678,8 @@ require_once __DIR__ . '/includes/header.php';
                 <button class="campaign-modal-close">&times;</button>
             </div>
             
-            <form method="post" action="<?php echo $_SERVER['PHP_SELF']; ?>" data-campaign-form style="background-color: cornflowerblue">
+            <form method="post" action="<?php echo $_SERVER['PHP_SELF']; ?>" data-campaign-form style="background-color: #00bfff
+">
                 <div class="campaign-modal-body">
                     <input type="hidden" name="action" value="create">
                     
@@ -843,6 +848,7 @@ require_once __DIR__ . '/includes/header.php';
             </form>
         </div>
     </div>
+    <?php require_once __DIR__ . '/includes/confirmation-modal.php'; ?>
     <?php require_once __DIR__ . '/includes/login-modal.php'; ?>
     <?php require_once __DIR__ . '/includes/footer.php' ?>
 
