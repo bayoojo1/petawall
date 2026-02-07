@@ -1602,3 +1602,37 @@ input.error:focus {
     transform: translateY(-1px);
     box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
 }
+
+/* Loading spinner */
+.fa-spinner {
+    animation: fa-spin 1s infinite linear;
+}
+
+@keyframes fa-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Disabled button state */
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Type-specific confirm buttons */
+.confirm-btn-confirm.confirm-btn-primary {
+    background: linear-gradient(135deg, #4361ee 0%, #3a56d4 100%);
+}
+
+.confirm-btn-confirm.confirm-btn-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+}
+
+.confirm-btn-confirm.confirm-btn-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+    color: #212529;
+}
+
+.confirm-btn-confirm.confirm-btn-success {
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+}

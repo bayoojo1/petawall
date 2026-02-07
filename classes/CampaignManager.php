@@ -888,7 +888,7 @@ class CampaignManager {
                 FROM phishing_campaign_recipients r
                 JOIN phishing_campaigns c ON r.phishing_campaign_id = c.phishing_campaign_id
                 WHERE r.tracking_token = ? 
-                AND r.status IN ('sent', 'pending')
+                AND r.status IN ('sent', 'pending', 'clicked', 'opened')
             ");
             
             $stmt->execute([$trackingToken]);
@@ -917,7 +917,7 @@ class CampaignManager {
             
             // Check if already opened in last 30 minutes
             if ($recipient['opened_at'] && 
-                strtotime($recipient['opened_at']) > time() - 1800) {
+                strtotime($recipient['opened_at']) > time() - 300) {
                 // Just update count
                 $this->incrementOpenCount($recipient['id']);
                 $this->updateCampaignMetrics($recipient['phishing_campaign_id'], 'total_opened', 1);
@@ -1287,100 +1287,6 @@ class CampaignManager {
             return ['success' => false, 'redirect_url' => null];
         }
     }
-
-    // public function trackLinkClick($linkToken) {
-    //     try {
-    //         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-    //         $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-            
-    //         error_log("Click attempt - Token: {$linkToken}, UA: " . substr($userAgent, 0, 100));
-            
-    //         // Check if automated scan
-    //         $isAutomated = $this->isAutomatedScan($userAgent, $ip);
-            
-    //         if ($isAutomated) {
-    //             error_log("AUTOMATED CLICK SCAN - NOT counting");
-                
-    //             // Log as scan event
-    //             $this->logScanEventByLinkToken($linkToken, [
-    //                 'ip_address' => $ip,
-    //                 'user_agent' => $userAgent,
-    //                 'scan_type' => 'automated_link_scan'
-    //             ]);
-                
-    //             // Get URL for redirect but don't count as click
-    //             $url = $this->getOriginalUrl($linkToken);
-    //             return [
-    //                 'success' => true,
-    //                 'redirect_url' => $url,
-    //                 'is_automated' => true
-    //             ];
-    //         }
-            
-    //         // REAL CLICK - track it
-    //         error_log("REAL CLICK - tracking now");
-            
-    //         // Get link details
-    //         $stmt = $this->db->prepare("
-    //             SELECT l.*, r.id as recipient_id, r.phishing_campaign_id, r.status, r.email
-    //             FROM phishing_campaign_links l
-    //             JOIN phishing_campaign_recipients r ON l.recipient_id = r.id
-    //             WHERE l.tracking_token = ?
-    //         ");
-            
-    //         $stmt->execute([$linkToken]);
-    //         $link = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-    //         if (!$link) {
-    //             error_log("Link not found for token: {$linkToken}");
-    //             return ['success' => false, 'redirect_url' => null];
-    //         }
-            
-    //         $this->db->beginTransaction();
-            
-    //         // Update recipient if first click
-    //         if ($link['status'] != 'clicked') {
-    //             $this->updateRecipientStatus($link['recipient_id'], 'clicked', [
-    //                 'clicked_at' => date('Y-m-d H:i:s'),
-    //                 'click_count' => 1,
-    //                 'click_confirmed' => 1
-    //             ]);
-                
-    //             $this->updateCampaignMetrics($link['phishing_campaign_id'], 'unique_clicks', 1);
-    //         } else {
-    //             $this->incrementClickCount($link['recipient_id']);
-    //         }
-            
-    //         // Update link and campaign
-    //         $this->updateLinkClickCount($link['id']);
-    //         $this->updateCampaignMetrics($link['phishing_campaign_id'], 'total_clicked', 1);
-            
-    //         // Log tracking
-    //         $this->logTrackingEvent($link['recipient_id'], $link['phishing_campaign_id'], 'click', [
-    //             'ip_address' => $ip,
-    //             'user_agent' => $userAgent,
-    //             'link_url' => $link['original_url']
-    //         ]);
-            
-    //         $this->db->commit();
-            
-    //         // Recalculate rates
-    //         $this->recalculateCampaignRates($link['phishing_campaign_id']);
-            
-    //         return [
-    //             'success' => true,
-    //             'redirect_url' => $link['original_url'],
-    //             'is_automated' => false
-    //         ];
-            
-    //     } catch (Exception $e) {
-    //         if ($this->db->inTransaction()) {
-    //             $this->db->rollBack();
-    //         }
-    //         error_log("Track link click error: " . $e->getMessage());
-    //         return ['success' => false, 'redirect_url' => null];
-    //     }
-    // }
 
     private function logScanEventByLinkToken($linkToken, $data = []) {
         try {
@@ -2937,133 +2843,6 @@ class CampaignManager {
             return ['error' => $e->getMessage()];
         }
     }
-
-    // public function isAutomatedScan($userAgent, $ip) {
-    //     // Normalize
-    //     $ua = strtolower($userAgent);
-
-    //     // LAYER 0: Quick Microsoft scanner check
-    //     if ($this->isMicrosoftScanningRange($ip)) {
-    //         // Immediate extra scrutiny for Microsoft IPs
-    //         if ($this->isMicrosoftScannerPattern($userAgent, $ip)) {
-    //             error_log("Layer 0: Microsoft scanner pattern detected");
-    //             return true;
-    //         }
-    //     }
-        
-    //     // === LAYER 1: DEFINITE SCANNERS (always block) ===
-        
-    //     // 1A. Google Image Proxy (for Gmail)
-    //     if (strpos($ua, 'googleimageproxy') !== false || 
-    //         strpos($ua, 'via ggpht.com') !== false) {
-    //         error_log("Layer 1A: Google Image Proxy detected");
-    //         $this->addToScanningIPs($ip, 'google_image_proxy');
-    //         return true;
-    //     }
-        
-    //     // 1B. Empty/short user agents
-    //     if (empty($ua) || strlen($ua) < 20) {
-    //         error_log("Layer 1B: Empty/short UA: " . strlen($ua) . " chars");
-    //         return true;
-    //     }
-        
-    //     // 1C. Known scanner patterns
-    //     $definiteScannerPatterns = [
-    //         'security.*scan',
-    //         'virus.*scan',
-    //         'spam.*scan',
-    //         'content.*filter',
-    //         'safelinks',
-    //         'proofpoint',
-    //         'mimecast',
-    //         'barracuda',
-    //         'symantec',
-    //         'mcafee',
-    //         'trendmicro',
-    //         'threat',
-    //         'bot[^a-z]',     // bot but not "both", "bottom"
-    //         'crawler',
-    //         'spider',
-    //         'scanner[^a-z]'  // scanner but not "scanners"
-    //     ];
-        
-    //     foreach ($definiteScannerPatterns as $pattern) {
-    //         if (preg_match('/' . preg_quote($pattern, '/') . '/i', $ua)) {
-    //             error_log("Layer 1C: Definite scanner pattern: {$pattern}");
-    //             $this->addToScanningIPs($ip, 'scanner_pattern');
-    //             return true;
-    //         }
-    //     }
-        
-    //     // === LAYER 2: EMAIL CLIENT DETECTION (allow real, block automated) ===
-        
-    //     // 2A. Check for Outlook desktop app (ALLOW this)
-    //     if (strpos($ua, 'oneoutlook') !== false) {
-    //         error_log("Layer 2A: Outlook desktop app detected - ALLOWING");
-    //         return false; // This is a real email client
-    //     }
-        
-    //     // 2B. Check for suspicious email client patterns (automated scans)
-    //     $suspiciousEmailPatterns = [
-    //         'chrome\/109\.0\.0\.0',      // Outlook scanner pattern
-    //         'chrome\/142\.0\.7444\.1',    // Another scanner pattern
-    //         'outlook.*safelinks',
-    //         'exchange.*protection',
-    //         'office.*protection',
-    //         'microsoft.*safelinks'
-    //     ];
-        
-    //     foreach ($suspiciousEmailPatterns as $pattern) {
-    //         if (preg_match('/' . preg_quote($pattern, '/') . '/i', $ua)) {
-    //             error_log("Layer 2B: Suspicious email pattern: {$pattern}");
-    //             $this->addToScanningIPs($ip, 'email_scanner');
-    //             return true;
-    //         }
-    //     }
-        
-    //     // === LAYER 3: IP-BASED CHECKS ===
-        
-    //     // 3A. Check known scanning IPs database (but allow if it's a real browser)
-    //     if ($this->isKnownScanningIP($ip)) {
-    //         // Double-check: if it looks like a real user, allow it
-    //         if ($this->isLikelyRealUser($userAgent, $ip)) {
-    //             error_log("Layer 3A: Known IP but looks like real user - ALLOWING");
-    //             return false;
-    //         }
-    //         error_log("Layer 3A: Known scanning IP: {$ip}");
-    //         return true;
-    //     }
-        
-    //     // 3B. Check Microsoft scanning ranges
-    //     if ($this->isMicrosoftScanningRange($ip)) {
-    //         // Check if this is likely a real user from Microsoft
-    //         if (!$this->isLikelyRealUserFromMicrosoft($userAgent, $ip)) {
-    //             error_log("Layer 3B: Microsoft IP not real user");
-    //             $this->addToScanningIPs($ip, 'microsoft_scanner');
-    //             return true;
-    //         }
-    //     }
-        
-    //     // 3C. Check for rapid requests (automated behavior)
-    //     if ($this->hasRapidRequests($ip)) {
-    //         error_log("Layer 3C: Rapid requests from IP: {$ip}");
-    //         $this->addToScanningIPs($ip, 'rapid_requests');
-    //         return true;
-    //     }
-        
-    //     // === LAYER 4: REAL USER VERIFICATION ===
-        
-    //     // If it passes all the above checks, verify it's a real user
-    //     if (!$this->isLikelyRealUser($userAgent, $ip)) {
-    //         error_log("Layer 4: Failed real user verification");
-    //         $this->addToScanningIPs($ip, 'failed_verification');
-    //         return true;
-    //     }
-        
-    //     // Passed all checks - this is a real user
-    //     error_log("All checks passed: Real user from IP: {$ip}");
-    //     return false;
-    // }
 
     public function isAutomatedScan($userAgent, $ip) {
         // First do a quick check for definite scanners

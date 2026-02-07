@@ -535,70 +535,74 @@ require_once __DIR__ . '/includes/header.php';
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                             
-                                            <?php if ($status == 'draft'): ?>
-                                                <form method="post" style="display: inline;" data-confirm-type="primary">
+                                           <?php if ($status == 'draft'): ?>
+                                                <form method="post" style="display: inline;" 
+                                                    data-confirm-message="Send this campaign to all pending recipients?"
+                                                    data-confirm-type="primary">
                                                     <input type="hidden" name="action" value="send">
                                                     <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
                                                     <button type="submit" 
                                                             class="campaign-action-btn campaign-action-send"
-                                                            data-tooltip="Send Campaign"
-                                                            data-confirm-message="Send this campaign to all pending recipients?"
-                                                            data-confirm-type="primary">
+                                                            data-tooltip="Send Campaign">
                                                         <i class="fas fa-paper-plane"></i>
                                                     </button>
                                                 </form>
                                             <?php elseif ($status == 'running'): ?>
-                                            <form method="post" style="display: inline;" data-confirm-type="warning">
-                                                <input type="hidden" name="action" value="pause">
-                                                <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
-                                                <button type="submit" 
-                                                        class="campaign-action-btn campaign-action-warning"
-                                                        data-tooltip="Pause Campaign"
-                                                        data-confirm-message="Pause this campaign? No new emails will be sent until resumed."
-                                                        data-confirm-type="warning">
-                                                    <i class="fas fa-pause"></i>
-                                                </button>
-                                            </form>
+                                                <form method="post" style="display: inline;" 
+                                                    data-confirm-message="Pause this campaign? No new emails will be sent until resumed."
+                                                    data-confirm-type="warning">
+                                                    <input type="hidden" name="action" value="pause">
+                                                    <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
+                                                    <button type="submit" 
+                                                            class="campaign-action-btn campaign-action-warning"
+                                                            data-tooltip="Pause Campaign">
+                                                        <i class="fas fa-pause"></i>
+                                                    </button>
+                                                </form>
                                             <?php elseif ($status == 'paused'): ?>
-                                            <form method="post" style="display: inline;">
-                                                <input type="hidden" name="action" value="resume">
-                                                <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
-                                                <button type="submit" 
-                                                        class="campaign-action-btn campaign-action-success"
-                                                        data-tooltip="Resume Campaign">
-                                                    <i class="fas fa-play"></i>
-                                                </button>
-                                            </form>
-                                            <form method="post" style="display: inline;">
-                                                <input type="hidden" name="action" value="stop">
-                                                <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
-                                                <button type="submit" 
-                                                        class="campaign-action-btn campaign-action-danger"
-                                                        data-tooltip="Stop Campaign"
-                                                        onclick="return confirm('Stop this campaign? This will mark it as completed.')">
-                                                    <i class="fas fa-stop"></i>
-                                                </button>
-                                            </form>
+                                                <form method="post" style="display: inline;" 
+                                                    data-confirm-message="Resume this campaign?"
+                                                    data-confirm-type="success">
+                                                    <input type="hidden" name="action" value="resume">
+                                                    <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
+                                                    <button type="submit" 
+                                                            class="campaign-action-btn campaign-action-success"
+                                                            data-tooltip="Resume Campaign">
+                                                        <i class="fas fa-play"></i>
+                                                    </button>
+                                                </form>
+                                                <form method="post" style="display: inline;" 
+                                                    data-confirm-message="Stop this campaign? This will mark it as completed."
+                                                    data-confirm-type="danger">
+                                                    <input type="hidden" name="action" value="stop">
+                                                    <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
+                                                    <button type="submit" 
+                                                            class="campaign-action-btn campaign-action-danger"
+                                                            data-tooltip="Stop Campaign">
+                                                        <i class="fas fa-stop"></i>
+                                                    </button>
+                                                </form>
                                             <?php elseif ($status == 'completed' && $pendingCount > 0): ?>
-                                                <form method="post" style="display: inline;">
+                                                <form method="post" style="display: inline;" 
+                                                    data-confirm-message="Retry sending to <?php echo $pendingCount; ?> recipients?"
+                                                    data-confirm-type="success">
                                                     <input type="hidden" name="action" value="retry_failed">
                                                     <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
                                                     <button type="submit" 
                                                             class="campaign-action-btn campaign-action-success"
-                                                            data-tooltip="Retry Failed Recipients"
-                                                            onclick="return confirm('Retry sending to <?php echo $pendingCount; ?> recipients?')">
+                                                            data-tooltip="Retry Failed Recipients">
                                                         <i class="fas fa-redo"></i>
                                                     </button>
                                                 </form>
                                             <?php endif; ?>
-                                            <form method="post" style="display: inline;" data-confirm-type="danger">
+                                            <form method="post" style="display: inline;"
+                                            data-confirm-message="Are you sure you want to delete this campaign? This action cannot be undone."
+                                            data-confirm-type="danger">
                                                 <input type="hidden" name="action" value="delete">
                                                 <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
                                                 <button type="submit" 
                                                         class="campaign-action-btn campaign-action-delete"
-                                                        data-tooltip="Delete Campaign"
-                                                        data-confirm-message="Are you sure you want to delete this campaign? This action cannot be undone."
-                                                        data-confirm-type="danger">
+                                                        data-tooltip="Delete Campaign">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </form>
@@ -958,6 +962,7 @@ require_once __DIR__ . '/includes/header.php';
     </script>
     <!-- JavaScript -->
     <script src="assets/js/campaigns.js"></script>
+    <script src="assets/js/custom-confirm.js"></script>
     <script src="assets/js/nav.js"></script>
     <script src="assets/js/auth.js"></script>
 
