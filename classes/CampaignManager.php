@@ -1599,7 +1599,7 @@ class CampaignManager {
             SELECT COUNT(*)
             FROM phishing_campaign_recipients
             WHERE phishing_campaign_id = ?
-            AND status IN ('pending', 'bounced', 'sent')
+            AND status IN ('pending', 'bounced')
         ");
 
         $stmt->execute([$campaignId]);

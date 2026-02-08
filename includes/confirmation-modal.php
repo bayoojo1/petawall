@@ -15,20 +15,3 @@
         </div>
     </div>
 </div>
-
-<!-- Success Modal -->
-<div id="customSuccessModal" class="campaign-confirm-modal">
-    <div class="confirm-modal-content success">
-        <div class="confirm-modal-header success">
-            <i class="fas fa-check-circle"></i>
-            <h3 class="confirm-modal-title">Success!</h3>
-            <button class="confirm-modal-close">&times;</button>
-        </div>
-        <div class="confirm-modal-body">
-            <p id="successModalMessage">Operation completed successfully!</p>
-        </div>
-        <div class="confirm-modal-footer">
-            <button class="confirm-btn confirm-btn-ok">OK</button>
-        </div>
-    </div>
-</div>
