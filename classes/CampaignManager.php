@@ -1606,7 +1606,23 @@ class CampaignManager {
         return $stmt->fetchColumn();
     }
 
-
+    public function getCompletedCampaign($campaignId) {
+        $stmt = $this->db->prepare("
+            SELECT 
+                COUNT(CASE WHEN status = 'clicked' THEN 1 END) as clicked_count,
+                COUNT(*) as total_count
+            FROM phishing_campaign_recipients
+            WHERE phishing_campaign_id = ?
+        ");
+        
+        $stmt->execute([$campaignId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        return [
+            'clicked_count' => (int)$result['clicked_count'],
+            'total_count' => (int)$result['total_count']
+        ];
+    }
     
     /**
      * Get link statistics
