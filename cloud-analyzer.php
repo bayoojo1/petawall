@@ -17,11 +17,11 @@ if (!$auth->isLoggedIn()) {
 $accessControl->requireToolAccess($toolName, 'plan.php');
 
 //include 'includes/header.php';
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/header-new.php';
 ?>
 <body>
     <!-- Header -->
-    <?php require_once __DIR__ . '/includes/nav.php' ?>
+    <?php require_once __DIR__ . '/includes/nav-new.php' ?>
     
     <!-- Cloud Platform Analyzer Tool -->
     <div class="container">

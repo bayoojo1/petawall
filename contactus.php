@@ -1,10 +1,11 @@
 <?php 
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/header-new.php';
 ?>
 <body>
     <!-- Header -->
-    <?php require_once __DIR__ . '/includes/nav.php' ?>
+    <?php require_once __DIR__ . '/includes/nav-new.php' ?>
 <!-- Contact Hero Section -->
+ <div class="gap"></div>
 <section class="contact-hero">
     <div class="container">
         <h1>Contact Us</h1>
@@ -26,7 +27,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                     <div class="contact-details">
                         <h3>Email Us</h3>
-                        <p>enquiries@petawall.com</p>
+                        <p>support@petawall.com</p>
                         <p>We'll respond within 24 hours</p>
                     </div>
                 </div>
@@ -67,27 +68,93 @@ require_once __DIR__ . '/includes/header.php';
             </div>
             
             <!-- Contact Form -->
+            <!-- Contact Form -->
             <div class="contact-form-container">
                 <h2>Send Us a Message</h2>
-                <form class="contact-form">
+                
+                <?php if (isset($_SESSION['contact_success'])): ?>
+                <div class="alert alert-success">
+                    <?php echo htmlspecialchars($_SESSION['contact_success']); ?>
+                    <?php unset($_SESSION['contact_success']); ?>
+                </div>
+                <?php endif; ?>
+                
+                <?php if (isset($_SESSION['contact_error'])): ?>
+                <div class="alert alert-danger">
+                    <?php echo htmlspecialchars($_SESSION['contact_error']); ?>
+                    <?php unset($_SESSION['contact_error']); ?>
+                </div>
+                <?php endif; ?>
+                
+                <?php
+                $form_data = $_SESSION['contact_form_data'] ?? [];
+                $errors = $_SESSION['contact_errors'] ?? [];
+                unset($_SESSION['contact_form_data'], $_SESSION['contact_errors']);
+                
+                // Generate CAPTCHA question
+                require_once __DIR__ . '/classes/SimpleCaptcha.php';
+                $captcha = new SimpleCaptcha();
+                $captcha_question = $captcha->generateMathQuestion();
+                ?>
+                
+                <form class="contact-form" method="POST" action="contact-submit.php">
                     <div class="form-group">
-                        <label for="name">Full Name</label>
-                        <input type="text" id="name" class="form-control" placeholder="Enter your full name" required>
+                        <label class="formgrp" for="name">Full Name *</label>
+                        <input type="text" id="name" name="name" class="form-control <?php echo isset($errors['name']) ? 'error' : ''; ?>" 
+                            placeholder="Enter your full name" required
+                            value="<?php echo htmlspecialchars($form_data['name'] ?? ''); ?>">
+                        <?php if (isset($errors['name'])): ?>
+                        <div class="error-text"><?php echo htmlspecialchars($errors['name']); ?></div>
+                        <?php endif; ?>
                     </div>
                     
                     <div class="form-group">
-                        <label for="email">Email Address</label>
-                        <input type="email" id="email" class="form-control" placeholder="Enter your email address" required>
+                        <label class="formgrp" for="email">Email Address *</label>
+                        <input type="email" id="email" name="email" class="form-control <?php echo isset($errors['email']) ? 'error' : ''; ?>" 
+                            placeholder="Enter your email address" required
+                            value="<?php echo htmlspecialchars($form_data['email'] ?? ''); ?>">
+                        <?php if (isset($errors['email'])): ?>
+                        <div class="error-text"><?php echo htmlspecialchars($errors['email']); ?></div>
+                        <?php endif; ?>
                     </div>
                     
                     <div class="form-group">
-                        <label for="subject">Subject</label>
-                        <input type="text" id="subject" class="form-control" placeholder="What is this regarding?" required>
+                        <label class="formgrp" for="subject">Subject *</label>
+                        <input type="text" id="subject" name="subject" class="form-control <?php echo isset($errors['subject']) ? 'error' : ''; ?>" 
+                            placeholder="What is this regarding?" required
+                            value="<?php echo htmlspecialchars($form_data['subject'] ?? ''); ?>">
+                        <?php if (isset($errors['subject'])): ?>
+                        <div class="error-text"><?php echo htmlspecialchars($errors['subject']); ?></div>
+                        <?php endif; ?>
                     </div>
                     
                     <div class="form-group">
-                        <label for="message">Message</label>
-                        <textarea id="message" class="form-control" placeholder="Tell us how we can help you..." required></textarea>
+                        <label class="formgrp" for="message">Message *</label>
+                        <textarea id="message" name="message" class="form-control <?php echo isset($errors['message']) ? 'error' : ''; ?>" 
+                                placeholder="Tell us how we can help you..." rows="6" required><?php echo htmlspecialchars($form_data['message'] ?? ''); ?></textarea>
+                        <?php if (isset($errors['message'])): ?>
+                        <div class="error-text"><?php echo htmlspecialchars($errors['message']); ?></div>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <!-- CAPTCHA -->
+                    <div class="form-group captcha-group">
+                        <label class="formgrp" for="captcha">Security Check *</label>
+                        <div class="captcha-question">
+                            <?php echo htmlspecialchars($captcha_question); ?>
+                        </div>
+                        <input type="text" id="captcha" name="captcha" class="form-control <?php echo isset($errors['captcha']) ? 'error' : ''; ?>" 
+                            placeholder="Enter your answer" required>
+                        <?php if (isset($errors['captcha'])): ?>
+                        <div class="error-text"><?php echo htmlspecialchars($errors['captcha']); ?></div>
+                        <?php endif; ?>
+                        <small class="form-text">Please answer the question to prove you're human</small>
+                    </div>
+                    
+                    <!-- Honeypot -->
+                    <div class="honeypot" style="display: none;">
+                        <label for="website">Leave this field empty</label>
+                        <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
                     </div>
                     
                     <button type="submit" class="btn-submit">Send Message</button>
@@ -144,11 +211,11 @@ require_once __DIR__ . '/includes/header.php';
     <!-- Page Footer -->
      <?php require_once __DIR__ . '/includes/footer.php' ?>
 
-     <link rel="stylesheet" href="assets/styles/contactus.css">
-     <script src="assets/js/dashboard.js"></script>
+    <script src="assets/js/dashboard.js"></script>
     <script src="assets/js/contactus.js"></script>
     <script src="assets/js/nav.js"></script>
     <script src="assets/js/auth.js"></script>
     <link rel="stylesheet" href="assets/styles/modal.css">
+    <link rel="stylesheet" href="assets/styles/contactus.css">
 </body>
 </html>

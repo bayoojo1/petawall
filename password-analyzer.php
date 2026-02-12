@@ -17,12 +17,13 @@ if (!$auth->isLoggedIn()) {
 $accessControl->requireToolAccess($toolName, 'plan.php');
 
 
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/header-new.php';
 ?>
 <body>
     <!-- Header -->
-    <?php require_once __DIR__ . '/includes/nav.php'; ?>
+    <?php require_once __DIR__ . '/includes/nav-new.php'; ?>
 <!-- Password Analyzer Tool -->
+  <div class="gap"></div>
     <div class="container">
         <div class="tool-page">
             <a href="index.php" class="back-btn">

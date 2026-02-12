@@ -225,8 +225,8 @@ if ($subscriptionInfo) {
 }
 
 // Include header and navigation
-require_once __DIR__ . '/includes/header.php';
-require_once __DIR__ . '/includes/nav.php';
+require_once __DIR__ . '/includes/header-new.php';
+require_once __DIR__ . '/includes/nav-new.php';
 ?>
 
 <div class="container success-container">

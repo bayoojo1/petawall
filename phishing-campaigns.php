@@ -295,12 +295,12 @@ $excludedOrganizations = [
     'Mailfence Company',
 ];
 
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/header-new.php';
 ?>
 <body>
     <!-- Navigation -->
-    <?php require_once __DIR__ . '/includes/nav.php' ?>
-    
+    <?php require_once __DIR__ . '/includes/nav-new.php' ?>
+    <div class="gap"></div>
     <!-- Main Content -->
     <div class="campaign-container">
         <!-- Debug Info (remove in production) -->
@@ -553,42 +553,7 @@ require_once __DIR__ . '/includes/header.php';
                                                         <i class="fas fa-paper-plane"></i>
                                                     </button>
                                                 </form>
-                                            <?php elseif ($status == 'running'): ?>
-                                                <!-- <form method="post" style="display: inline;" 
-                                                    data-confirm-message="Pause this campaign? No new emails will be sent until resumed."
-                                                    data-confirm-type="warning">
-                                                    <input type="hidden" name="action" value="pause">
-                                                    <input type="hidden" name="phishing_campaign_id" value="<?php //echo $campaign['phishing_campaign_id']; ?>">
-                                                    <button type="submit" 
-                                                            class="campaign-action-btn campaign-action-warning"
-                                                            data-tooltip="Pause Campaign">
-                                                        <i class="fas fa-pause"></i>
-                                                    </button>
-                                                </form> -->
-                                            <?php //elseif ($status == 'paused'): ?>
-                                                <!-- <form method="post" style="display: inline;" 
-                                                    data-confirm-message="Resume this campaign?"
-                                                    data-confirm-type="success">
-                                                    <input type="hidden" name="action" value="resume">
-                                                    <input type="hidden" name="phishing_campaign_id" value="<?php //echo $campaign['phishing_campaign_id']; ?>">
-                                                    <button type="submit" 
-                                                            class="campaign-action-btn campaign-action-success"
-                                                            data-tooltip="Resume Campaign">
-                                                        <i class="fas fa-play"></i>
-                                                    </button>
-                                                </form> -->
-                                                <form method="post" style="display: inline;" 
-                                                    data-confirm-message="Stop this campaign? This will mark it as completed."
-                                                    data-confirm-type="danger">
-                                                    <input type="hidden" name="action" value="stop">
-                                                    <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
-                                                    <button type="submit" 
-                                                            class="campaign-action-btn campaign-action-danger"
-                                                            data-tooltip="Stop Campaign">
-                                                        <i class="fas fa-stop"></i>
-                                                    </button>
-                                                </form>
-                                            <?php elseif ($status == 'completed' && $pendingCount > 0): ?>
+                                            <?php elseif ($status !== 'completed' && $pendingCount > 0): ?>
                                                 <form method="post" style="display: inline;" 
                                                     data-confirm-message="Retry sending to <?php echo $pendingCount; ?> recipients?"
                                                     data-confirm-type="success">
@@ -598,6 +563,18 @@ require_once __DIR__ . '/includes/header.php';
                                                             class="campaign-action-btn campaign-action-success"
                                                             data-tooltip="Retry Failed Recipients">
                                                         <i class="fas fa-redo"></i>
+                                                    </button>
+                                                </form>
+                                           <?php elseif ($status == 'running'): ?>
+                                                <form method="post" style="display: inline;" 
+                                                    data-confirm-message="Stop this campaign? This will mark it as completed."
+                                                    data-confirm-type="danger">
+                                                    <input type="hidden" name="action" value="stop">
+                                                    <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
+                                                    <button type="submit" 
+                                                            class="campaign-action-btn campaign-action-danger"
+                                                            data-tooltip="Stop Campaign">
+                                                        <i class="fas fa-stop"></i>
                                                     </button>
                                                 </form>
                                             <?php endif; ?>

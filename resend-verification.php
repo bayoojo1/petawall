@@ -82,11 +82,11 @@ if (isset($_SESSION['message']) && isset($_SESSION['message_type'])) {
     unset($_SESSION['message_type']);
 }
 
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/header-new.php';
 ?>
 <body>
      <!-- Header -->
-    <?php require_once __DIR__ . '/includes/nav.php'; ?>
+    <?php require_once __DIR__ . '/includes/nav-new.php'; ?>
     <div class="resend-parent-container">
         <div class="resend-container">
             <h2>Resend Verification Email</h2>

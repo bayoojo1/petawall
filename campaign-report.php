@@ -93,13 +93,13 @@ if ($export) {
     }
 }
 
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/header-new.php';
 ?>
 
 <body>
     <!-- Header -->
-    <?php require_once __DIR__ . '/includes/nav.php' ?>
-    
+    <?php require_once __DIR__ . '/includes/nav-new.php' ?>
+    <div class="gap"></div>
     <!-- Main Content -->
     <div class="container">
         <!-- Report Header -->
@@ -117,10 +117,10 @@ require_once __DIR__ . '/includes/header.php';
                     <a href="phishing-campaigns.php" class="btn btn-outline-secondary">
                         <i class="fas fa-arrow-left"></i> Back
                     </a>
-                    <a href="?id=<?php echo $campaignId; ?>&export=pdf" class="btn btn-danger">
+                    <a href="?phishing_campaign_id=<?php echo $campaignId; ?>&export=pdf" class="btn btn-danger">
                         <i class="fas fa-file-pdf"></i> PDF
                     </a>
-                    <a href="?id=<?php echo $campaignId; ?>&export=csv" class="btn btn-success">
+                    <a href="?phishing_campaign_id=<?php echo $campaignId; ?>&export=csv" class="btn btn-success">
                         <i class="fas fa-file-csv"></i> CSV
                     </a>
                 </div>

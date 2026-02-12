@@ -1,6 +1,6 @@
 <?php 
 require_once __DIR__ . '/classes/NotificationManager.php';
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/header-new.php';
 
 // Check if user is logged in
 if (!$isLoggedIn) {
@@ -26,8 +26,8 @@ $userCreatedDate = $user['created_at'];
 $activeTab = $_GET['tab'] ?? 'overview';
 ?>
 <!-- Header -->
-<?php require_once __DIR__ . '/includes/nav.php'; ?>
-
+<?php require_once __DIR__ . '/includes/nav-new.php'; ?>
+<div class="gap"></div>
 <!-- Profile Content -->
 <div class="profile-container">
     <div class="profile-sidebar">

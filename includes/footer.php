@@ -4,7 +4,7 @@
         <div class="footer-content">
             <div class="footer-section">
                 <div class="footer-logo">
-                    <img src="assets/img/logo.svg" alt="Petawall Logo">
+                    <a href="index.php" class="logo footer-logo">Peta<span>wall</span></a>
                 </div>
                 <p class="footer-description">
                     Comprehensive cybersecurity platform providing advanced threat detection, 

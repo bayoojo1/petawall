@@ -11,61 +11,16 @@
     --box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
 body {
     background-color: #f1f5f9;
     color: var(--dark-color);
     line-height: 1.6;
 }
 
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 20px;
-}
-
-/* Header Styles */
-header {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    color: white;
-    padding: 1.5rem 0;
-    box-shadow: var(--box-shadow);
-    margin-bottom: 2rem;
-}
-
 .header-content {
     display: flex;
     justify-content: space-between;
     align-items: center;
-}
-
-.logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.logo i {
-    font-size: 2rem;
-    color: white;
-}
-
-.logo h1 {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: white;
-}
-
-.logo p {
-    font-size: 0.9rem;
-    color: #cbd5e0;
-    opacity: 0.9;
 }
 
 .auth-buttons {
@@ -403,13 +358,6 @@ header {
 
 .footer-section:first-child {
     max-width: 300px;
-}
-
-.footer-logo {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
 }
 
 .logo-text {
@@ -1123,15 +1071,8 @@ header {
 
 /* Prevent horizontal scrolling */
 html, body {
-    overflow-x: hidden;
-    max-width: 100%;
+    /* overflow-x: hidden;
+    max-width: 100%; */
     scroll-behavior: smooth;
     
-}
-
-.container {
-    max-width: 100%;
-    padding-left: 1rem;
-    padding-right: 1rem;
-    position: relative;
 }

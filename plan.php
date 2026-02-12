@@ -57,10 +57,10 @@ usort($displayPlans, function($a, $b) {
     return $order[$a['role']] <=> $order[$b['role']];
 });
 
-require_once __DIR__ . '/includes/header.php';
-require_once __DIR__ . '/includes/nav.php';
+require_once __DIR__ . '/includes/header-new.php';
+require_once __DIR__ . '/includes/nav-new.php';
 ?>
-
+<div class="gap"></div>
 <div class="container upgrade-container">
     <div class="upgrade-header">
         <?php if ($auth->isLoggedIn()): ?>

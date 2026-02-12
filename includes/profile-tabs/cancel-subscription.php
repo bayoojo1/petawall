@@ -224,11 +224,10 @@ $daysRemaining = $hasActiveSubscription ? $stripeManager->getDaysRemaining($user
                         </h5>
                         <p style="margin: 0; color: #666; line-height: 1.6;">
                             Cancel your subscription immediately. Your access to premium features will end right away.
-                            You may be eligible for a partial refund depending on your usage.
                         </p>
                         <div style="margin-top: 15px; padding: 10px; background: #f8d7da; border-radius: 5px;">
                             <i class="fas fa-exclamation-triangle" style="color: #dc3545; margin-right: 8px;"></i>
-                            <strong>Warning:</strong> Immediate loss of premium access • May affect active scans • Contact support for refunds
+                            <strong>Warning:</strong> Immediate loss of premium access • May affect active scans
                         </div>
                     </div>
                 </div>

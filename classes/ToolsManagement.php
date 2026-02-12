@@ -11,7 +11,7 @@ class ToolsManagement {
     public function listActiveTools() {
         try {
             $stmt = $this->pdo->prepare("
-            SELECT id, tool_name, display_name, description, is_active FROM service_type WHERE is_active = TRUE"
+            SELECT id, tool_name, display_name, description, tool_plan, is_active FROM service_type WHERE is_active = TRUE"
         );
             $stmt->execute();
             return $stmt->fetchAll(PDO::FETCH_ASSOC);

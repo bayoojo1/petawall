@@ -1,10 +1,11 @@
 <?php
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/header-new.php';
 ?>
 <body>
     <!-- Header -->
-    <?php require_once __DIR__ . '/includes/nav.php' ?>
+    <?php require_once __DIR__ . '/includes/nav-new.php' ?>
 <body>
+<div class="gap"></div>
 <div class="services-container">
     <div class="page-header">
         <h1>Our Cybersecurity Services</h1>
@@ -13,7 +14,7 @@ require_once __DIR__ . '/includes/header.php';
     
     <div class="services-grid">
         <!-- Service 1: Governance, Risk, and Compliance -->
-        <div class="service-card">
+        <div class="service-card" id="grc">
             <div class="service-header">
                 <h2>Governance, Risk, and Compliance</h2>
             </div>
@@ -34,7 +35,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         
         <!-- Service 2: Penetration Testing -->
-        <div class="service-card">
+        <div class="service-card" id="pentest">
             <div class="service-header">
                 <h2>Penetration Testing</h2>
             </div>
@@ -58,7 +59,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         
         <!-- Service 3: Vulnerability Assessment -->
-        <div class="service-card">
+        <div class="service-card" id="vuln">
             <div class="service-header">
                 <h2>Vulnerability Assessment</h2>
             </div>
@@ -78,7 +79,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         
         <!-- Service 4: Red Team & Adversary Simulation -->
-        <div class="service-card">
+        <div class="service-card" id="redteam">
             <div class="service-header">
                 <h2>Red Team & Adversary Simulation</h2>
             </div>
@@ -101,7 +102,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         
         <!-- Service 5: Threats Modeling & Risk Assessment -->
-        <div class="service-card">
+        <div class="service-card" id="threat-modeling">
             <div class="service-header">
                 <h2>Threats Modeling & Risk Assessment</h2>
             </div>
@@ -121,7 +122,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         
         <!-- Service 6: Cybersecurity Consulting & Strategy -->
-        <div class="service-card">
+        <div class="service-card" id="consulting">
             <div class="service-header">
                 <h2>Cybersecurity Consulting & Strategy</h2>
             </div>
@@ -142,7 +143,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         
         <!-- Service 7: Incident Response & Threat Hunting -->
-        <div class="service-card">
+        <div class="service-card" id="incident-response">
             <div class="service-header">
                 <h2>Incident Response & Threat Hunting</h2>
             </div>
@@ -162,7 +163,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         
         <!-- Service 8: Ransomware Protection & Business Continuity Planning -->
-        <div class="service-card">
+        <div class="service-card" id="ransomware-protection">
             <div class="service-header">
                 <h2>Ransomware Protection & Business Continuity Planning</h2>
             </div>
@@ -181,7 +182,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         
         <!-- Service 9: Phishing & Social Engineering Testing -->
-        <div class="service-card">
+        <div class="service-card" id="phishing">
             <div class="service-header">
                 <h2>Phishing & Social Engineering Testing</h2>
             </div>
@@ -196,6 +197,18 @@ require_once __DIR__ . '/includes/header.php';
                         <li>Security Awareness Training</li>
                     </ul>
                 </div>
+            </div>
+        </div>
+    </div>
+    <!-- Call-to-Action Matrix -->
+    <div class="container">
+        <div class="cta-matrix">
+            <h2>Ready to Transform Your Security Posture?</h2>
+            <p>Whether you need AI-powered tools for proactive defense or expert services for comprehensive protection, Petawall has the solution for your organization.</p>
+            
+            <div class="cta-buttons">
+                <a href="#" class="cta-btn-primary signup-btn">SignUp to start using our tools</a>
+                <a href="#" class="cta-btn-secondary">Schedule Service Consultation</a>
             </div>
         </div>
     </div>

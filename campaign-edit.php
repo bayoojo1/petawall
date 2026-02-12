@@ -71,11 +71,11 @@ $success = $_SESSION['success_message'] ?? '';
 $error = $_SESSION['error_message'] ?? '';
 unset($_SESSION['success_message'], $_SESSION['error_message']);
 
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/header-new.php';
 ?>
 <body>
-<?php require_once __DIR__ . '/includes/nav.php' ?>
-
+<?php require_once __DIR__ . '/includes/nav-new.php' ?>
+<div class="gap"></div>
     <div class="campaign-container">
         <div class="campaign-header">
             <div class="campaign-header-content">

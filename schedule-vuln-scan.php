@@ -142,12 +142,12 @@ function getUserScheduledScans($pdo, $userId) {
 
 $scheduledScans = getUserScheduledScans($pdo, $userId);
 
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/header-new.php';
 ?>
 
 <body>
-    <?php require_once __DIR__ . '/includes/nav.php'; ?>
-    
+    <?php require_once __DIR__ . '/includes/nav-new.php'; ?>
+     <div class="gap"></div>
     <div class="container">
         <div class="tool-page">
             <a href="vulnerability-scanner.php" class="back-btn">

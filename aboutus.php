@@ -1,11 +1,12 @@
 <?php 
 //include 'includes/header.php';
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/header-new.php';
 ?>
 <body>
     <!-- Header -->
-    <?php require_once __DIR__ . '/includes/nav.php' ?>
+    <?php require_once __DIR__ . '/includes/nav-new.php' ?>
 <!-- About Hero Section -->
+ <div class="gap"></div>
 <section class="about-hero">
     <div class="container">
         <div class="hero-content">
