@@ -252,7 +252,9 @@ $listActiveTools = $tools->listActiveTools();
             <p>Whether you need AI-powered tools for proactive defense or expert services for comprehensive protection, Petawall has the solution for your organization.</p>
             
             <div class="cta-buttons">
-                <a href="#" class="cta-btn-primary signup-btn">SignUp to start using our tools</a>
+                <?php if(!$isLoggedIn) : ?>
+                    <a href="#" class="cta-btn-primary signup-btn">SignUp to start using our tools</a>
+                <?php endif; ?>
                 <a href="contactus.php" class="cta-btn-secondary">Schedule Service Consultation</a>
             </div>
         </div>
