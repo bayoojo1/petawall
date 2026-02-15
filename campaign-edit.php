@@ -283,8 +283,7 @@ require_once __DIR__ . '/includes/header-new.php';
  <script src="assets/js/campaigns.js"></script>
 <script src="assets/js/nav.js"></script>
 <script src="assets/js/auth.js"></script>
-
-<link rel="stylesheet" href="assets/styles/campaign.css">
 <link rel="stylesheet" href="assets/styles/modal.css">
+<link rel="stylesheet" href="assets/styles/campaign.css">
 </body>
 </html>

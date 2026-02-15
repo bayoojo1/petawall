@@ -535,9 +535,7 @@ require_once __DIR__ . '/includes/header-new.php';
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="assets/js/nav.js"></script>
 <script src="assets/js/auth.js"></script>
-
-
-<link rel="stylesheet" href="assets/styles/campaign-report.css">
 <link rel="stylesheet" href="assets/styles/modal.css">
+<link rel="stylesheet" href="assets/styles/campaign-report.css">
 </body>
 </html>

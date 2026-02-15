@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const mobileSignupBtn = document.getElementById('mobile-signup-btn');   
 
 
-    // Login button handlers
+//     // Login button handlers
     const loginButtons = [loginBtn, mobileLoginBtn];
     loginButtons.forEach(btn => {
         if (btn) {
@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Pricing link handlers
+//     // Pricing link handlers
     const pricingLinks = [
         document.getElementById('pricing-nav-link'),
         document.getElementById('mobile-pricing-link')
@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // About link handlers
+//     // About link handlers
     const serviceLinks = [
         document.getElementById('service-nav-link'),
         document.getElementById('mobile-about-link')
@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // About link handlers
+//     // About link handlers
     const aboutLinks = [
         document.getElementById('about-nav-link'),
         document.getElementById('mobile-about-link')
@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Contact link handlers
+//     // Contact link handlers
     const contactLinks = [
         document.getElementById('contact-nav-link'),
         document.getElementById('mobile-contact-link')

@@ -81,6 +81,7 @@ header {
     color: var(--accent-blue);
 }
 
+/* Navigation Menu */
 .nav-links {
     display: flex;
     list-style: none;
