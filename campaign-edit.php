@@ -60,6 +60,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         header("Location: campaign-edit.php?phishing_campaign_id={$campaignId}");
         exit;
+    } else if ($action === 'delete') {
+        $recipientId = $_POST['recipient_id'];
+
+        if (!empty($recipientId)) {
+            $result = $campaignManager->removeRecipientFromCampaign($recipientId, $campaignId);
+
+            if ($result['success']) {
+                $_SESSION['success_message'] = "Recipient successfully removed from campaign";
+            } else {
+                $_SESSION['error_message'] = $result['error'] ?? 'Failed to delete recipient';
+            }
+        }
+        header("Location: campaign-edit.php?phishing_campaign_id={$campaignId}");
+        exit;
     }
 }
 
@@ -145,11 +159,17 @@ require_once __DIR__ . '/includes/header-new.php';
                                     </span>
                                 </td>
                                 <td>
-                                    <button class="campaign-action-btn campaign-action-danger" 
-                                            onclick="return confirm('Remove this recipient?')"
-                                            data-tooltip="Remove">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                    <form method="post" style="display: inline;"
+                                    data-confirm-message="Are you sure you want to delete this recipient? This action cannot be undone."
+                                    data-confirm-type="danger">
+                                        <input type="hidden" name="action" value="delete">
+                                        <input type="hidden" name="recipient_id" value="<?php echo $recipient['id']; ?>">
+                                        <button type="submit" 
+                                                class="campaign-action-btn campaign-action-delete"
+                                                data-tooltip="Delete Recipient">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -198,6 +218,7 @@ require_once __DIR__ . '/includes/header-new.php';
         </form>
         </div>
     </div>
+    <?php require_once __DIR__ . '/includes/confirmation-modal.php'; ?>
     <?php require_once __DIR__ . '/includes/login-modal.php'; ?>
     <?php require_once __DIR__ . '/includes/footer.php' ?>
 
@@ -281,6 +302,7 @@ require_once __DIR__ . '/includes/header-new.php';
     });
     </script>
  <script src="assets/js/campaigns.js"></script>
+ <script src="assets/js/custom-confirm.js"></script>
 <script src="assets/js/nav.js"></script>
 <script src="assets/js/auth.js"></script>
 <link rel="stylesheet" href="assets/styles/modal.css">

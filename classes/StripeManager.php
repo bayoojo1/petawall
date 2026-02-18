@@ -139,7 +139,7 @@ class StripeManager {
      * Handle Stripe webhook events
      */
     public function handleWebhook($payload, $sigHeader) {
-        if (!defined('STRIPE_WEBHOOK_SECRET') || STRIPE_WEBHOOK_SECRET === 'whsec_mXAchJhw9h93XmgBfbuKy1fZgRIVmXY6') {
+        if (!defined('STRIPE_WEBHOOK_SECRET')) {
             error_log("Webhook secret not configured");
             http_response_code(500);
             echo 'Webhook secret not configured';
@@ -256,12 +256,12 @@ class StripeManager {
     /**
  * Handle successful checkout
  */
+
     private function handleCheckoutSessionCompleted($session) {
         error_log("Checkout session completed: " . $session->id);
         
-        $userId = $session->client_reference_id ?? $session->metadata->user_id ?? null;
+        $userId = $session->metadata->user_id ?? $session->client_reference_id ?? null;
         $checkoutToken = $session->metadata->checkout_token ?? null;
-        $priceId = null;
         $subscriptionId = $session->subscription ?? null;
         $customerId = $session->customer ?? null;
         $plan = $session->metadata->plan ?? null;
@@ -270,7 +270,7 @@ class StripeManager {
         
         if ($subscriptionId) {
             try {
-                // Retrieve the subscription to get full details
+                // Retrieve the subscription - don't need to expand anything for period dates
                 $subscription = \Stripe\Subscription::retrieve($subscriptionId);
                 error_log("Retrieved subscription: " . $subscription->id . ", status: " . $subscription->status);
                 
@@ -278,17 +278,27 @@ class StripeManager {
                 $plan = $subscription->metadata->plan ?? $plan;
                 $customerId = $subscription->customer ?? $customerId;
                 
+                // Get period dates correctly
+                $periodStart = isset($subscription->current_period_start) 
+                    ? date('Y-m-d H:i:s', $subscription->current_period_start)
+                    : date('Y-m-d H:i:s');
+                    
+                $periodEnd = isset($subscription->current_period_end)
+                    ? date('Y-m-d H:i:s', $subscription->current_period_end)
+                    : date('Y-m-d H:i:s', strtotime('+30 days'));
+                
                 error_log("Subscription details - price_id: $priceId, plan: $plan, customer_id: $customerId");
+                error_log("Period: $periodStart to $periodEnd");
                 
                 if ($userId && $priceId && $plan && $customerId) {
-                    // Store subscription immediately
+                    // Store subscription with proper dates
                     $this->storeSubscription(
                         $userId,
                         $subscription->id,
                         $customerId,
                         $plan,
-                        date('Y-m-d H:i:s', $subscription->current_period_start),
-                        date('Y-m-d H:i:s', $subscription->current_period_end),
+                        $periodStart,
+                        $periodEnd,
                         $subscription->status
                     );
                     
@@ -318,15 +328,37 @@ class StripeManager {
         $priceId = $subscription->items->data[0]->price->id ?? null;
         $plan = $subscription->metadata->plan ?? null;
         
+        // Get period dates correctly - these are top-level properties
+        $periodStart = null;
+        $periodEnd = null;
+        
+        if (isset($subscription->current_period_start)) {
+            $periodStart = date('Y-m-d H:i:s', $subscription->current_period_start);
+            error_log("Current period start: " . $subscription->current_period_start . " -> " . $periodStart);
+        } else {
+            error_log("current_period_start not set on subscription object");
+            // Set a default (30 days from now)
+            $periodStart = date('Y-m-d H:i:s');
+        }
+        
+        if (isset($subscription->current_period_end)) {
+            $periodEnd = date('Y-m-d H:i:s', $subscription->current_period_end);
+            error_log("Current period end: " . $subscription->current_period_end . " -> " . $periodEnd);
+        } else {
+            error_log("current_period_end not set on subscription object");
+            // Set a default (30 days from now)
+            $periodEnd = date('Y-m-d H:i:s', strtotime('+30 days'));
+        }
+        
         if ($userId && $priceId && $plan) {
-            // Store subscription details
+            // Store subscription details with proper dates
             $this->storeSubscription(
                 $userId,
                 $subscription->id,
                 $subscription->customer,
                 $plan,
-                date('Y-m-d H:i:s', $subscription->current_period_start),
-                date('Y-m-d H:i:s', $subscription->current_period_end),
+                $periodStart,
+                $periodEnd,
                 $subscription->status
             );
             

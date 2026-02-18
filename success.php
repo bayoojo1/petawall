@@ -27,7 +27,7 @@ try {
         SELECT user_id, plan, stripe_session_id, status 
         FROM stripe_checkout_sessions 
         WHERE checkout_token = ? 
-        AND status = 'pending'
+        AND status IN ('pending', 'completed')
         AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)
     ");
     $stmt->execute([$checkoutToken]);

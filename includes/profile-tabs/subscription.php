@@ -1,11 +1,11 @@
 <?php
 require_once __DIR__ . '/../../classes/RoleManager.php';
 require_once __DIR__ . '/../../classes/AccessControl.php';
-require_once __DIR__ . '/../../classes/StripeManager.php'; // Add this
+require_once __DIR__ . '/../../classes/StripeManager.php';
 
 $roleManager = new RoleManager();
 $accessControl = new AccessControl();
-$stripeManager = new StripeManager(); // Add this
+$stripeManager = new StripeManager();
 
 // Current role
 $currentRole = $userRoles[0]['role'] ?? 'free';
@@ -15,6 +15,8 @@ $subscriptionInfo = null;
 $subscriptionEndDate = null;
 $daysRemaining = null;
 $formattedEndDate = null;
+$hasActiveSubscription = false; // <-- ADD THIS LINE
+$subscription = null; // <-- ADD THIS LINE
 
 if (isset($_SESSION['user_id'])) {
     $subscriptionInfo = $stripeManager->getActiveSubscription($_SESSION['user_id']);
@@ -22,6 +24,8 @@ if (isset($_SESSION['user_id'])) {
         $subscriptionEndDate = $subscriptionInfo['current_period_end'];
         $daysRemaining = $stripeManager->getDaysRemaining($_SESSION['user_id']);
         $formattedEndDate = $stripeManager->formatEndDate($_SESSION['user_id']);
+        $hasActiveSubscription = true; // <-- ADD THIS LINE
+        $subscription = $subscriptionInfo; // <-- ADD THIS LINE
     }
 }
 
@@ -159,6 +163,31 @@ foreach ($displayPlans as $plan) {
             <?php endif; ?>
         </div>
 
+        <!-- CANCELLATION WARNING SECTION - MOVED HERE -->
+        <?php if ($hasActiveSubscription && !empty($subscription) && isset($subscription['cancel_at_period_end']) && $subscription['cancel_at_period_end']): ?>
+        <div class="alert alert-warning" style="margin: 20px 0; padding: 15px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;">
+            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                <div style="flex-shrink: 0;">
+                    <i class="fas fa-clock fa-2x" style="color: #856404;"></i>
+                </div>
+                <div style="flex-grow: 1;">
+                    <h4 style="margin: 0 0 5px 0; color: #856404;">
+                        <i class="fas fa-exclamation-triangle"></i> Cancellation Scheduled
+                    </h4>
+                    <p style="margin: 0; color: #856404;">
+                        Your subscription is scheduled to cancel on <strong><?php echo date('F j, Y', strtotime($subscription['current_period_end'])); ?></strong>.
+                        You will lose access to premium features after this date.
+                    </p>
+                    <div style="margin-top: 10px;">
+                        <a href="profile.php?tab=cancel-subscription" class="btn btn-sm" style="background: #856404; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; display: inline-block;">
+                            <i class="fas fa-cog"></i> Manage Cancellation
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <?php if (!in_array($currentRole, ['premium', 'admin', 'moderator'])): ?>
             <div class="form-actions" style="margin-top: 20px;">
                 <button class="btn btn-primary" onclick="upgradePlan()">Upgrade Plan</button>
@@ -204,33 +233,6 @@ foreach ($displayPlans as $plan) {
                         </li>
                     <?php endforeach; ?>
                 </ul>
-                
-                <?php
-                // Add this after showing subscription info, before the upgrade buttons
-                if ($hasActiveSubscription && $subscription['cancel_at_period_end']):
-                ?>
-                <div class="alert alert-warning" style="margin: 20px 0;">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <div style="flex-shrink: 0;">
-                            <i class="fas fa-clock fa-2x" style="color: #856404;"></i>
-                        </div>
-                        <div style="flex-grow: 1;">
-                            <h4 style="margin: 0 0 5px 0; color: #856404;">
-                                <i class="fas fa-exclamation-triangle"></i> Cancellation Scheduled
-                            </h4>
-                            <p style="margin: 0; color: #856404;">
-                                Your subscription is scheduled to cancel on <strong><?php echo date('F j, Y', strtotime($subscription['current_period_end'])); ?></strong>.
-                                You will lose access to premium features after this date.
-                            </p>
-                            <div style="margin-top: 10px;">
-                                <a href="?tab=cancel-subscription" class="btn btn-sm btn-outline-warning">
-                                    <i class="fas fa-cog"></i> Manage Cancellation
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <?php endif; ?>
 
                 <!-- BUTTON LOGIC -->
                 <?php if ($isSamePlan): ?>

@@ -45,5 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     header('Location: contactus.php');
     exit;
+} else {
+    header('Location: contactus.php');
+    exit;
 }
 ?>

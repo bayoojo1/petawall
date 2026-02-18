@@ -99,7 +99,7 @@ require_once __DIR__ . '/includes/header-new.php';
                 
                 <form class="contact-form" method="POST" action="contact-submit.php">
                     <div class="form-group">
-                        <label class="formgrp" for="name">Full Name *</label>
+                        <label for="name" class="formgrp">Full Name *</label>
                         <input type="text" id="name" name="name" class="form-control <?php echo isset($errors['name']) ? 'error' : ''; ?>" 
                             placeholder="Enter your full name" required
                             value="<?php echo htmlspecialchars($form_data['name'] ?? ''); ?>">
@@ -109,7 +109,7 @@ require_once __DIR__ . '/includes/header-new.php';
                     </div>
                     
                     <div class="form-group">
-                        <label class="formgrp" for="email">Email Address *</label>
+                        <label for="email" class="formgrp">Email Address *</label>
                         <input type="email" id="email" name="email" class="form-control <?php echo isset($errors['email']) ? 'error' : ''; ?>" 
                             placeholder="Enter your email address" required
                             value="<?php echo htmlspecialchars($form_data['email'] ?? ''); ?>">
@@ -119,7 +119,7 @@ require_once __DIR__ . '/includes/header-new.php';
                     </div>
                     
                     <div class="form-group">
-                        <label class="formgrp" for="subject">Subject *</label>
+                        <label for="subject" class="formgrp">Subject *</label>
                         <input type="text" id="subject" name="subject" class="form-control <?php echo isset($errors['subject']) ? 'error' : ''; ?>" 
                             placeholder="What is this regarding?" required
                             value="<?php echo htmlspecialchars($form_data['subject'] ?? ''); ?>">
@@ -129,7 +129,7 @@ require_once __DIR__ . '/includes/header-new.php';
                     </div>
                     
                     <div class="form-group">
-                        <label class="formgrp" for="message">Message *</label>
+                        <label for="message" class="formgrp">Message *</label>
                         <textarea id="message" name="message" class="form-control <?php echo isset($errors['message']) ? 'error' : ''; ?>" 
                                 placeholder="Tell us how we can help you..." rows="6" required><?php echo htmlspecialchars($form_data['message'] ?? ''); ?></textarea>
                         <?php if (isset($errors['message'])): ?>
@@ -138,9 +138,9 @@ require_once __DIR__ . '/includes/header-new.php';
                     </div>
                     
                     <!-- CAPTCHA -->
-                    <div class="form-group captcha-group">
-                        <label class="formgrp" for="captcha">Security Check *</label>
-                        <div class="captcha-question">
+                    <div class="form-group">
+                        <label for="captcha" class="formgrp">Security Check *</label>
+                        <div style="background: #f0f0f0; padding: 10px; border-radius: 5px; margin-bottom: 10px; font-weight: bold;">
                             <?php echo htmlspecialchars($captcha_question); ?>
                         </div>
                         <input type="text" id="captcha" name="captcha" class="form-control <?php echo isset($errors['captcha']) ? 'error' : ''; ?>" 
@@ -148,11 +148,10 @@ require_once __DIR__ . '/includes/header-new.php';
                         <?php if (isset($errors['captcha'])): ?>
                         <div class="error-text"><?php echo htmlspecialchars($errors['captcha']); ?></div>
                         <?php endif; ?>
-                        <small class="form-text">Please answer the question to prove you're human</small>
                     </div>
                     
                     <!-- Honeypot -->
-                    <div class="honeypot" style="display: none;">
+                    <div style="display: none;">
                         <label for="website">Leave this field empty</label>
                         <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
                     </div>
