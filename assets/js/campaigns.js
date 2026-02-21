@@ -315,10 +315,10 @@ class CampaignManager {
             option.addEventListener('click', () => {
                 // Update custom URL input with template URL
                 const templates = {
-                    'password-reset': 'https://password-reset.example.com/login',
-                    'account-verify': 'https://verify-account.example.com/confirm',
-                    'security-alert': 'https://security-alert.example.com/check',
-                    'payment-update': 'https://payment-update.example.com/update'
+                    'password-reset': 'https://petawall.com/password-reset.php',
+                    'account-verify': 'https://petawall.com/verify-account.php',
+                    'security-alert': 'https://petawall.com/security-alert.php',
+                    'payment-update': 'https://petawall.com/payment-update.php'
                 };
                 
                 const template = option.dataset.template;
@@ -379,10 +379,10 @@ class CampaignManager {
         if (!textarea) return;
         
         const templates = [
-            { name: 'Password Reset', url: 'https://password-reset.example.com/login', text: 'Reset Your Password' },
-            { name: 'Account Verification', url: 'https://verify-account.example.com/confirm', text: 'Verify Your Account' },
-            { name: 'Security Alert', url: 'https://security-alert.example.com/check', text: 'Security Alert - Action Required' },
-            { name: 'Payment Update', url: 'https://payment-update.example.com/update', text: 'Update Payment Information' }
+            { name: 'Password Reset', url: 'https://petawall.com/password-reset.php', text: 'Reset Your Password' },
+            { name: 'Account Verification', url: 'https://petawall.com/verify-account.php', text: 'Verify Your Account' },
+            { name: 'Security Alert', url: 'https://petawall.com/security-alert.php', text: 'Security Alert - Action Required' },
+            { name: 'Payment Update', url: 'https://petawall.com/payment-update.php', text: 'Update Payment Information' }
         ];
         
         const templateList = templates.map((t, i) => 

@@ -145,50 +145,6 @@ class ScheduledScanManager {
         
         return $this->pdo->lastInsertId();
     }
-    
-    /**
-     * Send scan report via email
-     */
-    // private function sendScanReport($scan, $results) {
-    //     try {
-    //         $recipients = $scan['recipients'];
-    //         $recipientEmails = explode(',', $recipients);
-            
-    //         foreach ($recipientEmails as $email) {
-    //             $email = trim($email);
-    //             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    //                 error_log("Invalid email address: {$email}");
-    //                 continue;
-    //             }
-                
-    //             $subject = $this->generateEmailSubject($scan, $results);
-    //             $htmlBody = $this->generateEmailHtml($scan, $results);
-                
-    //             // Send email via ZeptoMail
-    //             $result = $this->zeptoMailGateway->sendEmail(
-    //                 "noreply@petawall.com",  // from
-    //                 $email,                  // to
-    //                 $subject,                // subject
-    //                 $htmlBody                // html body
-    //             );
-                
-    //             if (!$result) {
-    //                 error_log("Failed to send email to: {$email}");
-    //                 return false;
-    //             }
-                
-    //             error_log("Email sent successfully to: {$email}");
-    //         }
-            
-    //         return true;
-            
-    //     } catch (Exception $e) {
-    //         error_log("Error sending email report: " . $e->getMessage());
-    //         return false;
-    //     }
-    // }
-
-
 
     private function sendScanReport($scan, $results) {
         $emailSent = false;

@@ -271,7 +271,7 @@ class CampaignManager {
             }
             
             // Log for debugging
-            error_log("updateCampaignStatus: campaignId={$campaignId}, status={$status}, orgId =" . ($organizationId ?? 'null'));
+            //error_log("updateCampaignStatus: campaignId={$campaignId}, status={$status}, orgId =" . ($organizationId ?? 'null'));
             
             $sql = "UPDATE phishing_campaigns SET status = ? WHERE phishing_campaign_id = ?";
             $params = [$status, $campaignId];
@@ -505,11 +505,11 @@ class CampaignManager {
     // Process links for click tracking
         $content = $this->processLinksForTracking($content, $recipient['tracking_token']);
         
-        // Yahoo/Gmail workaround: Add tracking to link clicks as backup
+        // Yahoo/Gmail workaround: Add tracking to link clicks as backups
         $content .= '
         <div style="display:none;">
             <!-- Tracking pixel (works when images are enabled) -->
-            <img src="' . APP_URL . '/track/open.php?token=' . $recipient['tracking_token'] . '" width="1" height="1" alt="">
+            <img src="' . APP_URL . '/tr/op.php?token=' . $recipient['tracking_token'] . '" width="1" height="1" alt="">
             
             <!-- JavaScript for Gmail and modern clients -->
             <script>
@@ -517,7 +517,7 @@ class CampaignManager {
                 // Open tracking fallback
                 try {
                     var img = new Image();
-                    img.src = "' . APP_URL . '/track/open.php?token=' . $recipient['tracking_token'] . '&js=1";
+                    img.src = "' . APP_URL . '/tr/op.php?token=' . $recipient['tracking_token'] . '&js=1";
                 } catch(e) {}
                 
                 // Click tracking confirmation
@@ -528,7 +528,7 @@ class CampaignManager {
                     }
                     if(target && target.href) {
                         var url = target.href.toString();
-                        if(url.indexOf("/track/click.php") > -1) {
+                        if(url.indexOf("/tr/cl.php") > -1) {
                             // Track click via JavaScript as backup
                             try {
                                 navigator.sendBeacon && navigator.sendBeacon(
@@ -759,7 +759,7 @@ class CampaignManager {
      * Generate open tracking pixel
      */
     private function generateOpenTrackingPixel($trackingToken) {
-        $trackingUrl = APP_URL . "/track/open.php?token=" . urlencode($trackingToken);
+        $trackingUrl = APP_URL . "/tr/op.php?token=" . urlencode($trackingToken);
         
         return '<img src="' . $trackingUrl . '" width="1" height="1" style="display:none;" alt="" />';
     }
@@ -775,7 +775,7 @@ class CampaignManager {
             $originalUrl = $matches[1];
             
             // Skip if already a tracking link
-            if (strpos($originalUrl, '/track/click.php') !== false) {
+            if (strpos($originalUrl, '/tr/cl.php') !== false) {
                 return $matches[0];
             }
             
@@ -811,7 +811,7 @@ class CampaignManager {
             VALUES (?, ?, ?, ?, ?, 0, 0, NOW())
         ");
         
-        $trackingUrl = APP_URL . "/track/click.php?token=" . urlencode($linkToken);
+        $trackingUrl = APP_URL . "/tr/cl.php?token=" . urlencode($linkToken);
         $stmt->execute([
             $recipient['phishing_campaign_id'],
             $recipient['id'],  // Store which recipient this link belongs to

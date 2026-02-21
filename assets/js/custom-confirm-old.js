@@ -1,18 +1,47 @@
-// Custom Confirmation System - Using Native Browser Confirm
+// Custom Confirmation System
 class CustomConfirm {
     constructor() {
+        this.confirmModal = null;
         this.confirmCallback = null;
         this.cancelCallback = null;
         this.currentForm = null;
         this.currentButton = null;
+        this.isInitialized = false;
         this.pendingSubmission = false;
         
         this.init();
     }
     
     init() {
-        // Setup all confirm buttons
+        // Wait for DOM to be ready
         setTimeout(() => {
+            this.confirmModal = document.getElementById('customConfirmModal');
+            
+            if (!this.confirmModal) {
+                console.warn('Custom confirm modals not found in DOM. They may not be included on this page.');
+                return;
+            }
+            
+            // Confirm modal event handlers
+            this.confirmModal.querySelector('.confirm-btn-cancel').addEventListener('click', () => this.hideConfirm());
+            this.confirmModal.querySelector('.confirm-modal-close').addEventListener('click', () => this.hideConfirm());
+            this.confirmModal.querySelector('.confirm-btn-confirm').addEventListener('click', () => this.handleConfirm());
+            
+            // Close on background click
+            this.confirmModal.addEventListener('click', (e) => {
+                if (e.target === this.confirmModal) this.hideConfirm();
+            });
+            
+            // Escape key to cancel
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && this.confirmModal.classList.contains('show')) {
+                    this.hideConfirm();
+                }
+            });
+            
+            this.isInitialized = true;
+            
+            // Setup all confirm buttons
             this.setupConfirmButtons();
         }, 100);
     }
@@ -47,8 +76,9 @@ class CustomConfirm {
                     this.currentButton = button;
                     
                     const message = button.dataset.confirmMessage || form.dataset.confirmMessage || 'Are you sure you want to proceed?';
+                    const type = button.dataset.confirmType || form.dataset.confirmType || 'default';
                     
-                    this.showConfirm(message);
+                    this.showConfirm(message, type);
                 });
             }
         } else {
@@ -57,10 +87,11 @@ class CustomConfirm {
                 e.preventDefault();
                 
                 const message = button.dataset.confirmMessage || 'Are you sure you want to proceed?';
+                const type = button.dataset.confirmType || 'default';
                 const actionUrl = button.dataset.actionUrl;
                 const method = button.dataset.method || 'GET';
                 
-                this.showConfirm(message, () => {
+                this.showConfirm(message, type, () => {
                     // Execute action on confirm
                     if (actionUrl) {
                         if (method === 'POST') {
@@ -84,24 +115,70 @@ class CustomConfirm {
                 this.currentButton = form.querySelector('button[type="submit"]');
                 
                 const message = form.dataset.confirmMessage || 'Are you sure you want to proceed?';
+                const type = form.dataset.confirmType || 'default';
                 
-                this.showConfirm(message);
+                this.showConfirm(message, type);
             }
         });
     }
     
-    showConfirm(message, confirmCallback = null, cancelCallback = null) {
+    showConfirm(message, type = 'default', confirmCallback = null, cancelCallback = null) {
+        if (!this.isInitialized) {
+            // Fall back to browser confirm if modals aren't ready
+            const result = window.confirm(message);
+            if (result && confirmCallback) confirmCallback();
+            if (!result && cancelCallback) cancelCallback();
+            return;
+        }
+        
         this.confirmCallback = confirmCallback;
         this.cancelCallback = cancelCallback;
         
-        // Use native browser confirm
-        const result = window.confirm(message);
-        
-        if (result) {
-            this.handleConfirm();
-        } else {
-            this.handleCancel();
+        // Set message
+        const messageElement = this.confirmModal.querySelector('#confirmModalMessage');
+        if (messageElement) {
+            messageElement.textContent = message;
         }
+        
+        // Set type (for styling)
+        const content = this.confirmModal.querySelector('.confirm-modal-content');
+        if (content) {
+            content.className = 'confirm-modal-content';
+            if (type) content.classList.add(type);
+            
+            // Update confirm button color based on type
+            const confirmBtn = this.confirmModal.querySelector('.confirm-btn-confirm');
+            if (confirmBtn) {
+                confirmBtn.className = 'confirm-btn confirm-btn-confirm';
+                if (type !== 'default') {
+                    confirmBtn.classList.add(`confirm-btn-${type}`);
+                }
+            }
+        }
+        
+        // Show modal
+        this.confirmModal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+        
+        // Focus cancel button first (safer UX)
+        setTimeout(() => {
+            const cancelBtn = this.confirmModal.querySelector('.confirm-btn-cancel');
+            if (cancelBtn) cancelBtn.focus();
+        }, 300);
+    }
+    
+    hideConfirm() {
+        if (!this.confirmModal) return;
+        
+        this.confirmModal.classList.remove('show');
+        document.body.style.overflow = '';
+        
+        // Call cancel callback if provided
+        if (this.cancelCallback) {
+            this.cancelCallback();
+        }
+        
+        this.reset();
     }
     
     handleConfirm() {
@@ -113,14 +190,7 @@ class CustomConfirm {
             this.submitForm();
         }
         
-        this.reset();
-    }
-    
-    handleCancel() {
-        if (this.cancelCallback) {
-            this.cancelCallback();
-        }
-        this.reset();
+        this.hideConfirm();
     }
     
     submitForm() {
@@ -215,13 +285,18 @@ class CustomConfirm {
 let customConfirm;
 
 document.addEventListener('DOMContentLoaded', () => {
-    customConfirm = new CustomConfirm();
+    // Check if modals exist on this page
+    const confirmModalExists = document.getElementById('customConfirmModal');
+    
+    if (confirmModalExists) {
+        customConfirm = new CustomConfirm();
+    }
 });
 
 // Global helper functions
-window.showConfirm = function(message, onConfirm = null, onCancel = null) {
+window.showConfirm = function(message, type = 'default', onConfirm = null, onCancel = null) {
     if (window.customConfirm) {
-        window.customConfirm.showConfirm(message, onConfirm, onCancel);
+        window.customConfirm.showConfirm(message, type, onConfirm, onCancel);
     } else {
         // Fallback to browser confirm
         const result = window.confirm(message);
