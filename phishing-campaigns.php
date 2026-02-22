@@ -259,7 +259,8 @@ $organizationInfo = $organizationManager->getUserOrganization($userId);
 $campaignsData = $campaignManager->getOrganizationCampaigns($organizationId, 10, 0);
 $campaigns = $campaignsData['campaigns'] ?? [];
 
-// Get peding or bounced recipient
+// Get organization total stats
+$totals = $campaignManager->getOrganizationTotals($organizationId);
 
 // Check for session messages
 $success = $_SESSION['success_message'] ?? '';
@@ -639,7 +640,7 @@ require_once __DIR__ . '/includes/header-new.php';
                     <div class="campaign-stat-icon" style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);">
                         <i class="fas fa-users"></i>
                     </div>
-                    <div class="campaign-stat-value"><?php echo number_format($totalRecipients); ?></div>
+                    <div class="campaign-stat-value"><?php echo number_format($totals['total_recipients']); ?></div>
                     <div class="campaign-stat-label">Total Recipients</div>
                 </div>
             </div>

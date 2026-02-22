@@ -501,49 +501,131 @@ class CampaignManager {
         }
     }
 
+    // private function processEmailContent($content, $recipient) {
+    // // Process links for click tracking
+    //     $content = $this->processLinksForTracking($content, $recipient['tracking_token']);
+        
+    //     // Yahoo/Gmail workaround: Add tracking to link clicks as backups
+    //     $content .= '
+    //     <div style="display:none;">
+    //         <!-- Tracking pixel (works when images are enabled) -->
+    //         <img src="' . APP_URL . '/tr/op.php?token=' . $recipient['tracking_token'] . '" width="1" height="1" alt="">
+            
+    //         <!-- JavaScript for Gmail and modern clients -->
+    //         <script>
+    //         if (typeof window !== "undefined") {
+    //             // Open tracking fallback
+    //             try {
+    //                 var img = new Image();
+    //                 img.src = "' . APP_URL . '/tr/op.php?token=' . $recipient['tracking_token'] . '&js=1";
+    //             } catch(e) {}
+                
+    //             // Click tracking confirmation
+    //             document.addEventListener("click", function(e) {
+    //                 var target = e.target;
+    //                 while(target && target.tagName !== "A") {
+    //                     target = target.parentElement;
+    //                 }
+    //                 if(target && target.href) {
+    //                     var url = target.href.toString();
+    //                     if(url.indexOf("/tr/cl.php") > -1) {
+    //                         // Track click via JavaScript as backup
+    //                         try {
+    //                             navigator.sendBeacon && navigator.sendBeacon(
+    //                                 "' . APP_URL . '/track/click-beacon.php?token=" + 
+    //                                 new URL(url).searchParams.get("token")
+    //                             );
+    //                         } catch(e) {}
+    //                     }
+    //                 }
+    //             });
+    //         }
+    //         </script>
+    //     </div>';
+        
+    //     return $content;
+    // }
+
     private function processEmailContent($content, $recipient) {
-    // Process links for click tracking
+        // First, replace all links with masked tracking links
         $content = $this->processLinksForTracking($content, $recipient['tracking_token']);
         
-        // Yahoo/Gmail workaround: Add tracking to link clicks as backups
-        $content .= '
-        <div style="display:none;">
-            <!-- Tracking pixel (works when images are enabled) -->
-            <img src="' . APP_URL . '/tr/op.php?token=' . $recipient['tracking_token'] . '" width="1" height="1" alt="">
+        // Build the final email HTML
+        $emailContent = '<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Email</title>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            a { color: #0066cc; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+        </style>
+    </head>
+    <body>
+    ' . $content . '
+
+    <!-- TRACKING SECTION -->
+    <div style="display: none;">
+
+    <!-- Tracking pixel -->
+    <img src="' . APP_URL . '/track/open.php?token=' . $recipient['tracking_token'] . '" 
+        width="1" height="1" alt="" />
+
+    <!-- JavaScript for click handling and hover masking -->
+    <script type="text/javascript">
+    (function() {
+        // Function to find all links in the email
+        function initHoverMasking() {
+            var links = document.getElementsByTagName("a");
             
-            <!-- JavaScript for Gmail and modern clients -->
-            <script>
-            if (typeof window !== "undefined") {
-                // Open tracking fallback
-                try {
-                    var img = new Image();
-                    img.src = "' . APP_URL . '/tr/op.php?token=' . $recipient['tracking_token'] . '&js=1";
-                } catch(e) {}
+            for (var i = 0; i < links.length; i++) {
+                var link = links[i];
                 
-                // Click tracking confirmation
-                document.addEventListener("click", function(e) {
-                    var target = e.target;
-                    while(target && target.tagName !== "A") {
-                        target = target.parentElement;
+                // Check if this is a tracking link
+                if (link.href && link.href.indexOf("/track/click.php") !== -1) {
+                    
+                    var originalUrl = link.getAttribute("data-original-url");
+                    
+                    if (originalUrl) {
+                        // Store the real href in a data attribute
+                        link.setAttribute("data-track-href", link.href);
+                        
+                        // Set the visible href to the original URL (for hover display)
+                        link.href = originalUrl;
+                        
+                        // Add click handler to use tracking URL
+                        link.addEventListener("click", function(e) {
+                            e.preventDefault();
+                            
+                            // Get the tracking URL from data attribute
+                            var trackHref = this.getAttribute("data-track-href");
+                            
+                            if (trackHref) {
+                                // Navigate to tracking URL which will redirect
+                                window.location.href = trackHref;
+                            }
+                        });
                     }
-                    if(target && target.href) {
-                        var url = target.href.toString();
-                        if(url.indexOf("/tr/cl.php") > -1) {
-                            // Track click via JavaScript as backup
-                            try {
-                                navigator.sendBeacon && navigator.sendBeacon(
-                                    "' . APP_URL . '/track/click-beacon.php?token=" + 
-                                    new URL(url).searchParams.get("token")
-                                );
-                            } catch(e) {}
-                        }
-                    }
-                });
+                }
             }
-            </script>
-        </div>';
+        }
         
-        return $content;
+        // Run when DOM is ready
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", initHoverMasking);
+        } else {
+            initHoverMasking();
+        }
+    })();
+    </script>
+
+    </div>
+
+    </body>
+    </html>';
+        
+        return $emailContent;
     }
 
     public function trackBeaconClick($linkToken) {
@@ -770,94 +852,57 @@ class CampaignManager {
 
 
     private function processLinksForTracking($content, $trackingToken) {
-        // Get recipient's domain
-        $stmt = $this->db->prepare("
-            SELECT email FROM phishing_campaign_recipients 
-            WHERE tracking_token = ?
-        ");
-        $stmt->execute([$trackingToken]);
-        $recipient = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        // Extract domain from recipient's email
-        $userDomain = 'petawall.com'; // fallback
-        if ($recipient && !empty($recipient['email'])) {
-            $emailParts = explode('@', $recipient['email']);
-            $userDomain = $emailParts[1] ?? 'petawall.com';
-        }
-        
         // Find all links in the content
         $pattern = '/<a\s+(?:[^>]*?\s+)?href=["\']([^"\']+)["\']/i';
         
-        return preg_replace_callback($pattern, function($matches) use ($trackingToken, $userDomain) {
+        return preg_replace_callback($pattern, function($matches) use ($trackingToken) {
             $originalUrl = $matches[1];
+            $fullTag = $matches[0];
             
             // Skip if already a tracking link
-            if (strpos($originalUrl, '/tr/cl.php') !== false) {
-                return $matches[0];
+            if (strpos($originalUrl, '/track/click.php') !== false) {
+                return $fullTag;
             }
             
-            // Generate link token
-            $linkToken = $this->generateTrackingToken();
+            // Create tracking link
+            $trackingLink = $this->createTrackingLink($originalUrl, $trackingToken);
             
-            // Get recipient_id
-            $stmt = $this->db->prepare("
-                SELECT id, phishing_campaign_id, email 
-                FROM phishing_campaign_recipients 
-                WHERE tracking_token = ?
-            ");
-            $stmt->execute([$trackingToken]);
-            $recipient = $stmt->fetch(PDO::FETCH_ASSOC);
+            // Parse domain for display
+            $parsedUrl = parse_url($originalUrl);
+            $domain = $parsedUrl['host'] ?? $originalUrl;
             
-            if (!$recipient) {
-                return $matches[0];
-            }
+            // Create new anchor tag with original URL for hover, but tracking for click
+            $newTag = '<a href="' . htmlspecialchars($originalUrl) . '" ' .
+                    'data-track-href="' . htmlspecialchars($trackingLink) . '" ' .
+                    'data-original-url="' . htmlspecialchars($originalUrl) . '" ' .
+                    'target="_blank" style="color: #0066cc;">';
             
-            // Store the link (YOUR EXISTING CODE)
-            $stmt = $this->db->prepare("
-                INSERT INTO phishing_campaign_links 
-                (phishing_campaign_id, recipient_id, original_url, tracking_url, tracking_token, click_count, unique_clicks, created_at) 
-                VALUES (?, ?, ?, ?, ?, 0, 0, NOW())
-            ");
-            
-            // Create the ACTUAL tracking URL (goes to your server)
-            $actualUrl = APP_URL . "/tr/cl.php?token=" . urlencode($linkToken);
-            
-            // Create the DISPLAY URL (what user sees when hovering)
-            $displayUrl = "https://" . $userDomain . "/reset-password";
-            
-            $stmt->execute([
-                $recipient['phishing_campaign_id'],
-                $recipient['id'],
-                $originalUrl,
-                $actualUrl,  // Store actual URL in DB
-                $linkToken
-            ]);
-            
-            // THE KEY: Return anchor with display URL in text, but actual URL in href
-            // Extract the anchor text and attributes
-            $fullAnchor = $matches[0];
-            
-            // Replace the href with actual URL but keep display text looking like client domain
-            $newAnchor = preg_replace(
-                '/href=["\'][^"\']+["\']/', 
-                'href="' . $actualUrl . '"', 
-                $fullAnchor
-            );
-            
-            // Also add a title attribute to show the display URL on hover
-            if (strpos($newAnchor, 'title=') === false) {
-                $newAnchor = str_replace(
-                    '<a ', 
-                    '<a title="' . $displayUrl . '" ', 
-                    $newAnchor
-                );
-            }
-            
-            return $newAnchor;
+            // Replace the opening tag
+            return preg_replace('/<a\s+[^>]*>/i', $newTag, $fullTag);
             
         }, $content);
     }
+    
 
+// private function processLinksForTracking($content, $trackingToken) {
+    //     // Find all links in the content
+    //     $pattern = '/<a\s+(?:[^>]*?\s+)?href=["\']([^"\']+)["\']/i';
+        
+    //     return preg_replace_callback($pattern, function($matches) use ($trackingToken) {
+    //         $originalUrl = $matches[1];
+            
+    //         // Skip if already a tracking link
+    //         if (strpos($originalUrl, '/tr/cl.php') !== false) {
+    //             return $matches[0];
+    //         }
+            
+    //         // Create tracking link
+    //         $trackingLink = $this->createTrackingLink($originalUrl, $trackingToken);
+            
+    //         // Replace the href
+    //         return str_replace($originalUrl, $trackingLink, $matches[0]);
+    //     }, $content);
+    // }
     
     private function createTrackingLink($originalUrl, $trackingToken) {
         $linkToken = $this->generateTrackingToken();
@@ -872,31 +917,37 @@ class CampaignManager {
         $recipient = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$recipient) {
-            error_log("ERROR in createTrackingLink: No recipient found for tracking token: " . $trackingToken);
+            error_log("ERROR: No recipient found for tracking token: " . $trackingToken);
             throw new Exception("Recipient not found for tracking token");
         }
+        
+        // Parse the original URL to extract domain
+        $parsedUrl = parse_url($originalUrl);
+        $domain = $parsedUrl['host'] ?? 'link';
+        
+        // Create tracking URL that will be used for actual redirect
+        $trackingUrl = APP_URL . "/track/click.php?token=" . urlencode($linkToken);
         
         // Store the link with recipient_id
         $stmt = $this->db->prepare("
             INSERT INTO phishing_campaign_links 
-            (phishing_campaign_id, recipient_id, original_url, tracking_url, tracking_token, click_count, unique_clicks, created_at) 
-            VALUES (?, ?, ?, ?, ?, 0, 0, NOW())
+            (phishing_campaign_id, recipient_id, original_url, tracking_url, tracking_token, domain_display, click_count, unique_clicks, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, 0, 0, NOW())
         ");
         
-        $trackingUrl = APP_URL . "/tr/cl.php?token=" . urlencode($linkToken);
         $stmt->execute([
-            $recipient['phishing_campaign_id'],
-            $recipient['id'],  // Store which recipient this link belongs to
+            $recipient['campaign_id'],
+            $recipient['id'],
             $originalUrl,
             $trackingUrl,
-            $linkToken
+            $linkToken,
+            $domain
         ]);
         
-        // Debug log
         error_log("Created tracking link: Recipient=" . $recipient['email'] . 
                 " (ID=" . $recipient['id'] . "), " .
                 "Token=" . $linkToken . ", " .
-                "URL=" . $originalUrl);
+                "Domain=" . $domain);
         
         return $trackingUrl;
     }
@@ -1250,44 +1301,139 @@ class CampaignManager {
         return true;
     }
 
+    // public function trackLinkClick($linkToken) {
+    //     try {
+    //         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    //         $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+            
+    //         error_log("Click attempt - Token: {$linkToken}, UA: " . substr($userAgent, 0, 100));
+
+    //         // Get recipient info for timing check
+    //         $stmt = $this->db->prepare("
+    //             SELECT r.*, l.original_url
+    //             FROM phishing_campaign_links l
+    //             JOIN phishing_campaign_recipients r ON l.recipient_id = r.id
+    //             WHERE l.tracking_token = ?
+    //         ");
+    //         $stmt->execute([$linkToken]);
+    //         $data = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+    //         if (!$data) {
+    //             error_log("Link data not found for token: {$linkToken}");
+    //             return ['success' => false, 'redirect_url' => null];
+    //         }
+            
+    //        // COMPREHENSIVE VERIFICATION for clicks too
+    //         $isVerifiedRealUser = $this->isVerifiedRealUser($userAgent, $ip, null, $data);
+            
+    //         if (!$isVerifiedRealUser) {
+    //             error_log("Click NOT verified as real user - treating as scan");
+                
+    //             // Get URL for redirect but don't count as click
+    //             $url = $this->getOriginalUrl($linkToken);
+                
+    //             // Log as scan
+    //             $this->logScanEventByLinkToken($linkToken, [
+    //                 'ip_address' => $ip,
+    //                 'user_agent' => $userAgent,
+    //                 'scan_type' => 'failed_click_verification'
+    //             ]);
+                
+    //             return [
+    //                 'success' => true,
+    //                 'redirect_url' => $url,
+    //                 'is_automated' => true
+    //             ];
+    //         }
+            
+    //         // REAL CLICK - track it
+    //         error_log("REAL CLICK - tracking now");
+            
+    //         // Get link details
+    //         $stmt = $this->db->prepare("
+    //             SELECT l.*, r.id as recipient_id, r.phishing_campaign_id, r.status, r.email
+    //             FROM phishing_campaign_links l
+    //             JOIN phishing_campaign_recipients r ON l.recipient_id = r.id
+    //             WHERE l.tracking_token = ?
+    //         ");
+            
+    //         $stmt->execute([$linkToken]);
+    //         $link = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+    //         if (!$link) {
+    //             error_log("Link not found for token: {$linkToken}");
+    //             return ['success' => false, 'redirect_url' => null];
+    //         }
+            
+    //         $this->db->beginTransaction();
+            
+    //         // Update recipient if first click
+    //         if ($link['status'] != 'clicked') {
+    //             $this->updateRecipientStatus($link['recipient_id'], 'clicked', [
+    //                 'clicked_at' => date('Y-m-d H:i:s'),
+    //                 'click_count' => 1,
+    //                 'click_confirmed' => 1
+    //             ]);
+                
+    //             $this->updateCampaignMetrics($link['phishing_campaign_id'], 'unique_clicks', 1);
+    //         } else {
+    //             $this->incrementClickCount($link['recipient_id']);
+    //         }
+            
+    //         // Update link and campaign
+    //         $this->updateLinkClickCount($link['id']);
+    //         $this->updateCampaignMetrics($link['phishing_campaign_id'], 'total_clicked', 1);
+            
+    //         // Log tracking
+    //         $this->logTrackingEvent($link['recipient_id'], $link['phishing_campaign_id'], 'click', [
+    //             'ip_address' => $ip,
+    //             'user_agent' => $userAgent,
+    //             'link_url' => $link['original_url']
+    //         ]);
+            
+    //         $this->db->commit();
+            
+    //         // Recalculate rates
+    //         $this->recalculateCampaignRates($link['phishing_campaign_id']);
+            
+    //         return [
+    //             'success' => true,
+    //             'redirect_url' => $link['original_url'],
+    //             'is_automated' => false
+    //         ];
+            
+    //     } catch (Exception $e) {
+    //         if ($this->db->inTransaction()) {
+    //             $this->db->rollBack();
+    //         }
+    //         error_log("Track link click error: " . $e->getMessage());
+    //         return ['success' => false, 'redirect_url' => null];
+    //     }
+    // }
+
     public function trackLinkClick($linkToken) {
         try {
+            // Get request details
             $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
             $ip = $_SERVER['REMOTE_ADDR'] ?? '';
             
-            error_log("Click attempt - Token: {$linkToken}, UA: " . substr($userAgent, 0, 100));
-
-            // Get recipient info for timing check
-            $stmt = $this->db->prepare("
-                SELECT r.*, l.original_url
-                FROM phishing_campaign_links l
-                JOIN phishing_campaign_recipients r ON l.recipient_id = r.id
-                WHERE l.tracking_token = ?
-            ");
-            $stmt->execute([$linkToken]);
-            $data = $stmt->fetch(PDO::FETCH_ASSOC);
+            error_log("Click attempt - Token: {$linkToken}, IP: {$ip}");
             
-            if (!$data) {
-                error_log("Link data not found for token: {$linkToken}");
-                return ['success' => false, 'redirect_url' => null];
-            }
+            // Check if automated scan
+            $isAutomated = $this->isAutomatedScan($userAgent, $ip);
             
-           // COMPREHENSIVE VERIFICATION for clicks too
-            $isVerifiedRealUser = $this->isVerifiedRealUser($userAgent, $ip, null, $data);
-            
-            if (!$isVerifiedRealUser) {
-                error_log("Click NOT verified as real user - treating as scan");
+            if ($isAutomated) {
+                error_log("AUTOMATED CLICK SCAN - NOT counting");
                 
-                // Get URL for redirect but don't count as click
-                $url = $this->getOriginalUrl($linkToken);
-                
-                // Log as scan
+                // Log as scan event
                 $this->logScanEventByLinkToken($linkToken, [
                     'ip_address' => $ip,
                     'user_agent' => $userAgent,
-                    'scan_type' => 'failed_click_verification'
+                    'scan_type' => 'automated_link_scan'
                 ]);
                 
+                // Get URL for redirect but don't count as click
+                $url = $this->getOriginalUrl($linkToken);
                 return [
                     'success' => true,
                     'redirect_url' => $url,
@@ -1295,10 +1441,7 @@ class CampaignManager {
                 ];
             }
             
-            // REAL CLICK - track it
-            error_log("REAL CLICK - tracking now");
-            
-            // Get link details
+            // Get link details with domain display
             $stmt = $this->db->prepare("
                 SELECT l.*, r.id as recipient_id, r.phishing_campaign_id, r.status, r.email
                 FROM phishing_campaign_links l
@@ -1314,36 +1457,40 @@ class CampaignManager {
                 return ['success' => false, 'redirect_url' => null];
             }
             
-            $this->db->beginTransaction();
-            
-            // Update recipient if first click
+            // Check if already clicked
             if ($link['status'] != 'clicked') {
+                $this->db->beginTransaction();
+                
+                // Update recipient
                 $this->updateRecipientStatus($link['recipient_id'], 'clicked', [
                     'clicked_at' => date('Y-m-d H:i:s'),
                     'click_count' => 1,
                     'click_confirmed' => 1
                 ]);
                 
+                // Update campaign metrics
                 $this->updateCampaignMetrics($link['phishing_campaign_id'], 'unique_clicks', 1);
+                $this->updateCampaignMetrics($link['phishing_campaign_id'], 'total_clicked', 1);
+                
+                // Update link click count
+                $this->updateLinkClickCount($link['id']);
+                
+                // Log tracking
+                $this->logTrackingEvent($link['recipient_id'], $link['phishing_campaign_id'], 'click', [
+                    'ip_address' => $ip,
+                    'user_agent' => $userAgent,
+                    'link_url' => $link['original_url']
+                ]);
+                
+                $this->db->commit();
+                
+                // Recalculate rates
+                $this->recalculateCampaignRates($link['phishing_campaign_id']);
+                
+                error_log("Click tracked for: " . $link['email'] . " -> " . $link['domain_display']);
             } else {
-                $this->incrementClickCount($link['recipient_id']);
+                error_log("Recipient already clicked: " . $link['email']);
             }
-            
-            // Update link and campaign
-            $this->updateLinkClickCount($link['id']);
-            $this->updateCampaignMetrics($link['phishing_campaign_id'], 'total_clicked', 1);
-            
-            // Log tracking
-            $this->logTrackingEvent($link['recipient_id'], $link['phishing_campaign_id'], 'click', [
-                'ip_address' => $ip,
-                'user_agent' => $userAgent,
-                'link_url' => $link['original_url']
-            ]);
-            
-            $this->db->commit();
-            
-            // Recalculate rates
-            $this->recalculateCampaignRates($link['phishing_campaign_id']);
             
             return [
                 'success' => true,
@@ -1352,7 +1499,7 @@ class CampaignManager {
             ];
             
         } catch (Exception $e) {
-            if ($this->db->inTransaction()) {
+            if (isset($this->db) && $this->db->inTransaction()) {
                 $this->db->rollBack();
             }
             error_log("Track link click error: " . $e->getMessage());
@@ -1891,23 +2038,6 @@ class CampaignManager {
             error_log("Get organization campaigns error: " . $e->getMessage());
             return ['campaigns' => [], 'total' => 0];
         }
-    }
-
-    public function getOrganizationTotals($organizationId) {
-        $stmt = $this->db->prepare("
-            SELECT 
-                SUM(COALESCE(r.total_recipients, 0)) as total_recipients,
-                SUM(COALESCE(r.total_sent, 0)) as total_sent,
-                SUM(COALESCE(r.total_opened, 0)) as total_opened,
-                SUM(COALESCE(r.total_clicked, 0)) as total_clicked
-            FROM phishing_campaigns c
-            LEFT JOIN phishing_campaign_results r 
-                ON c.phishing_campaign_id = r.phishing_campaign_id
-            WHERE c.phishing_org_id = ?
-        ");
-        
-        $stmt->execute([$organizationId]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
     
     /**
