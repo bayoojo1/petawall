@@ -1,14 +1,29 @@
 <?php
 require_once __DIR__ . '/classes/AccessControl.php';
 require_once __DIR__ . '/classes/Auth.php';
+require_once __DIR__ . '/classes/StripeManager.php'; // Add this
 
 $accessControl = new AccessControl();
 $roleManager = new RoleManager();
 $auth = new Auth();
+$stripeManager = new StripeManager(); // Add thiss
 
 // Get all plans (roles) and their features from database
 $allPlans = $roleManager->getAllRoles();
 $currentUserRole = $_SESSION['user_roles'][0]['role'] ?? 'free';
+
+// Get subscription info if logged in
+$subscriptionInfo = null;
+$subscriptionEndDate = null;
+$daysRemaining = null;
+
+if ($auth->isLoggedIn()) {
+    $subscriptionInfo = $stripeManager->getActiveSubscription($_SESSION['user_id']);
+    if ($subscriptionInfo) {
+        $subscriptionEndDate = $subscriptionInfo['current_period_end'];
+        $daysRemaining = $stripeManager->getDaysRemaining($_SESSION['user_id']);
+    }
+}
 
 // -------------------------
 // PLAN ORDER (HIERARCHY)
@@ -41,18 +56,51 @@ usort($displayPlans, function($a, $b) {
     return $order[$a['role']] <=> $order[$b['role']];
 });
 
-require_once __DIR__ . '/includes/header.php';
-require_once __DIR__ . '/includes/nav.php';
+require_once __DIR__ . '/includes/header-new.php';
+require_once __DIR__ . '/includes/nav-new.php';
 ?>
-
+<div class="gap"></div>
 <div class="container upgrade-container">
     <div class="upgrade-header">
-        <?php if ($isLoggedIn): ?>
-            <h1>Upgrade Your Account</h1>
+        <?php if ($auth->isLoggedIn()): ?>
+            <h1>Subscription Details</h1>
             <p>Get access to all our premium security tools</p>
-            <p class="current-plan-indicator">
-                Your current plan: <strong><?= ucfirst($currentUserRole) ?></strong>
-            </p>
+            <div class="current-plan-info">
+                <p class="current-plan-indicator">
+                    Your current plan: <strong><?= ucfirst($currentUserRole) ?></strong>
+                </p>
+                
+                <?php if ($subscriptionInfo && in_array($currentUserRole, ['basic', 'premium'])): ?>
+                    <div class="subscription-status">
+                        <?php if ($daysRemaining !== null && $daysRemaining > 0): ?>
+                            <span class="status-badge active">
+                                <i class="fas fa-calendar-check"></i>
+                                Active - Renews in <?= $daysRemaining ?> day<?= $daysRemaining !== 1 ? 's' : '' ?>
+                            </span>
+                            <small class="text-muted">
+                                Next billing: <?= date('M j, Y', strtotime($subscriptionEndDate)) ?>
+                            </small>
+                        <?php elseif ($daysRemaining === 0): ?>
+                            <span class="status-badge expiring">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Expires today
+                            </span>
+                        <?php else: ?>
+                            <span class="status-badge expired">
+                                <i class="fas fa-exclamation-circle"></i>
+                                Subscription expired
+                            </span>
+                        <?php endif; ?>
+                    </div>
+                <?php elseif ($currentUserRole === 'free'): ?>
+                    <div class="subscription-status">
+                        <span class="status-badge free">
+                            <i class="fas fa-infinity"></i>
+                            Free plan - No expiration
+                        </span>
+                    </div>
+                <?php endif; ?>
+            </div>
         <?php else: ?>
             <h1>Subscription Plans</h1>
             <p>Create an account to access and use our free tools</p>
@@ -74,7 +122,12 @@ require_once __DIR__ . '/includes/nav.php';
             $isDowngrade = ($planLevel < $currentLevel);
         ?>
             <div class="plan-card <?= $isFeatured ? 'featured' : '' ?>">
-                <h3><?= ucfirst($planName) ?></h3>
+                <div class="plan-header">
+                    <h3><?= ucfirst($planName) ?></h3>
+                    <?php if ($isSamePlan && $auth->isLoggedIn()): ?>
+                        <span class="current-plan-badge">Current Plan</span>
+                    <?php endif; ?>
+                </div>
 
                 <div class="price">
                     $<?= $price ?><span>/month</span>
@@ -106,7 +159,7 @@ require_once __DIR__ . '/includes/nav.php';
                 <!-- ACTION BUTTON LOGIC -->
                 <div class="plan-actions">
 
-                    <?php if (!$isLoggedIn): ?>
+                    <?php if (!$auth->isLoggedIn()): ?>
 
                         <button class="btn btn-outline signup-btn">Sign Up</button>
 
@@ -184,3 +237,64 @@ require_once __DIR__ . '/includes/nav.php';
 
 <link rel="stylesheet" href="assets/styles/upgrade.css">
 <link rel="stylesheet" href="assets/styles/modal.css">
+
+<style>
+/* Additional styles for subscription info */
+.current-plan-info {
+    margin-top: 10px;
+}
+
+.subscription-status {
+    margin-top: 5px;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.status-badge.active {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.status-badge.expiring {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.status-badge.expired {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.status-badge.free {
+    background-color: #e2e3e5;
+    color: #383d41;
+    border: 1px solid #d6d8db;
+}
+
+.plan-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.current-plan-badge {
+    background-color: #0060df;
+    color: white;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+</style>

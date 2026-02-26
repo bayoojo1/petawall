@@ -185,9 +185,9 @@ header {
     transition: background-color 0.3s;
 }
 
-.explore-btn-span {
+/* .explore-btn-span {
     border: 5px solid #00BFFF;
-}
+} */
 
 .explore-btn:hover {
     background-color: #00BFFF;

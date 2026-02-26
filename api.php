@@ -48,7 +48,7 @@ require_once __DIR__ . '/classes/VulnerabilityScanner.php';
 require_once __DIR__ . '/classes/WafAnalyzer.php';
 require_once __DIR__ . '/classes/PhishingAnalyzer.php';
 require_once __DIR__ . '/classes/PasswordAnalyzer.php';
-require_once __DIR__ . '/classes/NetworkAnalyzer-linux.php';
+require_once __DIR__ . '/classes/NetworkAnalyzer-Windows.php';
 require_once __DIR__ . '/classes/IoTScanner.php';
 require_once __DIR__ . '/classes/PhishingDetectorFactory.php';
 require_once __DIR__ . '/classes/SimpleHttpClient.php';

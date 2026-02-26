@@ -1,3 +1,5 @@
+// Network Analyzer JavaScript - Complete Corrected Version
+
 class NetworkAnalyzer {
     constructor() {
         this.currentAnalysisId = null;
@@ -14,42 +16,48 @@ class NetworkAnalyzer {
     }
     
     initAIModal() {
+        // Check if modal already exists
+        if (document.getElementById('ai-analysis-modal')) {
+            this.aiModal = document.getElementById('ai-analysis-modal');
+            return;
+        }
+        
         // Create modal container
         this.aiModal = document.createElement('div');
         this.aiModal.id = 'ai-analysis-modal';
-        this.aiModal.className = 'modal hidden';
+        this.aiModal.className = 'network-modal hidden';
         
-        // Create modal content
+        // Create modal content with vibrant styling
         this.aiModal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3><i class="fas fa-robot"></i> AI-Powered Threat Analysis</h3>
-                    <span class="close-modal">&times;</span>
+            <div class="network-modal-content">
+                <div class="network-modal-header gradient-header-4">
+                    <h3><i class="fas fa-robot" style="color: white;"></i> AI-Powered Threat Analysis</h3>
+                    <span class="network-modal-close">&times;</span>
                 </div>
-                <div class="modal-body">
-                    <div class="threat-info">
-                        <h4 id="threat-title"></h4>
-                        <div class="threat-details" id="threat-details"></div>
-                        <div class="threat-evidence" id="threat-evidence"></div>
+                <div class="network-modal-body">
+                    <div class="threat-info-card">
+                        <h4 id="threat-title" class="threat-title"></h4>
+                        <div class="threat-details-grid" id="threat-details"></div>
+                        <div class="threat-evidence-card" id="threat-evidence"></div>
                     </div>
                     
                     <div class="ai-analysis-container">
-                        <div class="ai-response" id="ai-analysis-response">
-                            <div class="loading" id="ai-analysis-loading">
-                                <div class="spinner"></div>
+                        <div class="ai-response-card" id="ai-analysis-response">
+                            <div class="loading-spinner" id="ai-analysis-loading" style="display: none;">
+                                <div class="spinner-circle"></div>
                                 <p>Generating AI-powered threat analysis...</p>
                             </div>
-                            <div id="ai-analysis-content"></div>
+                            <div id="ai-analysis-content" class="ai-content-area"></div>
                         </div>
                         
-                        <div class="ai-actions">
-                            <button class="btn-na btn-primary" id="generate-threat-analysis">
+                        <div class="ai-action-buttons">
+                            <button class="btn-na btn-primary gradient-btn-4" id="generate-threat-analysis">
                                 <i class="fas fa-magic"></i> Analyze Threat
                             </button>
-                            <button class="btn-na btn-secondary" id="copy-analysis">
+                            <button class="btn-na btn-outline-primary" id="copy-analysis">
                                 <i class="fas fa-copy"></i> Copy Analysis
                             </button>
-                            <button class="btn-na btn-outline" id="close-analysis">
+                            <button class="btn-na btn-outline-secondary" id="close-analysis">
                                 <i class="fas fa-times"></i> Close
                             </button>
                         </div>
@@ -65,44 +73,16 @@ class NetworkAnalyzer {
         this.setupAIModalEvents();
     }
     
-    setupEventListeners() {
-        // PCAP source toggle
-        const localMode = document.getElementById('local-mode');
-        const remoteMode = document.getElementById('remote-mode');
-        const localInput = document.getElementById('local-input');
-        const remoteInput = document.getElementById('remote-input');
-        
-        localMode.addEventListener('change', () => {
-            localInput.classList.remove('hidden');
-            remoteInput.classList.add('hidden');
-        });
-        
-        remoteMode.addEventListener('change', () => {
-            remoteInput.classList.remove('hidden');
-            localInput.classList.add('hidden');
-        });
-        
-        // Analyze button
-        const analyzeBtn = document.getElementById('network-btn');
-        if (analyzeBtn) {
-            analyzeBtn.addEventListener('click', () => this.startAnalysis());
-        }
-        
-        // Export buttons
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('export-json')) {
-                this.exportResults('json');
-            } else if (e.target.classList.contains('export-pdf')) {
-                this.exportResults('pdf');
-            } else if (e.target.classList.contains('export-csv')) {
-                this.exportResults('csv');
-            }
-        });
-    }
-    
     setupAIModalEvents() {
         // Close modal when clicking X
-        this.aiModal.querySelector('.close-modal').addEventListener('click', () => this.hideAIModal());
+        const closeBtn = this.aiModal.querySelector('.network-modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.hideAIModal();
+            });
+        }
         
         // Close modal when clicking outside
         this.aiModal.addEventListener('click', (e) => {
@@ -112,65 +92,204 @@ class NetworkAnalyzer {
         });
         
         // Generate analysis button
-        this.aiModal.querySelector('#generate-threat-analysis').addEventListener('click', () => this.generateThreatAnalysis());
+        const generateBtn = this.aiModal.querySelector('#generate-threat-analysis');
+        if (generateBtn) {
+            generateBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.generateThreatAnalysis();
+            });
+        }
         
         // Copy analysis button
-        this.aiModal.querySelector('#copy-analysis').addEventListener('click', () => this.copyAnalysis());
+        const copyBtn = this.aiModal.querySelector('#copy-analysis');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.copyAnalysis();
+            });
+        }
         
         // Close button
-        this.aiModal.querySelector('#close-analysis').addEventListener('click', () => this.hideAIModal());
+        const closeAnalysisBtn = this.aiModal.querySelector('#close-analysis');
+        if (closeAnalysisBtn) {
+            closeAnalysisBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.hideAIModal();
+            });
+        }
         
         // Escape key to close
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !this.aiModal.classList.contains('hidden')) {
+            if (e.key === 'Escape' && this.aiModal && !this.aiModal.classList.contains('hidden')) {
                 this.hideAIModal();
             }
         });
     }
     
+    setupEventListeners() {
+        // PCAP source toggle
+        const localMode = document.getElementById('local-mode');
+        const remoteMode = document.getElementById('remote-mode');
+        const localInput = document.getElementById('local-input');
+        const remoteInput = document.getElementById('remote-input');
+        
+        if (localMode && remoteMode && localInput && remoteInput) {
+            localMode.addEventListener('change', () => {
+                localInput.classList.remove('hidden');
+                remoteInput.classList.add('hidden');
+            });
+            
+            remoteMode.addEventListener('change', () => {
+                remoteInput.classList.remove('hidden');
+                localInput.classList.add('hidden');
+            });
+        }
+        
+        // Analyze button
+        const analyzeBtn = document.getElementById('network-btn');
+        if (analyzeBtn) {
+            analyzeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.startAnalysis();
+            });
+        }
+        
+        // Export buttons - use event delegation
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('export-json')) {
+                e.preventDefault();
+                this.exportResults('json');
+            } else if (e.target.classList.contains('export-pdf')) {
+                e.preventDefault();
+                this.exportResults('pdf');
+            } else if (e.target.classList.contains('export-csv')) {
+                e.preventDefault();
+                this.exportResults('csv');
+            }
+        });
+    }
+    
     showAIModal(threat, severity, evidence) {
+        console.log('showAIModal called with:', { threat, severity, evidence });
+        
+        // Ensure modal exists
+        if (!this.aiModal) {
+            console.error('AI Modal not initialized');
+            this.initAIModal();
+        }
+        
         this.currentAIIssue = { threat, severity, evidence };
         
-        // Populate threat info
+        // Get modal elements
         const threatTitle = this.aiModal.querySelector('#threat-title');
         const threatDetails = this.aiModal.querySelector('#threat-details');
         const threatEvidence = this.aiModal.querySelector('#threat-evidence');
         const aiContent = this.aiModal.querySelector('#ai-analysis-content');
+        const loading = this.aiModal.querySelector('#ai-analysis-loading');
         
         // Clear previous content
-        aiContent.innerHTML = '';
-        this.aiModal.querySelector('#ai-analysis-loading').style.display = 'none';
+        if (aiContent) aiContent.innerHTML = '';
+        if (loading) loading.style.display = 'none';
         
-        // Populate threat info
-        threatTitle.textContent = `${severity.toUpperCase()} THREAT: ${threat}`;
+        // Format the evidence safely - FIX THE JSON PARSING
+        let formattedEvidence = '';
+        if (typeof evidence === 'string') {
+            formattedEvidence = evidence;
+        } else if (typeof evidence === 'object') {
+            formattedEvidence = JSON.stringify(evidence, null, 2);
+        } else {
+            formattedEvidence = String(evidence || 'No evidence available');
+        }
         
-        threatDetails.innerHTML = `
-            <p><strong>Severity:</strong> <span class="threat-severity-badge ${severity}">${severity}</span></p>
-            <p><strong>Detection Time:</strong> ${new Date().toLocaleString()}</p>
-            <p><strong>Analysis ID:</strong> ${this.currentAnalysisId || 'N/A'}</p>
-        `;
+        // Populate threat info with vibrant styling
+        if (threatTitle) {
+            threatTitle.innerHTML = `
+                <span class="severity-badge severity-${severity || 'medium'}">${(severity || 'medium').toUpperCase()}</span>
+                <span class="threat-name">${this.escapeHtml(threat || 'Unknown Threat')}</span>
+            `;
+        }
         
-        threatEvidence.textContent = evidence || 'No additional evidence available';
+        if (threatDetails) {
+            threatDetails.innerHTML = `
+                <div class="detail-item">
+                    <span class="detail-label">Detection Time:</span>
+                    <span class="detail-value">${new Date().toLocaleString()}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Analysis ID:</span>
+                    <span class="detail-value">${this.currentAnalysisId || 'N/A'}</span>
+                </div>
+            `;
+        }
         
-        // Show modal
+        if (threatEvidence) {
+            threatEvidence.innerHTML = `
+                <div class="evidence-header">
+                    <i class="fas fa-microscope"></i>
+                    <h5>Evidence Data</h5>
+                </div>
+                <pre class="evidence-content">${this.escapeHtml(formattedEvidence)}</pre>
+            `;
+        }
+        
+        // Show modal - MAKE SURE TO HIDE OTHER MODALS FIRST
+        this.hideOtherModals();
         this.aiModal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         
         // Focus on generate button
         setTimeout(() => {
-            this.aiModal.querySelector('#generate-threat-analysis').focus();
+            const generateBtn = this.aiModal.querySelector('#generate-threat-analysis');
+            if (generateBtn) generateBtn.focus();
         }, 100);
     }
     
     hideAIModal() {
-        this.aiModal.classList.add('hidden');
+        if (this.aiModal) {
+            this.aiModal.classList.add('hidden');
+        }
         document.body.style.overflow = '';
         this.currentAIIssue = null;
+    }
+    
+    // Helper method to hide other modals
+    hideOtherModals() {
+        // Hide login modal if it exists
+        const loginModal = document.getElementById('loginModal');
+        if (loginModal) {
+            loginModal.style.display = 'none';
+        }
+        
+        // Hide any other modals with common classes
+        document.querySelectorAll('.modal.show, .modal.fade, .modal.in').forEach(modal => {
+            modal.style.display = 'none';
+            modal.classList.remove('show', 'in');
+        });
+    }
+    
+    formatEvidence(evidence) {
+        if (!evidence) return 'No additional evidence available';
+        
+        if (typeof evidence === 'string') {
+            // Don't try to parse - just return the string
+            return evidence;
+        }
+        
+        if (typeof evidence === 'object') {
+            return JSON.stringify(evidence, null, 2);
+        }
+        
+        return String(evidence);
     }
     
     async generateThreatAnalysis() {
         const aiContent = this.aiModal.querySelector('#ai-analysis-content');
         const loading = this.aiModal.querySelector('#ai-analysis-loading');
+        
+        if (!aiContent || !loading) return;
         
         // Show loading
         loading.style.display = 'block';
@@ -181,13 +300,14 @@ class NetworkAnalyzer {
             loading.style.display = 'none';
             aiContent.innerHTML = this.formatAIAnalysis(response);
         } catch (error) {
+            console.error('AI Analysis error:', error);
             loading.style.display = 'none';
             aiContent.innerHTML = `
-                <div class="error-container">
-                    <i class="fas fa-exclamation-circle"></i>
+                <div class="error-container vibrant-error">
+                    <i class="fas fa-exclamation-circle error-icon"></i>
                     <h4>Analysis Failed</h4>
-                    <p>${error.message}</p>
-                    <button class="btn-na btn-primary" onclick="networkAnalyzer.generateThreatAnalysis()">
+                    <p>${this.escapeHtml(error.message)}</p>
+                    <button class="btn-na btn-primary gradient-btn-4" onclick="networkAnalyzer.generateThreatAnalysis()">
                         <i class="fas fa-redo"></i> Try Again
                     </button>
                 </div>
@@ -218,69 +338,145 @@ class NetworkAnalyzer {
             throw new Error(`API error: ${response.status}`);
         }
         
-        const result = await response.json();
+        const responseText = await response.text();
+        console.log('Raw response text:', responseText);
         
-        if (!result.success) {
-            throw new Error(result.error || 'AI analysis failed');
+        // Handle multiple JSON objects concatenated together
+        try {
+            // First, try to parse the entire response as JSON
+            return JSON.parse(responseText);
+        } catch (e) {
+            console.log('Failed to parse entire response, attempting to extract first JSON object');
+            
+            // If that fails, try to extract the first valid JSON object
+            try {
+                // Find the first occurrence of '{' and then find the matching closing '}'
+                let braceCount = 0;
+                let startIndex = responseText.indexOf('{');
+                let endIndex = -1;
+                
+                if (startIndex === -1) {
+                    throw new Error('No JSON object found in response');
+                }
+                
+                for (let i = startIndex; i < responseText.length; i++) {
+                    if (responseText[i] === '{') {
+                        braceCount++;
+                    } else if (responseText[i] === '}') {
+                        braceCount--;
+                        if (braceCount === 0) {
+                            endIndex = i;
+                            break;
+                        }
+                    }
+                }
+                
+                if (endIndex === -1) {
+                    throw new Error('Could not find matching closing brace');
+                }
+                
+                const firstJson = responseText.substring(startIndex, endIndex + 1);
+                console.log('Extracted first JSON:', firstJson);
+                
+                const parsed = JSON.parse(firstJson);
+                
+                // If we have a nested structure with raw_response, extract it
+                if (parsed.response && parsed.response.raw_response) {
+                    return parsed;
+                } else if (parsed.raw_response) {
+                    return parsed;
+                } else {
+                    return parsed;
+                }
+            } catch (extractError) {
+                console.error('Failed to extract JSON:', extractError);
+                throw new Error('Invalid response format from server');
+            }
         }
-        
-        return result.response || result.data || result;
     }
     
     buildAIAnalysisPrompt() {
         const issue = this.currentAIIssue;
         
+        // Format evidence safely
+        let evidenceStr = '';
+        if (typeof issue.evidence === 'string') {
+            evidenceStr = issue.evidence;
+        } else if (typeof issue.evidence === 'object') {
+            evidenceStr = JSON.stringify(issue.evidence);
+        } else {
+            evidenceStr = String(issue.evidence || 'No evidence');
+        }
+        
         return `Analyze this network security threat:
 
-    THREAT TYPE: ${issue.threat}
-    SEVERITY: ${issue.severity}
-    EVIDENCE: ${issue.evidence}
+THREAT TYPE: ${issue.threat}
+SEVERITY: ${issue.severity}
+EVIDENCE: ${evidenceStr}
 
-    Please provide:
-    1. Detailed threat analysis
-    2. Potential impact on the organization
-    3. Immediate mitigation steps
-    4. Long-term prevention strategies
-    5. Related threat intelligence
-    6. Compliance implications
+Please provide:
+1. Detailed threat analysis
+2. Potential impact on the organization
+3. Immediate mitigation steps
+4. Long-term prevention strategies
+5. Related threat intelligence
+6. Compliance implications
 
-    Provide specific, actionable recommendations.`;
+Provide specific, actionable recommendations.`;
     }
     
     formatAIAnalysis(response) {
+        console.log('Formatting AI analysis response:', response);
+        
         let analysisText = '';
         
-        if (typeof response === 'string') {
+        // Handle different response structures
+        if (response && response.response && response.response.raw_response) {
+            analysisText = response.response.raw_response;
+        } else if (response && response.raw_response) {
+            analysisText = response.raw_response;
+        } else if (response && response.response && typeof response.response === 'string') {
+            analysisText = response.response;
+        } else if (response && typeof response === 'string') {
             analysisText = response;
-        } else if (response && typeof response === 'object') {
-            analysisText = response.raw_response || response.analysis || response.formatted || 
-                          response.message || JSON.stringify(response, null, 2);
+        } else if (response && response.data && response.data.raw_response) {
+            analysisText = response.data.raw_response;
+        } else if (response && response.formatted) {
+            analysisText = response.formatted;
+        } else if (response && response.analysis) {
+            analysisText = response.analysis;
+        } else {
+            analysisText = JSON.stringify(response, null, 2);
         }
         
         // Process markdown
         analysisText = this.processMarkdown(analysisText);
         
         return `
-            <div class="threat-analysis">
-                <h4><i class="fas fa-robot"></i> AI Threat Analysis</h4>
-                <div class="analysis-content">${analysisText}</div>
+            <div class="threat-analysis-result">
+                <h4 class="analysis-title">
+                    <i class="fas fa-robot gradient-icon-4"></i> AI Threat Analysis
+                </h4>
+                <div class="analysis-content markdown-content">${analysisText}</div>
             </div>
         `;
     }
     
     processMarkdown(text) {
+        if (!text) return '';
+        
         // Convert code blocks
         text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
-            return `<pre><code>${this.escapeHtml(code.trim())}</code></pre>`;
+            return `<pre class="code-block"><code class="language-${lang || 'text'}">${this.escapeHtml(code.trim())}</code></pre>`;
         });
         
         // Convert inline code
-        text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+        text = text.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
         
         // Convert headers
-        text = text.replace(/^### (.*$)/gm, '<h5>$1</h5>');
-        text = text.replace(/^## (.*$)/gm, '<h4>$1</h4>');
-        text = text.replace(/^# (.*$)/gm, '<h3>$1</h3>');
+        text = text.replace(/^### (.*$)/gm, '<h5 class="markdown-h5">$1</h5>');
+        text = text.replace(/^## (.*$)/gm, '<h4 class="markdown-h4">$1</h4>');
+        text = text.replace(/^# (.*$)/gm, '<h3 class="markdown-h3">$1</h3>');
         
         // Convert bold and italic
         text = text.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
@@ -288,23 +484,28 @@ class NetworkAnalyzer {
         text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
         
         // Convert lists
-        text = text.replace(/^(\d+)\.\s+(.*)$/gm, '<li>$1. $2</li>');
-        text = text.replace(/(<li>\d+\..*<\/li>)/gs, '<ol class="steps-list">$1</ol>');
+        text = text.replace(/^(\d+)\.\s+(.*)$/gm, '<li class="list-item numbered">$1. $2</li>');
+        text = text.replace(/(<li class="list-item numbered">.*<\/li>)/gs, '<ol class="steps-list">$1</ol>');
         
-        text = text.replace(/^[-*]\s+(.*)$/gm, '<li>$1</li>');
-        text = text.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+        text = text.replace(/^[-*]\s+(.*)$/gm, '<li class="list-item bullet">$1</li>');
+        text = text.replace(/(<li class="list-item bullet">.*<\/li>)/gs, '<ul class="bullet-list">$1</ul>');
         
         // Convert line breaks
-        text = text.replace(/\n\n/g, '</p><p>');
+        text = text.replace(/\n\n/g, '</p><p class="markdown-p">');
         text = text.replace(/\n/g, '<br>');
         
-        return `<p>${text}</p>`;
+        return `<p class="markdown-p">${text}</p>`;
     }
     
     async startAnalysis() {
         // Get analysis parameters
-        const pcapSource = document.querySelector('input[name="pcap-source"]:checked').value;
-        const analysisType = document.getElementById('analysis-type').value;
+        const pcapSource = document.querySelector('input[name="pcap-source"]:checked')?.value;
+        const analysisType = document.getElementById('analysis-type')?.value;
+        
+        if (!pcapSource || !analysisType) {
+            this.showError('Please select analysis options');
+            return;
+        }
         
         // Validate inputs
         if (pcapSource === 'local') {
@@ -315,7 +516,7 @@ class NetworkAnalyzer {
             }
         } else {
             const urlInput = document.getElementById('remote-url');
-            if (!urlInput.value.trim()) {
+            if (!urlInput || !urlInput.value.trim()) {
                 this.showError('Please enter a remote PCAP URL');
                 return;
             }
@@ -339,7 +540,7 @@ class NetworkAnalyzer {
                 formData.append('pcap_file', document.getElementById('pcap-file').files[0]);
             } else {
                 formData.append('remote_url', document.getElementById('remote-url').value.trim());
-                formData.append('timeout', document.getElementById('timeout').value || 30);
+                formData.append('timeout', document.getElementById('timeout')?.value || 30);
             }
             
             const response = await fetch('api.php', {
@@ -358,6 +559,7 @@ class NetworkAnalyzer {
                 this.currentAnalysisId = result.data.analysis_metadata?.analysis_id || 
                                         `NET-${Date.now()}`;
                 this.displayResults();
+                this.showToast('Analysis completed successfully!', 'success');
             } else {
                 throw new Error(result.error || 'Analysis returned invalid data');
             }
@@ -375,12 +577,14 @@ class NetworkAnalyzer {
         const loading = document.getElementById('network-loading');
         const results = document.getElementById('network-results');
         
-        if (show) {
-            loading.style.display = 'flex';
-            results.style.display = 'none';
-        } else {
-            loading.style.display = 'none';
-            results.style.display = 'block';
+        if (loading && results) {
+            if (show) {
+                loading.style.display = 'flex';
+                results.style.display = 'none';
+            } else {
+                loading.style.display = 'none';
+                results.style.display = 'block';
+            }
         }
     }
     
@@ -394,7 +598,10 @@ class NetworkAnalyzer {
         this.debugDataStructure(this.analysisResults);
         
         const resultsContainer = document.getElementById('network-results');
+        if (!resultsContainer) return;
+        
         resultsContainer.innerHTML = this.generateResultsHTML();
+        resultsContainer.style.display = 'block';
         
         this.setupResultsInteractions();
     }
@@ -409,93 +616,97 @@ class NetworkAnalyzer {
         
         return `
             <div class="network-analysis-report">
-                <!-- Report Header -->
-                <div class="report-header">
+                <!-- Report Header with Gradient -->
+                <div class="report-header gradient-header-4">
                     <div class="report-title">
                         <h3><i class="fas fa-file-alt"></i> Network Analysis Report</h3>
                         <div class="report-meta">
-                            <span>ID: ${metadata.report_id || 'N/A'}</span>
-                            <span>Generated: ${metadata.generated || new Date().toLocaleString()}</span>
-                            <span>Type: ${metadata.analysis_type || 'Comprehensive'}</span>
+                            <span class="meta-badge"><i class="fas fa-hashtag"></i> ${metadata.report_id || 'N/A'}</span>
+                            <span class="meta-badge"><i class="fas fa-calendar"></i> ${metadata.generated || new Date().toLocaleString()}</span>
+                            <span class="meta-badge"><i class="fas fa-tag"></i> ${metadata.analysis_type || 'Comprehensive'}</span>
                         </div>
                     </div>
                     <div class="report-actions">
-                        <button class="btn-na btn-outline export-json">
+                        <button class="btn-na btn-outline-light export-json">
                             <i class="fas fa-download"></i> JSON
                         </button>
-                        <button class="btn-na btn-outline export-pdf">
+                        <button class="btn-na btn-outline-light export-pdf">
                             <i class="fas fa-file-pdf"></i> PDF
                         </button>
-                        <button class="btn-na btn-outline export-csv">
+                        <button class="btn-na btn-outline-light export-csv">
                             <i class="fas fa-file-csv"></i> CSV
                         </button>
                     </div>
                 </div>
                 
-                <!-- Executive Summary -->
+                <!-- Executive Summary with Risk Scoreboard -->
                 <div class="section executive-summary">
-                    <h4><i class="fas fa-chart-line"></i> Executive Summary</h4>
+                    <h4 class="section-title"><i class="fas fa-chart-line gradient-icon-4"></i> Executive Summary</h4>
                     <div class="risk-scoreboard">
-                        <div class="risk-score ${summary.overall_risk?.toLowerCase() || 'medium'}">
-                            <div class="score-label">Overall Risk</div>
-                            <div class="score-value">${summary.overall_risk || 'Medium'}</div>
+                        <div class="risk-score-card risk-${(summary.overall_risk || 'medium').toLowerCase()}">
+                            <div class="risk-score-label">Overall Risk</div>
+                            <div class="risk-score-value">${summary.overall_risk || 'Medium'}</div>
                         </div>
                         <div class="stats-grid">
                             <div class="stat-card critical">
+                                <div class="stat-icon"><i class="fas fa-skull-crossbones"></i></div>
                                 <div class="stat-value">${summary.critical_findings || 0}</div>
                                 <div class="stat-label">Critical</div>
                             </div>
                             <div class="stat-card high">
+                                <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
                                 <div class="stat-value">${summary.high_findings || 0}</div>
                                 <div class="stat-label">High</div>
                             </div>
                             <div class="stat-card medium">
+                                <div class="stat-icon"><i class="fas fa-exclamation-circle"></i></div>
                                 <div class="stat-value">${summary.medium_findings || 0}</div>
                                 <div class="stat-label">Medium</div>
                             </div>
                             <div class="stat-card total">
+                                <div class="stat-icon"><i class="fas fa-shield-alt"></i></div>
                                 <div class="stat-value">${summary.total_threats || 0}</div>
                                 <div class="stat-label">Total Threats</div>
                             </div>
                         </div>
                     </div>
-                    <div class="ai-summary">
-                        <h5><i class="fas fa-robot"></i> AI Analysis Summary</h5>
+                    <div class="ai-summary-card">
+                        <h5 class="card-title"><i class="fas fa-robot gradient-icon-4"></i> AI Analysis Summary</h5>
                         <div class="ai-summary-content">
                             ${(summary.ai_summary && summary.ai_summary.raw_response ? 
                                 this.formatAIText(summary.ai_summary.raw_response) : 
-                                'No AI summary available')}
+                                '<p class="text-muted">No AI summary available</p>')}
                         </div>
                     </div>
                 </div>
                 
                 <!-- Packet Statistics -->
                 <div class="section packet-statistics">
-                    <h4><i class="fas fa-chart-bar"></i> Packet Statistics</h4>
+                    <h4 class="section-title"><i class="fas fa-chart-bar gradient-icon-4"></i> Packet Statistics</h4>
                     ${this.generatePacketStatsHTML(technical.packet_statistics || {})}
                 </div>
                 
                 <!-- Protocol Analysis -->
                 <div class="section protocol-analysis">
-                    <h4><i class="fas fa-network-wired"></i> Protocol Distribution</h4>
+                    <h4 class="section-title"><i class="fas fa-network-wired gradient-icon-4"></i> Protocol Distribution</h4>
                     ${this.generateProtocolAnalysisHTML(technical.protocol_analysis || {})}
                 </div>
                 
                 <!-- Security Findings -->
                 <div class="section security-findings">
-                    <h4><i class="fas fa-shield-alt"></i> Security Findings</h4>
+                    <h4 class="section-title"><i class="fas fa-shield-alt gradient-icon-4"></i> Security Findings</h4>
                     ${this.generateSecurityFindingsHTML(security.findings || {})}
                 </div>
                 
                 <!-- Performance Metrics -->
                 <div class="section performance-metrics">
-                    <h4><i class="fas fa-tachometer-alt"></i> Performance Metrics</h4>
+                    <h4 class="section-title"><i class="fas fa-tachometer-alt gradient-icon-4"></i> Performance Metrics</h4>
                     ${this.generatePerformanceMetricsHTML(technical.performance_metrics || {})}
                 </div>
                 
                 <!-- Anomalies & Threats -->
                 <div class="section anomalies-threats">
-                    <h4><i class="fas fa-exclamation-triangle"></i> Anomalies & Advanced Threats</h4>
+                    <h4 class="section-title"><i class="fas fa-exclamation-triangle gradient-icon-4"></i> Anomalies & Advanced Threats</h4>
                     <div class="threats-container">
                         ${this.generateAnomaliesHTML(technical.anomaly_detection || {})}
                         ${this.generateThreatsHTML(technical.threat_hunting || {})}
@@ -504,19 +715,22 @@ class NetworkAnalyzer {
                 
                 <!-- AI Insights -->
                 <div class="section ai-insights">
-                    <h4><i class="fas fa-brain"></i> AI-Powered Insights</h4>
-                    <div class="ai-insights-content">
+                    <h4 class="section-title"><i class="fas fa-brain gradient-icon-4"></i> AI-Powered Insights</h4>
+                    <div class="ai-insights-grid">
                         <div class="insight-card">
-                            <h5><i class="fas fa-lightbulb"></i> Key Insights</h5>
+                            <div class="insight-icon"><i class="fas fa-lightbulb"></i></div>
+                            <h5>Key Insights</h5>
                             <p>${this.formatAIResponse(ai.executive_summary)}</p>
                         </div>
                         <div class="insight-card">
-                            <h5><i class="fas fa-bullseye"></i> Risk Assessment</h5>
+                            <div class="insight-icon"><i class="fas fa-bullseye"></i></div>
+                            <h5>Risk Assessment</h5>
                             <p>${(ai.risk_assessment || 'Not assessed')}</p>
                         </div>
                         <div class="insight-card">
-                            <h5><i class="fas fa-cogs"></i> Recommendations</h5>
-                            <ul>
+                            <div class="insight-icon"><i class="fas fa-cogs"></i></div>
+                            <h5>Recommendations</h5>
+                            <ul class="insight-list">
                                 ${this.formatAIRecommendations(ai.recommendations)}
                             </ul>
                         </div>
@@ -525,13 +739,13 @@ class NetworkAnalyzer {
                 
                 <!-- Compliance Mapping -->
                 <div class="section compliance-mapping">
-                    <h4><i class="fas fa-clipboard-check"></i> Compliance Mapping</h4>
+                    <h4 class="section-title"><i class="fas fa-clipboard-check gradient-icon-4"></i> Compliance Mapping</h4>
                     ${this.generateComplianceHTML(results.compliance_mapping || {})}
                 </div>
                 
                 <!-- Actionable Recommendations -->
                 <div class="section recommendations">
-                    <h4><i class="fas fa-tasks"></i> Actionable Recommendations</h4>
+                    <h4 class="section-title"><i class="fas fa-tasks gradient-icon-4"></i> Actionable Recommendations</h4>
                     ${this.generateRecommendationsHTML(results.actionable_recommendations || {})}
                 </div>
             </div>
@@ -551,22 +765,22 @@ class NetworkAnalyzer {
         formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
         
         // Convert headings
-        formatted = formatted.replace(/^# (.*$)/gm, '<h5>$1</h5>');
-        formatted = formatted.replace(/^## (.*$)/gm, '<h6>$1</h6>');
+        formatted = formatted.replace(/^# (.*$)/gm, '<h5 class="markdown-h5">$1</h5>');
+        formatted = formatted.replace(/^## (.*$)/gm, '<h6 class="markdown-h6">$1</h6>');
         
         // Convert bullet points
-        formatted = formatted.replace(/^\* (.*$)/gm, '<li>$1</li>');
-        formatted = formatted.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+        formatted = formatted.replace(/^\* (.*$)/gm, '<li class="list-item bullet">$1</li>');
+        formatted = formatted.replace(/(<li class="list-item bullet">.*<\/li>)/gs, '<ul class="bullet-list">$1</ul>');
         
         // Convert numbered lists
-        formatted = formatted.replace(/^\d+\. (.*$)/gm, '<li>$1</li>');
-        formatted = formatted.replace(/(<li>.*<\/li>)/gs, '<ol>$1</ol>');
+        formatted = formatted.replace(/^\d+\. (.*$)/gm, '<li class="list-item numbered">$1</li>');
+        formatted = formatted.replace(/(<li class="list-item numbered">.*<\/li>)/gs, '<ol class="numbered-list">$1</ol>');
         
         // Convert line breaks
-        formatted = formatted.replace(/\n\n/g, '</p><p>');
+        formatted = formatted.replace(/\n\n/g, '</p><p class="markdown-p">');
         formatted = formatted.replace(/\n/g, '<br>');
         
-        return '<p>' + formatted + '</p>';
+        return '<p class="markdown-p">' + formatted + '</p>';
     }
 
     formatAIResponse(response) {
@@ -592,16 +806,16 @@ class NetworkAnalyzer {
 
     formatAIRecommendations(recommendations) {
         if (!recommendations || !Array.isArray(recommendations)) {
-            return '<li>No recommendations available</li>';
+            return '<li class="list-item">No recommendations available</li>';
         }
         
         return recommendations.map(rec => {
             if (typeof rec === 'string') {
-                return `<li>${this.escapeHtml(rec)}</li>`;
+                return `<li class="list-item"><i class="fas fa-check-circle success-icon"></i> ${this.escapeHtml(rec)}</li>`;
             } else if (typeof rec === 'object' && rec.recommendation) {
-                return `<li>${this.escapeHtml(rec.recommendation)}</li>`;
+                return `<li class="list-item"><i class="fas fa-check-circle success-icon"></i> ${this.escapeHtml(rec.recommendation)}</li>`;
             } else {
-                return `<li>${this.escapeHtml(JSON.stringify(rec))}</li>`;
+                return `<li class="list-item"><i class="fas fa-check-circle success-icon"></i> ${this.escapeHtml(JSON.stringify(rec))}</li>`;
             }
         }).join('');
     }
@@ -614,32 +828,50 @@ class NetworkAnalyzer {
         
         return `
             <div class="stats-container">
-                <div class="stat-row">
-                    <div class="stat-item">
-                        <span class="stat-label">Total Packets</span>
-                        <span class="stat-value">${totalPackets.toLocaleString()}</span>
+                <div class="stats-row">
+                    <div class="stats-item">
+                        <div class="stats-icon"><i class="fas fa-cube"></i></div>
+                        <div class="stats-content">
+                            <span class="stats-label">Total Packets</span>
+                            <span class="stats-value">${totalPackets.toLocaleString()}</span>
+                        </div>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Capture Duration</span>
-                        <span class="stat-value">${timeRange.duration_seconds ? timeRange.duration_seconds + 's' : 'N/A'}</span>
+                    <div class="stats-item">
+                        <div class="stats-icon"><i class="fas fa-hourglass-half"></i></div>
+                        <div class="stats-content">
+                            <span class="stats-label">Capture Duration</span>
+                            <span class="stats-value">${timeRange.duration_seconds ? timeRange.duration_seconds + 's' : 'N/A'}</span>
+                        </div>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Average Packet Size</span>
-                        <span class="stat-value">${packetSizes.average_bytes ? packetSizes.average_bytes + ' bytes' : 'N/A'}</span>
+                    <div class="stats-item">
+                        <div class="stats-icon"><i class="fas fa-weight-hanging"></i></div>
+                        <div class="stats-content">
+                            <span class="stats-label">Average Packet Size</span>
+                            <span class="stats-value">${packetSizes.average_bytes ? packetSizes.average_bytes + ' bytes' : 'N/A'}</span>
+                        </div>
                     </div>
                 </div>
-                <div class="stat-row">
-                    <div class="stat-item">
-                        <span class="stat-label">Packets/Second</span>
-                        <span class="stat-value">${packetRate.packets_per_second || 'N/A'}</span>
+                <div class="stats-row">
+                    <div class="stats-item">
+                        <div class="stats-icon"><i class="fas fa-tachometer-alt"></i></div>
+                        <div class="stats-content">
+                            <span class="stats-label">Packets/Second</span>
+                            <span class="stats-value">${packetRate.packets_per_second || 'N/A'}</span>
+                        </div>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Data Rate</span>
-                        <span class="stat-value">${packetRate.megabits_per_second ? packetRate.megabits_per_second + ' Mbps' : 'N/A'}</span>
+                    <div class="stats-item">
+                        <div class="stats-icon"><i class="fas fa-speedometer"></i></div>
+                        <div class="stats-content">
+                            <span class="stats-label">Data Rate</span>
+                            <span class="stats-value">${packetRate.megabits_per_second ? packetRate.megabits_per_second + ' Mbps' : 'N/A'}</span>
+                        </div>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Total Data</span>
-                        <span class="stat-value">${packetSizes.total_bytes ? this.formatBytes(packetSizes.total_bytes) : 'N/A'}</span>
+                    <div class="stats-item">
+                        <div class="stats-icon"><i class="fas fa-database"></i></div>
+                        <div class="stats-content">
+                            <span class="stats-label">Total Data</span>
+                            <span class="stats-value">${packetSizes.total_bytes ? this.formatBytes(packetSizes.total_bytes) : 'N/A'}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -657,7 +889,7 @@ class NetworkAnalyzer {
         }
         
         if (protocols.length === 0) {
-            return '<div class="no-data">No protocol data available</div>';
+            return '<div class="no-data-card"><i class="fas fa-info-circle"></i> No protocol data available</div>';
         }
         
         const top5 = protocols.slice(0, 5);
@@ -665,30 +897,33 @@ class NetworkAnalyzer {
         return `
             <div class="protocol-container">
                 <div class="protocol-summary">
-                    <div class="top-protocol">
-                        <span class="label">Top Protocol:</span>
-                        <span class="value">${protocols[0]?.protocol || 'N/A'}</span>
-                        <span class="percentage">${protocols[0]?.packets_percent ? protocols[0].packets_percent + '%' : ''}</span>
+                    <div class="protocol-stat">
+                        <span class="protocol-stat-label">Top Protocol:</span>
+                        <span class="protocol-stat-value protocol-badge-1">${protocols[0]?.protocol || 'N/A'}</span>
+                        <span class="protocol-stat-percent">${protocols[0]?.packets_percent ? protocols[0].packets_percent + '%' : ''}</span>
                     </div>
-                    <div class="unique-count">
-                        <span class="label">Unique Protocols:</span>
-                        <span class="value">${protocols.length}</span>
+                    <div class="protocol-stat">
+                        <span class="protocol-stat-label">Unique Protocols:</span>
+                        <span class="protocol-stat-value">${protocols.length}</span>
                     </div>
                 </div>
                 
                 <div class="protocol-chart">
-                    ${top5.map(protocol => `
-                        <div class="protocol-bar">
-                            <div class="protocol-name">${protocol.protocol || 'Unknown'}</div>
-                            <div class="protocol-meter">
-                                <div class="meter-fill" style="width: ${protocol.packets_percent || 0}%"></div>
+                    ${top5.map((protocol, index) => {
+                        const colorClass = `protocol-color-${(index % 5) + 1}`;
+                        return `
+                            <div class="protocol-bar-item">
+                                <div class="protocol-bar-label">
+                                    <span class="protocol-name ${colorClass}">${protocol.protocol || 'Unknown'}</span>
+                                    <span class="protocol-percent">${protocol.packets_percent || 0}%</span>
+                                </div>
+                                <div class="protocol-meter">
+                                    <div class="meter-fill ${colorClass}" style="width: ${protocol.packets_percent || 0}%"></div>
+                                </div>
+                                <div class="protocol-count">${(protocol.packets || 0).toLocaleString()} packets</div>
                             </div>
-                            <div class="protocol-stats">
-                                <span>${(protocol.packets || 0).toLocaleString()} packets</span>
-                                <span>${protocol.packets_percent || 0}%</span>
-                            </div>
-                        </div>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </div>
             </div>
         `;
@@ -705,7 +940,7 @@ class NetworkAnalyzer {
             // Structure: {critical: [], high: [], ...}
             securityFindings = findings;
         } else {
-            return '<div class="no-findings">No security findings detected</div>';
+            return '<div class="no-findings-card"><i class="fas fa-shield-check"></i> No security findings detected</div>';
         }
         
         const severities = ['critical', 'high', 'medium', 'low'];
@@ -719,7 +954,7 @@ class NetworkAnalyzer {
         });
         
         if (!hasFindings) {
-            return '<div class="no-findings">No security findings detected</div>';
+            return '<div class="no-findings-card"><i class="fas fa-shield-check"></i> No security findings detected</div>';
         }
         
         let html = '<div class="findings-container">';
@@ -731,11 +966,11 @@ class NetworkAnalyzer {
                 const uniqueFindings = this.deduplicateFindings(severityFindings);
                 
                 html += `
-                    <div class="severity-section ${severity}">
-                        <h5 class="severity-title">
-                            <i class="fas fa-exclamation-circle"></i>
-                            ${severity.toUpperCase()} (${uniqueFindings.length})
-                        </h5>
+                    <div class="severity-section severity-${severity}">
+                        <div class="severity-header">
+                            <i class="fas fa-${severity === 'critical' ? 'skull-crossbones' : severity === 'high' ? 'exclamation-triangle' : severity === 'medium' ? 'exclamation-circle' : 'info-circle'}"></i>
+                            <h5>${severity.toUpperCase()} (${uniqueFindings.length})</h5>
+                        </div>
                         <div class="findings-list">
                             ${uniqueFindings.map((finding, index) => {
                                 // Clean the source_ip - it shows as "10," which is wrong
@@ -761,21 +996,21 @@ class NetworkAnalyzer {
                                     <div class="finding-item">
                                         <div class="finding-header">
                                             <span class="finding-type">Security Issue</span>
-                                            <button class="btn-na btn-small analyze-threat" 
+                                            <button class="btn-na btn-small analyze-threat gradient-btn-${severity === 'critical' ? '6' : severity === 'high' ? '2' : severity === 'medium' ? '9' : '3'}" 
                                                     data-threat="${this.escapeHtml(description)}" 
                                                     data-severity="${severity}"
-                                                    data-evidence="${this.escapeHtml(JSON.stringify(finding))}">
+                                                    data-evidence='${this.escapeHtml(JSON.stringify(finding))}'>
                                                 <i class="fas fa-robot"></i> AI Analyze
                                             </button>
                                         </div>
                                         <div class="finding-description">${this.escapeHtml(description)}</div>
                                         <div class="finding-details">
-                                            ${domain ? `<span><strong>Domain:</strong> ${this.escapeHtml(domain)}</span>` : ''}
-                                            ${sourceIP ? `<span><strong>Source IP:</strong> ${this.escapeHtml(sourceIP)}</span>` : ''}
+                                            ${domain ? `<span><i class="fas fa-globe"></i> ${this.escapeHtml(domain)}</span>` : ''}
+                                            ${sourceIP ? `<span><i class="fas fa-ip"></i> ${this.escapeHtml(sourceIP)}</span>` : ''}
                                         </div>
                                         ${recommendation ? `
                                         <div class="finding-recommendation">
-                                            <strong>Recommendation:</strong> ${this.escapeHtml(recommendation)}
+                                            <i class="fas fa-lightbulb"></i> ${this.escapeHtml(recommendation)}
                                         </div>
                                         ` : ''}
                                     </div>
@@ -815,43 +1050,61 @@ class NetworkAnalyzer {
         
         return `
             <div class="performance-container">
-                <div class="tcp-health">
-                    <h5>TCP Health Metrics</h5>
+                <div class="tcp-health-card">
+                    <h5 class="card-title"><i class="fas fa-heartbeat"></i> TCP Health Metrics</h5>
                     <div class="health-stats">
                         <div class="health-stat ${tcpHealth.retransmissions > 100 ? 'warning' : ''}">
-                            <span class="label">Retransmissions</span>
-                            <span class="value">${tcpHealth.retransmissions || 0}</span>
+                            <div class="health-stat-icon"><i class="fas fa-sync"></i></div>
+                            <div class="health-stat-content">
+                                <span class="health-stat-label">Retransmissions</span>
+                                <span class="health-stat-value">${tcpHealth.retransmissions || 0}</span>
+                            </div>
                         </div>
                         <div class="health-stat ${tcpHealth.zero_windows > 50 ? 'warning' : ''}">
-                            <span class="label">Zero Windows</span>
-                            <span class="value">${tcpHealth.zero_windows || 0}</span>
+                            <div class="health-stat-icon"><i class="fas fa-window-close"></i></div>
+                            <div class="health-stat-content">
+                                <span class="health-stat-label">Zero Windows</span>
+                                <span class="health-stat-value">${tcpHealth.zero_windows || 0}</span>
+                            </div>
                         </div>
                         <div class="health-stat ${tcpHealth.duplicate_acks > 50 ? 'warning' : ''}">
-                            <span class="label">Duplicate ACKs</span>
-                            <span class="value">${tcpHealth.duplicate_acks || 0}</span>
+                            <div class="health-stat-icon"><i class="fas fa-copy"></i></div>
+                            <div class="health-stat-content">
+                                <span class="health-stat-label">Duplicate ACKs</span>
+                                <span class="health-stat-value">${tcpHealth.duplicate_acks || 0}</span>
+                            </div>
                         </div>
                         <div class="health-stat ${parseFloat(tcpHealth.estimated_packet_loss) > 1 ? 'critical' : ''}">
-                            <span class="label">Packet Loss</span>
-                            <span class="value">${tcpHealth.estimated_packet_loss || '0%'}</span>
+                            <div class="health-stat-icon"><i class="fas fa-times-circle"></i></div>
+                            <div class="health-stat-content">
+                                <span class="health-stat-label">Packet Loss</span>
+                                <span class="health-stat-value">${tcpHealth.estimated_packet_loss || '0%'}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
                 ${issues.length > 0 ? `
-                <div class="performance-issues">
-                    <h5>Performance Issues</h5>
+                <div class="performance-issues-card">
+                    <h5 class="card-title"><i class="fas fa-exclamation-circle"></i> Performance Issues</h5>
                     <div class="issues-list">
-                        ${issues.map(issue => `
-                            <div class="issue-item ${issue.severity}">
-                                <div class="issue-severity">${issue.severity}</div>
-                                <div class="issue-description">${issue.issue}</div>
-                                <div class="issue-detail">${issue.percentage || issue.count || ''}</div>
-                                <div class="issue-recommendation">${issue.recommendation || ''}</div>
-                            </div>
-                        `).join('')}
+                        ${issues.map(issue => {
+                            const severityClass = issue.severity === 'critical' ? 'critical' : 
+                                                  issue.severity === 'high' ? 'high' : 'medium';
+                            return `
+                                <div class="issue-item issue-${severityClass}">
+                                    <div class="issue-severity-badge">${issue.severity}</div>
+                                    <div class="issue-content">
+                                        <div class="issue-description">${issue.issue}</div>
+                                        <div class="issue-detail">${issue.percentage || issue.count || ''}</div>
+                                        <div class="issue-recommendation">${issue.recommendation || ''}</div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
                 </div>
-                ` : '<div class="no-issues">No performance issues detected</div>'}
+                ` : '<div class="no-issues-card"><i class="fas fa-check-circle"></i> No performance issues detected</div>'}
             </div>
         `;
     }
@@ -867,23 +1120,26 @@ class NetworkAnalyzer {
         });
         
         if (!hasAnomalies) {
-            return '';
+            return '<div class="no-anomalies-card"><i class="fas fa-check-circle"></i> No anomalies detected</div>';
         }
         
-        let html = '<div class="anomalies-section"><h5>Network Anomalies</h5>';
+        let html = '<div class="anomalies-section"><h5 class="section-subtitle"><i class="fas fa-chart-line"></i> Network Anomalies</h5>';
         
         severities.forEach(severity => {
             const severityAnomalies = anomalies[severity] || [];
             if (severityAnomalies.length > 0) {
                 html += `
-                    <div class="anomaly-severity ${severity}">
-                        <h6>${severity.toUpperCase()}</h6>
+                    <div class="anomaly-severity-group anomaly-${severity}">
+                        <h6 class="severity-label">${severity.toUpperCase()}</h6>
                         <div class="anomalies-list">
                             ${severityAnomalies.map(anomaly => `
                                 <div class="anomaly-item">
-                                    <div class="anomaly-type">${anomaly.type}</div>
-                                    <div class="anomaly-description">${anomaly.description}</div>
-                                    ${anomaly.source_ip ? `<div class="anomaly-source">Source: ${anomaly.source_ip}</div>` : ''}
+                                    <div class="anomaly-icon"><i class="fas fa-${severity === 'critical' ? 'skull-crossbones' : severity === 'high' ? 'exclamation-triangle' : 'exclamation-circle'}"></i></div>
+                                    <div class="anomaly-content">
+                                        <div class="anomaly-type">${anomaly.type}</div>
+                                        <div class="anomaly-description">${anomaly.description}</div>
+                                        ${anomaly.source_ip ? `<div class="anomaly-source">Source: ${anomaly.source_ip}</div>` : ''}
+                                    </div>
                                 </div>
                             `).join('')}
                         </div>
@@ -907,38 +1163,38 @@ class NetworkAnalyzer {
         });
         
         if (!hasThreats) {
-            return '';
+            return '<div class="no-threats-card"><i class="fas fa-shield-check"></i> No advanced threats detected</div>';
         }
         
-        let html = '<div class="threats-section"><h5>Advanced Threats</h5>';
+        let html = '<div class="threats-section"><h5 class="section-subtitle"><i class="fas fa-bug"></i> Advanced Threats</h5>';
         
         severities.forEach(severity => {
             const severityThreats = threats[severity] || [];
             if (severityThreats.length > 0) {
                 html += `
-                    <div class="threat-severity ${severity}">
-                        <h6>${severity.toUpperCase()}</h6>
+                    <div class="threat-severity-group threat-${severity}">
+                        <h6 class="severity-label">${severity.toUpperCase()}</h6>
                         <div class="threats-list">
                             ${severityThreats.map(threat => `
                                 <div class="threat-item">
                                     <div class="threat-header">
                                         <span class="threat-type">${threat.description || threat.type}</span>
-                                        <button class="btn-na btn-small analyze-threat"
+                                        <button class="btn-na btn-small analyze-threat gradient-btn-${severity === 'critical' ? '6' : severity === 'high' ? '2' : '9'}"
                                                 data-threat="${threat.description || threat.type}"
                                                 data-severity="${severity}"
-                                                data-evidence="${this.escapeHtml(JSON.stringify(threat))}">
+                                                data-evidence='${this.escapeHtml(JSON.stringify(threat))}'>
                                             <i class="fas fa-robot"></i> Analyze
                                         </button>
                                     </div>
                                     ${threat.source_ip ? `
                                     <div class="threat-details">
-                                        <span><strong>From:</strong> ${threat.source_ip}</span>
-                                        ${threat.destination_ip ? `<span><strong>To:</strong> ${threat.destination_ip}</span>` : ''}
+                                        <span class="threat-detail"><i class="fas fa-arrow-right"></i> From: ${threat.source_ip}</span>
+                                        ${threat.destination_ip ? `<span class="threat-detail"><i class="fas fa-arrow-left"></i> To: ${threat.destination_ip}</span>` : ''}
                                     </div>
                                     ` : ''}
                                     ${threat.recommendation ? `
                                     <div class="threat-recommendation">
-                                        <strong>Action:</strong> ${threat.recommendation}
+                                        <i class="fas fa-lightbulb"></i> ${threat.recommendation}
                                     </div>
                                     ` : ''}
                                 </div>
@@ -964,7 +1220,7 @@ class NetworkAnalyzer {
         });
         
         if (!hasCompliance) {
-            return '<div class="no-compliance">No compliance mappings available</div>';
+            return '<div class="no-compliance-card"><i class="fas fa-clipboard-check"></i> No compliance mappings available</div>';
         }
         
         let html = '<div class="compliance-grid">';
@@ -973,10 +1229,13 @@ class NetworkAnalyzer {
             const requirements = compliance[framework] || [];
             if (requirements.length > 0) {
                 html += `
-                    <div class="compliance-framework">
-                        <h5>${framework.toUpperCase().replace('_', ' ')}</h5>
+                    <div class="compliance-framework-card">
+                        <div class="framework-header">
+                            <i class="fas fa-${framework === 'pci_dss' ? 'credit-card' : framework === 'hipaa' ? 'hospital' : framework === 'nist' ? 'microscope' : 'certificate'}"></i>
+                            <h5>${framework.toUpperCase().replace('_', ' ')}</h5>
+                        </div>
                         <ul class="compliance-list">
-                            ${requirements.map(req => `<li>${req}</li>`).join('')}
+                            ${requirements.map(req => `<li><i class="fas fa-check-circle"></i> ${req}</li>`).join('')}
                         </ul>
                     </div>
                 `;
@@ -994,24 +1253,36 @@ class NetworkAnalyzer {
         
         return `
             <div class="recommendations-grid">
-                <div class="recommendation-category immediate">
-                    <h5><i class="fas fa-bolt"></i> Immediate Actions (24h)</h5>
-                    <ul>
-                        ${immediate.map(action => `<li>${action}</li>`).join('')}
+                <div class="recommendation-card immediate">
+                    <div class="recommendation-header">
+                        <i class="fas fa-bolt"></i>
+                        <h5>Immediate Actions (24h)</h5>
+                    </div>
+                    <ul class="recommendation-list">
+                        ${immediate.map(action => `<li><i class="fas fa-angle-right"></i> ${action}</li>`).join('')}
+                        ${immediate.length === 0 ? '<li class="text-muted">No immediate actions needed</li>' : ''}
                     </ul>
                 </div>
                 
-                <div class="recommendation-category short-term">
-                    <h5><i class="fas fa-calendar-week"></i> Short Term (1-4 weeks)</h5>
-                    <ul>
-                        ${shortTerm.map(action => `<li>${action}</li>`).join('')}
+                <div class="recommendation-card short-term">
+                    <div class="recommendation-header">
+                        <i class="fas fa-calendar-week"></i>
+                        <h5>Short Term (1-4 weeks)</h5>
+                    </div>
+                    <ul class="recommendation-list">
+                        ${shortTerm.map(action => `<li><i class="fas fa-angle-right"></i> ${action}</li>`).join('')}
+                        ${shortTerm.length === 0 ? '<li class="text-muted">No short-term actions needed</li>' : ''}
                     </ul>
                 </div>
                 
-                <div class="recommendation-category long-term">
-                    <h5><i class="fas fa-calendar-alt"></i> Long Term (1-6 months)</h5>
-                    <ul>
-                        ${longTerm.map(action => `<li>${action}</li>`).join('')}
+                <div class="recommendation-card long-term">
+                    <div class="recommendation-header">
+                        <i class="fas fa-calendar-alt"></i>
+                        <h5>Long Term (1-6 months)</h5>
+                    </div>
+                    <ul class="recommendation-list">
+                        ${longTerm.map(action => `<li><i class="fas fa-angle-right"></i> ${action}</li>`).join('')}
+                        ${longTerm.length === 0 ? '<li class="text-muted">No long-term actions needed</li>' : ''}
                     </ul>
                 </div>
             </div>
@@ -1019,58 +1290,79 @@ class NetworkAnalyzer {
     }
 
     setupResultsInteractions() {
-        // AI Analyze buttons
-        document.querySelectorAll('.analyze-threat').forEach(button => {
-            button.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-
-                const threat = button.getAttribute('data-threat');
-                const severity = button.getAttribute('data-severity');
-                const evidence = button.getAttribute('data-evidence');
-
-                if (threat && severity) {
-                    try {
-                        const evidenceObj = JSON.parse(evidence);
-                        this.showAIModal(threat, severity, evidenceObj);
-                    } catch (error) {
-                        this.showAIModal(threat, severity, evidence);
-                    }
-                } else {
-                    this.showToast('No threat data available for analysis', 'error');
-                }
-            });
-        });
+        // AI Analyze buttons - use direct event listeners
+        setTimeout(() => {
+            const analyzeButtons = document.querySelectorAll('.analyze-threat');
+            console.log('Found analyze buttons:', analyzeButtons.length);
             
-            // Expand/collapse findings
-            document.querySelectorAll('.finding-item, .threat-item').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    if (!e.target.classList.contains('analyze-threat') && 
-                        !e.target.classList.contains('btn-na')) {
-                        item.classList.toggle('expanded');
-                    }
-                });
+            analyzeButtons.forEach(button => {
+                // Remove any existing listeners to prevent duplicates
+                button.removeEventListener('click', this.handleAnalyzeClick);
+                
+                // Add new listener
+                button.addEventListener('click', this.handleAnalyzeClick.bind(this));
             });
-        }
+        }, 500); // Small delay to ensure DOM is ready
+    }
+    
+    handleAnalyzeClick(e) {
+        e.preventDefault();
+        e.stopPropagation();
         
-        formatBytes(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
+        console.log('Analyze button clicked');
         
-        isValidUrl(string) {
+        const button = e.currentTarget;
+        const threat = button.getAttribute('data-threat');
+        const severity = button.getAttribute('data-severity');
+        const evidence = button.getAttribute('data-evidence');
+        
+        console.log('Button data:', { threat, severity, evidence });
+        
+        if (threat && severity) {
             try {
-                new URL(string);
-                return true;
-            } catch (_) {
-                return false;
+                // Parse evidence carefully - it might be JSON string or regular string
+                let evidenceObj = evidence;
+                if (evidence && evidence !== 'null' && evidence !== 'undefined') {
+                    // Check if it looks like JSON
+                    if (evidence.trim().startsWith('{') || evidence.trim().startsWith('[')) {
+                        try {
+                            evidenceObj = JSON.parse(evidence);
+                        } catch (parseError) {
+                            console.log('Evidence is not valid JSON, using as string:', evidence);
+                            evidenceObj = evidence;
+                        }
+                    } else {
+                        evidenceObj = evidence;
+                    }
+                }
+                this.showAIModal(threat, severity, evidenceObj);
+            } catch (error) {
+                console.error('Error showing AI modal:', error);
+                this.showAIModal(threat, severity, evidence);
             }
+        } else {
+            this.showToast('No threat data available for analysis', 'error');
         }
-        
-        showError(message) {
+    }
+    
+    formatBytes(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    isValidUrl(string) {
+        try {
+            new URL(string);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+    
+    showError(message) {
         const resultsContainer = document.getElementById('network-results');
         if (resultsContainer) {
             let errorDetails = '';
@@ -1078,9 +1370,9 @@ class NetworkAnalyzer {
             // Add troubleshooting tips based on error
             if (message.includes('magic number')) {
                 errorDetails = `
-                    <div class="troubleshooting">
+                    <div class="troubleshooting-card">
                         <h4><i class="fas fa-lightbulb"></i> Troubleshooting Tips:</h4>
-                        <ul>
+                        <ul class="troubleshooting-list">
                             <li>Make sure you're uploading a valid PCAP file (not a text file or ZIP)</li>
                             <li>Try downloading a sample PCAP from <a href="https://wiki.wireshark.org/SampleCaptures" target="_blank">Wireshark Sample Captures</a></li>
                             <li>If you have a PCAPNG file, rename it to .pcap or use the .pcapng extension</li>
@@ -1090,9 +1382,9 @@ class NetworkAnalyzer {
                 `;
             } else if (message.includes('upload error')) {
                 errorDetails = `
-                    <div class="troubleshooting">
+                    <div class="troubleshooting-card">
                         <h4><i class="fas fa-lightbulb"></i> File Upload Tips:</h4>
-                        <ul>
+                        <ul class="troubleshooting-list">
                             <li>Maximum file size: 500MB</li>
                             <li>Supported formats: .pcap, .pcapng, .cap</li>
                             <li>Try a smaller file if this one is large</li>
@@ -1104,17 +1396,17 @@ class NetworkAnalyzer {
             
             resultsContainer.innerHTML = `
                 <div class="error-container">
-                    <div class="error-icon">
-                        <i class="fas fa-exclamation-triangle"></i>
+                    <div class="error-icon-wrapper">
+                        <i class="fas fa-exclamation-triangle error-icon-large"></i>
                     </div>
-                    <h3>Analysis Error</h3>
-                    <p>${this.escapeHtml(message)}</p>
+                    <h3 class="error-title">Analysis Error</h3>
+                    <p class="error-message">${this.escapeHtml(message)}</p>
                     ${errorDetails}
                     <div class="error-actions">
-                        <button class="btn-na btn-primary" onclick="location.reload()">
+                        <button class="btn-na btn-primary gradient-btn-4" onclick="location.reload()">
                             <i class="fas fa-redo"></i> Try Again
                         </button>
-                        <button class="btn-na btn-outline" onclick="document.getElementById('network-results').style.display='none'">
+                        <button class="btn-na btn-outline-secondary" onclick="document.getElementById('network-results').style.display='none'">
                             <i class="fas fa-times"></i> Dismiss
                         </button>
                     </div>
@@ -1246,27 +1538,26 @@ class NetworkAnalyzer {
         
         // Create toast
         const toast = document.createElement('div');
-        toast.className = 'analysis-toast';
+        toast.className = `analysis-toast toast-${type}`;
+        
+        const icons = {
+            'success': 'check-circle',
+            'error': 'exclamation-circle',
+            'info': 'info-circle'
+        };
+        
         toast.innerHTML = `
-            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+            <i class="fas fa-${icons[type] || 'info-circle'}"></i>
             <span>${message}</span>
         `;
-        
-        // Style based on type
-        if (type === 'success') {
-            toast.style.background = '#198754';
-        } else if (type === 'error') {
-            toast.style.background = '#dc3545';
-        } else {
-            toast.style.background = '#ffc107';
-            toast.style.color = '#212529';
-        }
         
         document.body.appendChild(toast);
         
         // Auto remove after 3 seconds
         setTimeout(() => {
-            toast.remove();
+            if (toast.parentNode) {
+                toast.remove();
+            }
         }, 3000);
     }
     
@@ -1324,36 +1615,185 @@ class NetworkAnalyzer {
     
     getAnalysisCSS() {
         return `
-            /* Network Analysis Specific Styles */
-            .network-analysis-report {
-                background: white;
-                border-radius: 12px;
-                box-shadow: 0 2px 20px rgba(0, 96, 223, 0.08);
-                margin-top: 2rem;
-                overflow: hidden;
+            /* Network Analysis Specific Styles - Vibrant Theme */
+            :root {
+                --gradient-1: linear-gradient(135deg, #4158D0, #C850C0);
+                --gradient-2: linear-gradient(135deg, #FF6B6B, #FF8E53);
+                --gradient-3: linear-gradient(135deg, #11998e, #38ef7d);
+                --gradient-4: linear-gradient(135deg, #F093FB, #F5576C);
+                --gradient-5: linear-gradient(135deg, #4A00E0, #8E2DE2);
+                --gradient-6: linear-gradient(135deg, #FF512F, #DD2476);
+                --gradient-7: linear-gradient(135deg, #667eea, #764ba2);
+                --gradient-8: linear-gradient(135deg, #00b09b, #96c93d);
+                --gradient-9: linear-gradient(135deg, #fa709a, #fee140);
+                --gradient-10: linear-gradient(135deg, #30cfd0, #330867);
             }
             
-            .report-header {
-                background: linear-gradient(135deg, #0060df 0%, #003eaa 100%);
+            /* Network-specific modal styles (don't conflict with login modal) */
+            .network-modal {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.7);
+                backdrop-filter: blur(5px);
+                z-index: 10000;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .network-modal.hidden {
+                display: none !important;
+            }
+            
+            .network-modal:not(.hidden) {
+                display: flex;
+            }
+            
+            .network-modal-content {
+                max-width: 900px;
+                max-height: 85vh;
+                overflow-y: auto;
+                border-radius: 1.5rem;
+                background: white;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+                animation: modalSlideIn 0.3s ease-out;
+            }
+            
+            @keyframes modalSlideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-50px) scale(0.9);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
+            }
+            
+            .network-modal-header {
+                background: linear-gradient(135deg, #F093FB, #F5576C);
                 color: white;
-                padding: 1.5rem 2rem;
+                padding: 1.5rem;
+                border-radius: 1.5rem 1.5rem 0 0;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
             }
             
+            .network-modal-header h3 {
+                margin: 0;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                font-size: 1.3rem;
+            }
+            
+            .network-modal-close {
+                font-size: 1.8rem;
+                cursor: pointer;
+                background: rgba(255,255,255,0.2);
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.3s;
+            }
+            
+            .network-modal-close:hover {
+                background: rgba(255,255,255,0.3);
+                transform: rotate(90deg);
+            }
+            
+            .network-modal-body {
+                padding: 1.5rem;
+            }
+            
+            .gradient-header-4 {
+                background: linear-gradient(135deg, #F093FB, #F5576C);
+                color: white;
+            }
+            
+            .gradient-btn-4 {
+                background: linear-gradient(135deg, #F093FB, #F5576C);
+                color: white;
+            }
+            
+            .gradient-btn-4:hover {
+                background: linear-gradient(135deg, #e07ce6, #e0485c);
+                transform: translateY(-3px);
+            }
+            
+            .gradient-btn-6 {
+                background: linear-gradient(135deg, #FF512F, #DD2476);
+                color: white;
+            }
+            
+            .gradient-btn-2 {
+                background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+                color: white;
+            }
+            
+            .gradient-btn-9 {
+                background: linear-gradient(135deg, #fa709a, #fee140);
+                color: #1e293b;
+            }
+            
+            .gradient-btn-3 {
+                background: linear-gradient(135deg, #11998e, #38ef7d);
+                color: white;
+            }
+            
+            .gradient-icon-4 {
+                background: linear-gradient(135deg, #F093FB, #F5576C);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            
+            .network-analysis-report {
+                background: white;
+                border-radius: 1.5rem;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+                margin-top: 2rem;
+                overflow: hidden;
+                border: 1px solid #e2e8f0;
+            }
+            
+            .report-header {
+                padding: 1.5rem 2rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+            
             .report-title h3 {
                 margin: 0;
                 font-size: 1.5rem;
-                font-weight: 600;
+                font-weight: 700;
+                color: white;
             }
             
             .report-meta {
                 display: flex;
-                gap: 1.5rem;
+                gap: 1rem;
                 margin-top: 0.5rem;
-                font-size: 0.9rem;
-                opacity: 0.9;
+                flex-wrap: wrap;
+            }
+            
+            .meta-badge {
+                background: rgba(255, 255, 255, 0.2);
+                padding: 0.35rem 1rem;
+                border-radius: 2rem;
+                font-size: 0.85rem;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.5rem;
             }
             
             .report-actions {
@@ -1361,30 +1801,46 @@ class NetworkAnalyzer {
                 gap: 0.75rem;
             }
             
+            .btn-outline-light {
+                background: transparent;
+                color: white;
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                padding: 0.6rem 1.2rem;
+                border-radius: 2rem;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.3s;
+            }
+            
+            .btn-outline-light:hover {
+                background: rgba(255, 255, 255, 0.2);
+                transform: translateY(-2px);
+            }
+            
             .section {
                 padding: 2rem;
-                border-bottom: 1px solid #e9ecef;
+                border-bottom: 1px solid #e2e8f0;
             }
             
             .section:last-child {
                 border-bottom: none;
             }
             
-            .section h4 {
-                color: #2c3e50;
+            .section-title {
+                color: #1e293b;
                 margin: 0 0 1.5rem 0;
                 font-size: 1.3rem;
-                font-weight: 600;
+                font-weight: 700;
                 display: flex;
                 align-items: center;
                 gap: 0.75rem;
             }
             
-            .section h4 i {
-                color: #0060df;
+            .section-title i {
+                font-size: 1.5rem;
             }
             
-            /* Executive Summary */
+            /* Risk Scoreboard */
             .risk-scoreboard {
                 display: grid;
                 grid-template-columns: auto 1fr;
@@ -1392,33 +1848,33 @@ class NetworkAnalyzer {
                 margin-bottom: 2rem;
             }
             
-            .risk-score {
+            .risk-score-card {
                 background: white;
-                border-radius: 10px;
+                border-radius: 1rem;
                 padding: 1.5rem;
                 text-align: center;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-                min-width: 150px;
-                border-left: 6px solid #0060df;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+                min-width: 180px;
+                border-left: 6px solid;
             }
             
-            .risk-score.critical { border-left-color: #dc2626; }
-            .risk-score.high { border-left-color: #ea580c; }
-            .risk-score.medium { border-left-color: #d97706; }
-            .risk-score.low { border-left-color: #65a30d; }
+            .risk-score-card.risk-critical { border-left-color: #ef4444; }
+            .risk-score-card.risk-high { border-left-color: #f97316; }
+            .risk-score-card.risk-medium { border-left-color: #f59e0b; }
+            .risk-score-card.risk-low { border-left-color: #10b981; }
             
-            .score-label {
+            .risk-score-label {
                 font-size: 0.9rem;
-                color: #6c757d;
+                color: #64748b;
                 text-transform: uppercase;
                 letter-spacing: 1px;
                 margin-bottom: 0.5rem;
             }
             
-            .score-value {
+            .risk-score-value {
                 font-size: 2rem;
-                font-weight: 700;
-                color: #2c3e50;
+                font-weight: 800;
+                color: #1e293b;
             }
             
             .stats-grid {
@@ -1429,51 +1885,59 @@ class NetworkAnalyzer {
             
             .stat-card {
                 background: white;
-                border-radius: 8px;
-                padding: 1.5rem;
+                border-radius: 1rem;
+                padding: 1.25rem;
                 text-align: center;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-                transition: transform 0.2s;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+                border-top: 4px solid;
+                transition: all 0.3s;
             }
             
             .stat-card:hover {
-                transform: translateY(-2px);
+                transform: translateY(-3px);
+                box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.1);
             }
             
-            .stat-card.critical { border-top: 4px solid #dc2626; }
-            .stat-card.high { border-top: 4px solid #ea580c; }
-            .stat-card.medium { border-top: 4px solid #d97706; }
-            .stat-card.total { border-top: 4px solid #0060df; }
+            .stat-card.critical { border-top-color: #ef4444; }
+            .stat-card.high { border-top-color: #f97316; }
+            .stat-card.medium { border-top-color: #f59e0b; }
+            .stat-card.total { border-top-color: #4158D0; }
+            
+            .stat-icon {
+                font-size: 1.5rem;
+                margin-bottom: 0.5rem;
+            }
+            
+            .stat-card.critical .stat-icon { color: #ef4444; }
+            .stat-card.high .stat-icon { color: #f97316; }
+            .stat-card.medium .stat-icon { color: #f59e0b; }
+            .stat-card.total .stat-icon { color: #4158D0; }
             
             .stat-value {
-                font-size: 2rem;
+                font-size: 1.8rem;
                 font-weight: 700;
-                color: #2c3e50;
+                color: #1e293b;
                 line-height: 1;
             }
             
-            .stat-card.critical .stat-value { color: #dc2626; }
-            .stat-card.high .stat-value { color: #ea580c; }
-            .stat-card.medium .stat-value { color: #d97706; }
-            .stat-card.total .stat-value { color: #0060df; }
-            
             .stat-label {
-                font-size: 0.9rem;
-                color: #6c757d;
-                margin-top: 0.5rem;
+                font-size: 0.8rem;
+                color: #64748b;
+                margin-top: 0.25rem;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
             }
             
-            .ai-summary {
+            .ai-summary-card {
                 background: #f8fafc;
-                border-radius: 10px;
+                border-radius: 1rem;
                 padding: 1.5rem;
-                border-left: 4px solid #0060df;
+                border-left: 4px solid #F093FB;
+                margin-top: 1.5rem;
             }
             
-            .ai-summary h5 {
-                color: #2c3e50;
+            .ai-summary-card .card-title {
+                color: #1e293b;
                 margin: 0 0 1rem 0;
                 font-size: 1.1rem;
                 display: flex;
@@ -1481,54 +1945,69 @@ class NetworkAnalyzer {
                 gap: 0.5rem;
             }
             
-            .ai-summary p {
-                margin: 0;
-                line-height: 1.6;
-                color: #4a5568;
-            }
-            
             /* Packet Statistics */
             .stats-container {
                 background: white;
-                border-radius: 10px;
+                border-radius: 1rem;
                 padding: 1.5rem;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+                border: 1px solid #e2e8f0;
             }
             
-            .stat-row {
+            .stats-row {
                 display: grid;
                 grid-template-columns: repeat(3, 1fr);
-                gap: 2rem;
+                gap: 1.5rem;
                 margin-bottom: 1.5rem;
             }
             
-            .stat-row:last-child {
+            .stats-row:last-child {
                 margin-bottom: 0;
             }
             
-            .stat-item {
+            .stats-item {
                 display: flex;
-                flex-direction: column;
+                align-items: center;
+                gap: 1rem;
+                background: #f8fafc;
+                padding: 1rem;
+                border-radius: 1rem;
             }
             
-            .stat-label {
-                font-size: 0.9rem;
-                color: #6c757d;
-                margin-bottom: 0.5rem;
+            .stats-icon {
+                width: 40px;
+                height: 40px;
+                border-radius: 10px;
+                background: linear-gradient(135deg, #F093FB, #F5576C);
+                color: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.2rem;
             }
             
-            .stat-value {
-                font-size: 1.5rem;
-                font-weight: 600;
-                color: #2c3e50;
+            .stats-content {
+                flex: 1;
+            }
+            
+            .stats-label {
+                font-size: 0.8rem;
+                color: #64748b;
+                display: block;
+                margin-bottom: 0.25rem;
+            }
+            
+            .stats-value {
+                font-size: 1.2rem;
+                font-weight: 700;
+                color: #1e293b;
             }
             
             /* Protocol Analysis */
             .protocol-container {
                 background: white;
-                border-radius: 10px;
+                border-radius: 1rem;
                 padding: 1.5rem;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+                border: 1px solid #e2e8f0;
             }
             
             .protocol-summary {
@@ -1537,74 +2016,102 @@ class NetworkAnalyzer {
                 align-items: center;
                 margin-bottom: 2rem;
                 padding-bottom: 1rem;
-                border-bottom: 2px solid #e9ecef;
+                border-bottom: 2px solid #e2e8f0;
+                flex-wrap: wrap;
+                gap: 1rem;
             }
             
-            .top-protocol, .unique-count {
+            .protocol-stat {
                 display: flex;
                 align-items: center;
                 gap: 0.5rem;
             }
             
-            .top-protocol .label,
-            .unique-count .label {
-                color: #6c757d;
+            .protocol-stat-label {
+                color: #64748b;
                 font-size: 0.9rem;
             }
             
-            .top-protocol .value,
-            .unique-count .value {
+            .protocol-stat-value {
                 font-weight: 600;
-                color: #2c3e50;
+                color: #1e293b;
             }
             
-            .top-protocol .percentage {
-                background: #0060df;
+            .protocol-stat-percent {
+                background: #F093FB;
                 color: white;
                 padding: 0.25rem 0.75rem;
-                border-radius: 20px;
-                font-size: 0.85rem;
+                border-radius: 2rem;
+                font-size: 0.8rem;
                 font-weight: 500;
+            }
+            
+            .protocol-badge-1 {
+                background: #4158D0;
+                color: white;
+                padding: 0.25rem 0.75rem;
+                border-radius: 2rem;
             }
             
             .protocol-chart {
                 display: flex;
                 flex-direction: column;
-                gap: 1rem;
+                gap: 1.25rem;
             }
             
-            .protocol-bar {
-                display: grid;
-                grid-template-columns: 120px 1fr auto;
-                gap: 1rem;
+            .protocol-bar-item {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .protocol-bar-label {
+                display: flex;
+                justify-content: space-between;
                 align-items: center;
             }
             
             .protocol-name {
-                font-weight: 500;
-                color: #2c3e50;
+                font-weight: 600;
+                color: #1e293b;
+                padding: 0.25rem 0.75rem;
+                border-radius: 2rem;
+                background: #f1f5f9;
+            }
+            
+            .protocol-name.protocol-color-1 { background: #e0e7ff; color: #4158D0; }
+            .protocol-name.protocol-color-2 { background: #fee2e2; color: #FF6B6B; }
+            .protocol-name.protocol-color-3 { background: #dcfce7; color: #11998e; }
+            .protocol-name.protocol-color-4 { background: #f3e8ff; color: #F093FB; }
+            .protocol-name.protocol-color-5 { background: #fff3cd; color: #f59e0b; }
+            
+            .protocol-percent {
+                font-weight: 600;
+                color: #1e293b;
             }
             
             .protocol-meter {
-                height: 24px;
-                background: #e9ecef;
-                border-radius: 12px;
+                height: 8px;
+                background: #e2e8f0;
+                border-radius: 4px;
                 overflow: hidden;
             }
             
             .meter-fill {
                 height: 100%;
-                background: linear-gradient(90deg, #0060df, #0095ff);
-                border-radius: 12px;
+                border-radius: 4px;
                 transition: width 1s ease-in-out;
             }
             
-            .protocol-stats {
-                display: flex;
-                justify-content: space-between;
-                min-width: 150px;
-                color: #6c757d;
-                font-size: 0.9rem;
+            .meter-fill.protocol-color-1 { background: #4158D0; }
+            .meter-fill.protocol-color-2 { background: #FF6B6B; }
+            .meter-fill.protocol-color-3 { background: #11998e; }
+            .meter-fill.protocol-color-4 { background: #F093FB; }
+            .meter-fill.protocol-color-5 { background: #f59e0b; }
+            
+            .protocol-count {
+                font-size: 0.8rem;
+                color: #64748b;
             }
             
             /* Security Findings */
@@ -1616,56 +2123,44 @@ class NetworkAnalyzer {
             
             .severity-section {
                 background: white;
-                border-radius: 10px;
+                border-radius: 1rem;
                 overflow: hidden;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+                border: 1px solid #e2e8f0;
             }
             
-            .severity-section.critical {
-                border-left: 6px solid #dc2626;
-            }
+            .severity-section.severity-critical { border-left: 6px solid #ef4444; }
+            .severity-section.severity-high { border-left: 6px solid #f97316; }
+            .severity-section.severity-medium { border-left: 6px solid #f59e0b; }
+            .severity-section.severity-low { border-left: 6px solid #10b981; }
             
-            .severity-section.high {
-                border-left: 6px solid #ea580c;
-            }
-            
-            .severity-section.medium {
-                border-left: 6px solid #d97706;
-            }
-            
-            .severity-section.low {
-                border-left: 6px solid #65a30d;
-            }
-            
-            .severity-title {
+            .severity-header {
                 background: #f8fafc;
-                margin: 0;
                 padding: 1rem 1.5rem;
-                font-size: 1.1rem;
                 display: flex;
                 align-items: center;
                 gap: 0.75rem;
-                color: #2c3e50;
+                font-size: 1.1rem;
+                font-weight: 600;
             }
             
-            .severity-section.critical .severity-title {
+            .severity-section.severity-critical .severity-header {
                 background: #fef2f2;
-                color: #dc2626;
+                color: #ef4444;
             }
             
-            .severity-section.high .severity-title {
+            .severity-section.severity-high .severity-header {
                 background: #fff7ed;
-                color: #ea580c;
+                color: #f97316;
             }
             
-            .severity-section.medium .severity-title {
+            .severity-section.severity-medium .severity-header {
                 background: #fffbeb;
-                color: #d97706;
+                color: #f59e0b;
             }
             
-            .severity-section.low .severity-title {
+            .severity-section.severity-low .severity-header {
                 background: #f0fdf4;
-                color: #65a30d;
+                color: #10b981;
             }
             
             .findings-list {
@@ -1674,7 +2169,7 @@ class NetworkAnalyzer {
             
             .finding-item {
                 background: #f8fafc;
-                border-radius: 8px;
+                border-radius: 1rem;
                 padding: 1.25rem;
                 margin-bottom: 1rem;
                 cursor: pointer;
@@ -1687,13 +2182,13 @@ class NetworkAnalyzer {
             }
             
             .finding-item:hover {
-                border-color: #0060df;
-                box-shadow: 0 2px 8px rgba(0, 96, 223, 0.1);
+                border-color: #F093FB;
+                box-shadow: 0 5px 15px rgba(240, 147, 251, 0.1);
             }
             
             .finding-item.expanded {
                 background: white;
-                border-color: #e9ecef;
+                border-color: #e2e8f0;
             }
             
             .finding-header {
@@ -1705,12 +2200,12 @@ class NetworkAnalyzer {
             
             .finding-type {
                 font-weight: 600;
-                color: #2c3e50;
+                color: #1e293b;
                 font-size: 1.05rem;
             }
             
             .finding-description {
-                color: #4a5568;
+                color: #475569;
                 line-height: 1.5;
                 margin-bottom: 0.75rem;
             }
@@ -1720,36 +2215,63 @@ class NetworkAnalyzer {
                 gap: 1.5rem;
                 margin-bottom: 0.75rem;
                 font-size: 0.9rem;
-                color: #6c757d;
+                color: #64748b;
+            }
+            
+            .finding-details i {
+                margin-right: 0.25rem;
             }
             
             .finding-recommendation {
-                background: #e8f4ff;
-                border-radius: 6px;
+                background: #f0f9ff;
+                border-radius: 0.75rem;
                 padding: 0.75rem 1rem;
                 font-size: 0.9rem;
-                color: #0060df;
-                border-left: 3px solid #0060df;
+                color: #0284c7;
+                border-left: 3px solid #0284c7;
+            }
+            
+            /* No Data Cards */
+            .no-data-card, .no-findings-card, .no-issues-card, .no-compliance-card,
+            .no-anomalies-card, .no-threats-card {
+                text-align: center;
+                padding: 3rem 2rem;
+                color: #64748b;
+                background: #f8fafc;
+                border-radius: 1rem;
+                border: 2px dashed #e2e8f0;
+                font-style: italic;
+            }
+            
+            .no-data-card i, .no-findings-card i, .no-issues-card i,
+            .no-compliance-card i, .no-anomalies-card i, .no-threats-card i {
+                font-size: 2rem;
+                color: #94a3b8;
+                margin-bottom: 1rem;
             }
             
             /* Performance Metrics */
             .performance-container {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 2rem;
+                gap: 1.5rem;
             }
             
-            .tcp-health, .performance-issues {
+            .tcp-health-card, .performance-issues-card {
                 background: white;
-                border-radius: 10px;
+                border-radius: 1rem;
                 padding: 1.5rem;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+                border: 1px solid #e2e8f0;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             }
             
-            .tcp-health h5, .performance-issues h5 {
-                color: #2c3e50;
+            .tcp-health-card .card-title, .performance-issues-card .card-title {
+                color: #1e293b;
                 margin: 0 0 1.5rem 0;
                 font-size: 1.1rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
             }
             
             .health-stats {
@@ -1760,41 +2282,59 @@ class NetworkAnalyzer {
             
             .health-stat {
                 background: #f8fafc;
-                border-radius: 8px;
+                border-radius: 1rem;
                 padding: 1rem;
                 display: flex;
-                flex-direction: column;
                 align-items: center;
+                gap: 0.75rem;
+                border: 1px solid #e2e8f0;
             }
             
             .health-stat.warning {
                 background: #fff7ed;
-                border: 1px solid #fed7aa;
+                border-color: #fed7aa;
             }
             
             .health-stat.critical {
                 background: #fef2f2;
-                border: 1px solid #fecaca;
+                border-color: #fecaca;
             }
             
-            .health-stat .label {
-                font-size: 0.85rem;
-                color: #6c757d;
-                margin-bottom: 0.5rem;
+            .health-stat-icon {
+                width: 36px;
+                height: 36px;
+                border-radius: 10px;
+                background: linear-gradient(135deg, #F093FB, #F5576C);
+                color: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1rem;
             }
             
-            .health-stat .value {
-                font-size: 1.5rem;
-                font-weight: 600;
-                color: #2c3e50;
+            .health-stat-content {
+                flex: 1;
             }
             
-            .health-stat.warning .value {
-                color: #ea580c;
+            .health-stat-label {
+                font-size: 0.75rem;
+                color: #64748b;
+                display: block;
+                margin-bottom: 0.2rem;
             }
             
-            .health-stat.critical .value {
-                color: #dc2626;
+            .health-stat-value {
+                font-size: 1.2rem;
+                font-weight: 700;
+                color: #1e293b;
+            }
+            
+            .health-stat.warning .health-stat-value {
+                color: #f97316;
+            }
+            
+            .health-stat.critical .health-stat-value {
+                color: #ef4444;
             }
             
             .issues-list {
@@ -1805,103 +2345,110 @@ class NetworkAnalyzer {
             
             .issue-item {
                 background: #f8fafc;
-                border-radius: 8px;
+                border-radius: 0.75rem;
                 padding: 1rem;
-                display: grid;
-                grid-template-columns: auto 1fr auto;
+                display: flex;
                 gap: 1rem;
-                align-items: start;
+                border-left: 4px solid;
             }
             
-            .issue-item.critical {
+            .issue-item.issue-critical {
+                border-left-color: #ef4444;
                 background: #fef2f2;
-                border-left: 4px solid #dc2626;
             }
             
-            .issue-item.high {
+            .issue-item.issue-high {
+                border-left-color: #f97316;
                 background: #fff7ed;
-                border-left: 4px solid #ea580c;
             }
             
-            .issue-item.medium {
+            .issue-item.issue-medium {
+                border-left-color: #f59e0b;
                 background: #fffbeb;
-                border-left: 4px solid #d97706;
             }
             
-            .issue-severity {
-                font-size: 0.75rem;
+            .issue-severity-badge {
+                font-size: 0.7rem;
                 font-weight: 600;
-                text-transform: uppercase;
-                padding: 0.25rem 0.75rem;
-                border-radius: 20px;
-                color: white;
+                padding: 0.2rem 0.5rem;
+                border-radius: 1rem;
+                background: white;
+                color: #1e293b;
+                height: fit-content;
             }
             
-            .issue-item.critical .issue-severity {
-                background: #dc2626;
-            }
-            
-            .issue-item.high .issue-severity {
-                background: #ea580c;
-            }
-            
-            .issue-item.medium .issue-severity {
-                background: #d97706;
+            .issue-content {
+                flex: 1;
             }
             
             .issue-description {
-                font-weight: 500;
-                color: #2c3e50;
+                font-weight: 600;
+                color: #1e293b;
+                margin-bottom: 0.25rem;
             }
             
             .issue-detail {
-                color: #6c757d;
-                font-size: 0.9rem;
+                font-size: 0.85rem;
+                color: #64748b;
+                margin-bottom: 0.5rem;
             }
             
             .issue-recommendation {
-                grid-column: 2 / span 2;
-                color: #0060df;
-                font-size: 0.9rem;
-                margin-top: 0.5rem;
-                padding-top: 0.5rem;
-                border-top: 1px solid #e9ecef;
+                font-size: 0.85rem;
+                color: #0284c7;
             }
             
             /* Anomalies & Threats */
             .threats-container {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 2rem;
+                gap: 1.5rem;
             }
             
             .anomalies-section, .threats-section {
                 background: white;
-                border-radius: 10px;
+                border-radius: 1rem;
                 padding: 1.5rem;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+                border: 1px solid #e2e8f0;
             }
             
-            .anomalies-section h5, .threats-section h5 {
-                color: #2c3e50;
+            .section-subtitle {
+                color: #1e293b;
                 margin: 0 0 1.5rem 0;
                 font-size: 1.1rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
             }
             
-            .anomaly-severity, .threat-severity {
+            .anomaly-severity-group, .threat-severity-group {
                 margin-bottom: 1.5rem;
             }
             
-            .anomaly-severity:last-child, .threat-severity:last-child {
+            .anomaly-severity-group:last-child, .threat-severity-group:last-child {
                 margin-bottom: 0;
             }
             
-            .anomaly-severity h6, .threat-severity h6 {
-                color: #6c757d;
-                margin: 0 0 0.75rem 0;
+            .anomaly-severity-group.anomaly-critical .severity-label,
+            .threat-severity-group.threat-critical .severity-label {
+                color: #ef4444;
+            }
+            
+            .anomaly-severity-group.anomaly-high .severity-label,
+            .threat-severity-group.threat-high .severity-label {
+                color: #f97316;
+            }
+            
+            .anomaly-severity-group.anomaly-medium .severity-label,
+            .threat-severity-group.threat-medium .severity-label {
+                color: #f59e0b;
+            }
+            
+            .severity-label {
                 font-size: 0.9rem;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
+                margin-bottom: 0.75rem;
             }
             
             .anomalies-list, .threats-list {
@@ -1912,46 +2459,64 @@ class NetworkAnalyzer {
             
             .anomaly-item, .threat-item {
                 background: #f8fafc;
-                border-radius: 8px;
+                border-radius: 0.75rem;
                 padding: 1rem;
-            }
-            
-            .anomaly-item:hover, .threat-item:hover {
-                background: white;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            }
-            
-            .anomaly-type, .threat-header {
-                font-weight: 600;
-                color: #2c3e50;
-                margin-bottom: 0.5rem;
                 display: flex;
-                justify-content: space-between;
+                gap: 1rem;
+                border: 1px solid #e2e8f0;
+            }
+            
+            .anomaly-icon {
+                width: 32px;
+                height: 32px;
+                border-radius: 8px;
+                background: linear-gradient(135deg, #F093FB, #F5576C);
+                color: white;
+                display: flex;
                 align-items: center;
+                justify-content: center;
+                font-size: 1rem;
+            }
+            
+            .anomaly-content, .threat-content {
+                flex: 1;
+            }
+            
+            .anomaly-type, .threat-type {
+                font-weight: 600;
+                color: #1e293b;
+                margin-bottom: 0.25rem;
             }
             
             .anomaly-description, .threat-details {
-                color: #4a5568;
+                color: #475569;
                 font-size: 0.9rem;
                 line-height: 1.5;
             }
             
-            .anomaly-source, .threat-details {
-                margin-top: 0.5rem;
-                color: #6c757d;
+            .anomaly-source, .threat-detail {
                 font-size: 0.85rem;
+                color: #64748b;
+                margin-top: 0.5rem;
+            }
+            
+            .threat-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.5rem;
             }
             
             .threat-recommendation {
                 margin-top: 0.75rem;
                 padding-top: 0.75rem;
-                border-top: 1px solid #e9ecef;
-                color: #0060df;
+                border-top: 1px solid #e2e8f0;
+                color: #0284c7;
                 font-size: 0.9rem;
             }
             
             /* AI Insights */
-            .ai-insights-content {
+            .ai-insights-grid {
                 display: grid;
                 grid-template-columns: repeat(3, 1fr);
                 gap: 1.5rem;
@@ -1959,43 +2524,61 @@ class NetworkAnalyzer {
             
             .insight-card {
                 background: white;
-                border-radius: 10px;
+                border-radius: 1rem;
                 padding: 1.5rem;
-                box-shadow: 0 2px 12px rgba(0, 96, 223, 0.1);
-                border: 1px solid #e9ecef;
+                border: 1px solid #e2e8f0;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+                transition: all 0.3s;
             }
             
             .insight-card:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 4px 20px rgba(0, 96, 223, 0.15);
-                transition: all 0.2s;
+                transform: translateY(-3px);
+                box-shadow: 0 10px 25px -5px rgba(240, 147, 251, 0.2);
+                border-color: #F093FB;
+            }
+            
+            .insight-icon {
+                width: 48px;
+                height: 48px;
+                border-radius: 12px;
+                background: linear-gradient(135deg, #F093FB, #F5576C);
+                color: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.3rem;
+                margin-bottom: 1rem;
             }
             
             .insight-card h5 {
-                color: #2c3e50;
-                margin: 0 0 1rem 0;
-                font-size: 1.05rem;
+                color: #1e293b;
+                margin: 0 0 0.75rem 0;
+                font-size: 1.1rem;
+            }
+            
+            .insight-card p {
+                color: #475569;
+                line-height: 1.6;
+                margin: 0;
+            }
+            
+            .insight-list {
+                margin: 0;
+                padding-left: 0;
+                list-style: none;
+            }
+            
+            .insight-list li {
+                margin-bottom: 0.5rem;
                 display: flex;
-                align-items: center;
+                align-items: flex-start;
                 gap: 0.5rem;
             }
             
-            .insight-card p, .insight-card ul {
-                margin: 0;
-                color: #4a5568;
-                line-height: 1.6;
-            }
-            
-            .insight-card ul {
-                padding-left: 1.25rem;
-            }
-            
-            .insight-card li {
-                margin-bottom: 0.5rem;
-            }
-            
-            .insight-card li:last-child {
-                margin-bottom: 0;
+            .insight-list li .success-icon {
+                color: #10b981;
+                font-size: 0.9rem;
+                margin-top: 0.2rem;
             }
             
             /* Compliance Mapping */
@@ -2005,32 +2588,53 @@ class NetworkAnalyzer {
                 gap: 1.5rem;
             }
             
-            .compliance-framework {
+            .compliance-framework-card {
                 background: white;
-                border-radius: 10px;
+                border-radius: 1rem;
                 padding: 1.5rem;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-                border: 1px solid #e9ecef;
+                border: 1px solid #e2e8f0;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             }
             
-            .compliance-framework h5 {
-                color: #2c3e50;
-                margin: 0 0 1rem 0;
-                font-size: 1.05rem;
+            .framework-header {
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                margin-bottom: 1rem;
+            }
+            
+            .framework-header i {
+                font-size: 1.5rem;
+                color: #F093FB;
+            }
+            
+            .framework-header h5 {
+                color: #1e293b;
+                margin: 0;
+                font-size: 1.1rem;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
             }
             
             .compliance-list {
                 margin: 0;
-                padding-left: 1.25rem;
+                padding-left: 0;
+                list-style: none;
             }
             
             .compliance-list li {
-                color: #4a5568;
                 margin-bottom: 0.5rem;
+                display: flex;
+                align-items: flex-start;
+                gap: 0.5rem;
+                color: #475569;
                 font-size: 0.9rem;
-                line-height: 1.5;
+            }
+            
+            .compliance-list li i {
+                color: #10b981;
+                font-size: 0.9rem;
+                margin-top: 0.2rem;
             }
             
             /* Recommendations */
@@ -2040,108 +2644,79 @@ class NetworkAnalyzer {
                 gap: 1.5rem;
             }
             
-            .recommendation-category {
+            .recommendation-card {
                 background: white;
-                border-radius: 10px;
+                border-radius: 1rem;
                 padding: 1.5rem;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+                border: 1px solid #e2e8f0;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             }
             
-            .recommendation-category.immediate {
-                border-top: 4px solid #dc2626;
+            .recommendation-card.immediate {
+                border-top: 4px solid #ef4444;
             }
             
-            .recommendation-category.short-term {
-                border-top: 4px solid #d97706;
+            .recommendation-card.short-term {
+                border-top: 4px solid #f59e0b;
             }
             
-            .recommendation-category.long-term {
-                border-top: 4px solid #0060df;
+            .recommendation-card.long-term {
+                border-top: 4px solid #4158D0;
             }
             
-            .recommendation-category h5 {
-                color: #2c3e50;
-                margin: 0 0 1rem 0;
-                font-size: 1.05rem;
+            .recommendation-header {
                 display: flex;
                 align-items: center;
-                gap: 0.5rem;
+                gap: 0.75rem;
+                margin-bottom: 1rem;
             }
             
-            .recommendation-category ul {
+            .recommendation-header i {
+                font-size: 1.3rem;
+            }
+            
+            .recommendation-card.immediate .recommendation-header i {
+                color: #ef4444;
+            }
+            
+            .recommendation-card.short-term .recommendation-header i {
+                color: #f59e0b;
+            }
+            
+            .recommendation-card.long-term .recommendation-header i {
+                color: #4158D0;
+            }
+            
+            .recommendation-header h5 {
+                color: #1e293b;
                 margin: 0;
-                padding-left: 1.25rem;
+                font-size: 1rem;
             }
             
-            .recommendation-category li {
-                color: #4a5568;
+            .recommendation-list {
+                margin: 0;
+                padding-left: 0;
+                list-style: none;
+            }
+            
+            .recommendation-list li {
                 margin-bottom: 0.75rem;
-                line-height: 1.5;
-            }
-            
-            .recommendation-category li:last-child {
-                margin-bottom: 0;
-            }
-            
-            /* Buttons */
-            .btn-na {
-                padding: 0.75rem 1.5rem;
-                border: none;
-                border-radius: 6px;
-                font-size: 0.95rem;
-                font-weight: 500;
-                cursor: pointer;
-                display: inline-flex;
-                align-items: center;
+                display: flex;
+                align-items: flex-start;
                 gap: 0.5rem;
-                transition: all 0.2s;
+                color: #475569;
+                font-size: 0.9rem;
             }
             
-            .btn-primary {
-                background: linear-gradient(135deg, #0060df 0%, #003eaa 100%);
-                color: white;
+            .recommendation-list li i {
+                color: #F093FB;
+                font-size: 0.9rem;
+                margin-top: 0.2rem;
             }
             
-            .btn-primary:hover {
-                background: linear-gradient(135deg, #0050c8 0%, #003288 100%);
-                transform: translateY(-1px);
-                box-shadow: 0 4px 12px rgba(0, 96, 223, 0.2);
-            }
-            
-            .btn-secondary {
-                background: #f8f9fa;
-                color: #2c3e50;
-                border: 1px solid #dee2e6;
-            }
-            
-            .btn-secondary:hover {
-                background: #e9ecef;
-            }
-            
-            .btn-outline {
-                background: transparent;
-                color: #0060df;
-                border: 1px solid #0060df;
-            }
-            
-            .btn-outline:hover {
-                background: rgba(0, 96, 223, 0.05);
-            }
-            
-            .btn-small {
-                padding: 0.4rem 0.8rem;
-                font-size: 0.85rem;
-            }
-            
-            /* No Data States */
-            .no-data, .no-findings, .no-issues, .no-compliance {
-                text-align: center;
-                padding: 3rem 2rem;
-                color: #6c757d;
+            .text-muted {
+                color: #94a3b8;
                 font-style: italic;
-                background: #f8fafc;
-                border-radius: 10px;
-                border: 2px dashed #dee2e6;
             }
             
             /* Error Container */
@@ -2150,23 +2725,74 @@ class NetworkAnalyzer {
                 padding: 3rem 2rem;
             }
             
-            .error-icon {
-                font-size: 4rem;
-                color: #dc2626;
-                margin-bottom: 1.5rem;
+            .error-icon-wrapper {
+                width: 80px;
+                height: 80px;
+                border-radius: 50%;
+                background: #fef2f2;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 1.5rem;
             }
             
-            .error-container h3 {
-                color: #2c3e50;
-                margin: 0 0 1rem 0;
+            .error-icon-large {
+                font-size: 3rem;
+                color: #ef4444;
             }
             
-            .error-container p {
-                color: #6c757d;
+            .error-title {
+                color: #1e293b;
+                margin: 0 0 0.5rem 0;
+                font-size: 1.5rem;
+            }
+            
+            .error-message {
+                color: #475569;
                 margin-bottom: 2rem;
                 max-width: 500px;
                 margin-left: auto;
                 margin-right: auto;
+            }
+            
+            .troubleshooting-card {
+                background: #fff7ed;
+                border-radius: 1rem;
+                padding: 1.5rem;
+                margin: 1.5rem 0;
+                text-align: left;
+            }
+            
+            .troubleshooting-card h4 {
+                color: #f97316;
+                margin: 0 0 1rem 0;
+                font-size: 1.1rem;
+            }
+            
+            .troubleshooting-list {
+                margin: 0;
+                padding-left: 1.5rem;
+            }
+            
+            .troubleshooting-list li {
+                margin-bottom: 0.5rem;
+                color: #475569;
+            }
+            
+            .troubleshooting-list a {
+                color: #4158D0;
+                text-decoration: none;
+            }
+            
+            .troubleshooting-list a:hover {
+                text-decoration: underline;
+            }
+            
+            .error-actions {
+                display: flex;
+                gap: 1rem;
+                justify-content: center;
+                margin-top: 2rem;
             }
             
             /* Toast Notification */
@@ -2174,19 +2800,31 @@ class NetworkAnalyzer {
                 position: fixed;
                 bottom: 20px;
                 right: 20px;
-                background: #198754;
                 color: white;
                 padding: 1rem 1.5rem;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                border-radius: 1rem;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
                 z-index: 10000;
                 display: flex;
                 align-items: center;
                 gap: 0.75rem;
-                animation: slideIn 0.3s ease-out;
+                animation: slideInRight 0.3s ease-out;
+                border-left: 4px solid white;
             }
             
-            @keyframes slideIn {
+            .analysis-toast.toast-success {
+                background: linear-gradient(135deg, #11998e, #38ef7d);
+            }
+            
+            .analysis-toast.toast-error {
+                background: linear-gradient(135deg, #FF512F, #DD2476);
+            }
+            
+            .analysis-toast.toast-info {
+                background: linear-gradient(135deg, #4158D0, #C850C0);
+            }
+            
+            @keyframes slideInRight {
                 from {
                     transform: translateX(100%);
                     opacity: 0;
@@ -2197,58 +2835,238 @@ class NetworkAnalyzer {
                 }
             }
             
-            /* AI Modal */
-            #ai-analysis-modal .modal-content {
-                max-width: 900px;
-                max-height: 85vh;
-                overflow-y: auto;
-            }
-            
-            .threat-analysis {
+            /* AI Modal Content */
+            .threat-info-card {
                 background: #f8fafc;
-                border-radius: 10px;
+                border-radius: 1rem;
                 padding: 1.5rem;
-                margin-top: 1.5rem;
-                border-left: 4px solid #0060df;
+                margin-bottom: 1.5rem;
+                border: 1px solid #e2e8f0;
             }
             
-            .threat-analysis h4 {
-                color: #2c3e50;
-                margin: 0 0 1rem 0;
+            .threat-title {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                margin-bottom: 1rem;
+            }
+            
+            .severity-badge {
+                padding: 0.35rem 1rem;
+                border-radius: 2rem;
+                font-size: 0.8rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                color: white;
+            }
+            
+            .severity-badge.severity-critical { background: linear-gradient(135deg, #FF512F, #DD2476); }
+            .severity-badge.severity-high { background: linear-gradient(135deg, #FF6B6B, #FF8E53); }
+            .severity-badge.severity-medium { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+            .severity-badge.severity-low { background: linear-gradient(135deg, #11998e, #38ef7d); }
+            
+            .threat-name {
+                font-size: 1.2rem;
+                font-weight: 600;
+                color: #1e293b;
+            }
+            
+            .threat-details-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+                margin-bottom: 1rem;
+            }
+            
+            .detail-item {
+                background: white;
+                padding: 0.75rem;
+                border-radius: 0.5rem;
+                border: 1px solid #e2e8f0;
+            }
+            
+            .detail-label {
+                font-size: 0.8rem;
+                color: #64748b;
+                display: block;
+                margin-bottom: 0.25rem;
+            }
+            
+            .detail-value {
+                font-size: 1rem;
+                font-weight: 600;
+                color: #1e293b;
+            }
+            
+            .threat-evidence-card {
+                background: #1e293b;
+                color: #e2e8f0;
+                border-radius: 0.75rem;
+                padding: 1.25rem;
+                margin-top: 1rem;
+            }
+            
+            .evidence-header {
                 display: flex;
                 align-items: center;
                 gap: 0.5rem;
+                margin-bottom: 1rem;
+                color: #F093FB;
             }
             
-            .analysis-content {
-                color: #4a5568;
+            .evidence-header h5 {
+                margin: 0;
+                color: white;
+            }
+            
+            .evidence-content {
+                background: #0f172a;
+                padding: 1rem;
+                border-radius: 0.5rem;
+                font-family: 'JetBrains Mono', 'Consolas', monospace;
+                font-size: 0.85rem;
+                overflow-x: auto;
+                color: #94a3b8;
+            }
+            
+            .ai-response-card {
+                background: #f8fafc;
+                border-radius: 1rem;
+                padding: 1.5rem;
+                border: 1px solid #e2e8f0;
+            }
+            
+            .loading-spinner {
+                text-align: center;
+                padding: 2rem;
+            }
+            
+            .spinner-circle {
+                width: 50px;
+                height: 50px;
+                border: 3px solid #e2e8f0;
+                border-top: 3px solid #F093FB;
+                border-radius: 50%;
+                margin: 0 auto 1rem;
+                animation: spin 1s linear infinite;
+            }
+            
+            .ai-content-area {
+                max-height: 400px;
+                overflow-y: auto;
+            }
+            
+            .threat-analysis-result {
+                background: white;
+                border-radius: 1rem;
+                padding: 1.5rem;
+            }
+            
+            .analysis-title {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin: 0 0 1rem 0;
+                color: #1e293b;
+                font-size: 1.1rem;
+            }
+            
+            .markdown-content {
+                color: #475569;
                 line-height: 1.6;
             }
             
-            .analysis-content pre {
-                background: #1e1e1e;
-                color: #d4d4d4;
-                padding: 1rem;
-                border-radius: 6px;
-                overflow-x: auto;
-                margin: 1rem 0;
-                font-family: 'Consolas', 'Monaco', monospace;
-                font-size: 0.9rem;
+            .markdown-h3 {
+                color: #1e293b;
+                font-size: 1.2rem;
+                margin: 1.5rem 0 0.75rem;
             }
             
-            .analysis-content code {
-                background: #e9ecef;
+            .markdown-h4 {
+                color: #1e293b;
+                font-size: 1.1rem;
+                margin: 1.2rem 0 0.5rem;
+            }
+            
+            .markdown-h5 {
+                color: #475569;
+                font-size: 1rem;
+                margin: 1rem 0 0.5rem;
+            }
+            
+            .markdown-p {
+                margin-bottom: 1rem;
+            }
+            
+            .code-block {
+                background: #1e293b;
+                color: #e2e8f0;
+                padding: 1rem;
+                border-radius: 0.5rem;
+                overflow-x: auto;
+                margin: 1rem 0;
+            }
+            
+            .inline-code {
+                background: #f1f5f9;
                 padding: 0.2rem 0.4rem;
-                border-radius: 4px;
-                font-family: 'Consolas', 'Monaco', monospace;
+                border-radius: 0.25rem;
+                font-family: 'JetBrains Mono', monospace;
                 font-size: 0.9em;
-                color: #2c3e50;
+                color: #F093FB;
+            }
+            
+            .bullet-list, .numbered-list, .steps-list {
+                margin: 0.5rem 0 1rem 1.5rem;
+            }
+            
+            .list-item {
+                margin-bottom: 0.25rem;
+            }
+            
+            .ai-action-buttons {
+                display: flex;
+                gap: 1rem;
+                margin-top: 1.5rem;
+                flex-wrap: wrap;
+            }
+            
+            .btn-outline-primary {
+                background: transparent;
+                color: #F093FB;
+                border: 1px solid #F093FB;
+                padding: 0.75rem 1.5rem;
+                border-radius: 2rem;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.3s;
+            }
+            
+            .btn-outline-primary:hover {
+                background: rgba(240, 147, 251, 0.1);
+                transform: translateY(-2px);
+            }
+            
+            .btn-outline-secondary {
+                background: transparent;
+                color: #64748b;
+                border: 1px solid #cbd5e1;
+                padding: 0.75rem 1.5rem;
+                border-radius: 2rem;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.3s;
+            }
+            
+            .btn-outline-secondary:hover {
+                background: #f1f5f9;
+                transform: translateY(-2px);
             }
             
             /* Responsive */
             @media (max-width: 1200px) {
                 .stats-grid,
-                .ai-insights-content,
+                .ai-insights-grid,
                 .compliance-grid,
                 .recommendations-grid {
                     grid-template-columns: repeat(2, 1fr);
@@ -2263,8 +3081,7 @@ class NetworkAnalyzer {
             @media (max-width: 768px) {
                 .report-header {
                     flex-direction: column;
-                    gap: 1rem;
-                    text-align: center;
+                    align-items: flex-start;
                 }
                 
                 .report-meta {
@@ -2273,8 +3090,8 @@ class NetworkAnalyzer {
                 }
                 
                 .stats-grid,
-                .stat-row,
-                .ai-insights-content,
+                .stats-row,
+                .ai-insights-grid,
                 .compliance-grid,
                 .recommendations-grid {
                     grid-template-columns: 1fr;
@@ -2284,13 +3101,20 @@ class NetworkAnalyzer {
                     grid-template-columns: 1fr;
                 }
                 
+                .threats-container {
+                    grid-template-columns: 1fr;
+                }
+                
                 .section {
                     padding: 1.5rem 1rem;
                 }
                 
-                .protocol-bar {
-                    grid-template-columns: 1fr;
-                    gap: 0.5rem;
+                .ai-action-buttons {
+                    flex-direction: column;
+                }
+                
+                .error-actions {
+                    flex-direction: column;
                 }
             }
         `;

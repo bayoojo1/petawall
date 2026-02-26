@@ -1,3 +1,589 @@
+// waf-analyzer.js - Enhanced with Vibrant Color Theme
+
+/* ===== STYLESHEET INJECTION ===== */
+(function injectWafStyles() {
+    if (document.getElementById('waf-styles')) return;
+    
+    const styles = `
+        /* WAF Results Styles - Vibrant Color Theme */
+        #wafResults {
+            margin-top: 2rem;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-section {
+            margin-bottom: 2rem;
+            border: none;
+            border-radius: 1.5rem;
+            padding: 0;
+            background: white;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            animation: slideIn 0.5s ease-out;
+            animation-fill-mode: both;
+        }
+
+        .result-section:nth-child(1) { animation-delay: 0.1s; }
+        .result-section:nth-child(2) { animation-delay: 0.2s; }
+        .result-section:nth-child(3) { animation-delay: 0.3s; }
+        .result-section:nth-child(4) { animation-delay: 0.4s; }
+        .result-section:nth-child(5) { animation-delay: 0.5s; }
+        .result-section:nth-child(6) { animation-delay: 0.6s; }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 25px 50px -12px rgba(65, 88, 208, 0.25);
+        }
+
+        .result-section h3 {
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            color: white;
+            padding: 1.25rem 1.5rem;
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-bottom: none;
+        }
+
+        .result-section h3 i {
+            font-size: 1.2rem;
+        }
+
+        .result-card {
+            background: white;
+            padding: 1.5rem;
+            border: 1px solid #e2e8f0;
+            border-top: none;
+        }
+
+        /* Summary Stats */
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1.25rem 1rem;
+            background: #f8fafc;
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 25px 50px -12px rgba(65, 88, 208, 0.25);
+            border-color: #4158D0;
+        }
+
+        .stat-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(65, 88, 208, 0.05), transparent);
+            transition: left 0.5s;
+        }
+
+        .stat-item:hover::before {
+            left: 100%;
+        }
+
+        .stat-label {
+            display: block;
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            display: block;
+            font-size: 1.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-value.excellent { background: linear-gradient(135deg, #11998e, #38ef7d); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stat-value.good { background: linear-gradient(135deg, #00b09b, #96c93d); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stat-value.moderate { background: linear-gradient(135deg, #fa709a, #fee140); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stat-value.poor { background: linear-gradient(135deg, #FF6B6B, #FF8E53); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stat-value.very_poor { background: linear-gradient(135deg, #FF512F, #DD2476); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        /* Detected WAFs */
+        .detected-wafs {
+            margin-top: 1.5rem;
+            padding: 1.25rem;
+            background: #f8fafc;
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        .detected-wafs h4 {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .detected-wafs h4 i {
+            color: #4158D0;
+        }
+
+        #wafList {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .waf-tag {
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            box-shadow: 0 3px 10px rgba(255, 107, 107, 0.2);
+            transition: all 0.3s;
+            border: 1px solid transparent;
+        }
+
+        .waf-tag:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
+        }
+
+        .no-waf {
+            color: #64748b;
+            font-style: italic;
+            padding: 1rem;
+            background: white;
+            border-radius: 0.5rem;
+            border: 1px dashed #e2e8f0;
+            text-align: center;
+            width: 100%;
+        }
+
+        /* Analysis Content */
+        .analysis-content {
+            line-height: 1.7;
+            white-space: pre-wrap;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            background: #f8fafc;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+            color: #1e293b;
+            border: 1px solid #e2e8f0;
+            font-size: 0.9rem;
+        }
+
+        .analysis-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .analysis-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .analysis-content::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            border-radius: 4px;
+        }
+
+        /* Techniques List */
+        .techniques-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .technique-item {
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border-left: 4px solid #f59e0b;
+            border-radius: 0.75rem;
+            color: #1e293b;
+            font-weight: 500;
+            transition: all 0.3s;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+
+        .technique-item:hover {
+            transform: translateX(5px);
+            background: linear-gradient(135deg, #ffffff 0%, #f0f0ff 100%);
+            border-left-color: #ef4444;
+            box-shadow: 0 25px 50px -12px rgba(65, 88, 208, 0.25);
+        }
+
+        /* Headers Table */
+        .headers-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 1rem;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        .headers-table th,
+        .headers-table td {
+            padding: 1rem 1.25rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .headers-table th {
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .headers-table td {
+            color: #1e293b;
+        }
+
+        .headers-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .headers-table tr:hover td {
+            background: #f8fafc;
+        }
+
+        .header-present {
+            color: #10b981;
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            background: rgba(16, 185, 129, 0.1);
+            border-radius: 2rem;
+            display: inline-block;
+        }
+
+        .header-missing {
+            color: #ef4444;
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 2rem;
+            display: inline-block;
+        }
+
+        /* Test Controls */
+        .test-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .search-input, .filter-select {
+            padding: 0.75rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 2rem;
+            flex: 1;
+            background: white;
+            color: #1e293b;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus, .filter-select:focus {
+            outline: none;
+            border-color: #4158D0;
+            box-shadow: 0 0 0 3px rgba(65, 88, 208, 0.1);
+        }
+
+        .search-input::placeholder {
+            color: #94a3b8;
+        }
+
+        /* Tests Container */
+        .tests-container {
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .tests-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .tests-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .tests-container::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            border-radius: 4px;
+        }
+
+        .test-item {
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            border-radius: 1rem;
+            border-left: 4px solid;
+            background: white;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s;
+        }
+
+        .test-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 25px 50px -12px rgba(65, 88, 208, 0.25);
+        }
+
+        .test-blocked {
+            border-left-color: #ef4444;
+        }
+
+        .test-passed {
+            border-left-color: #10b981;
+        }
+
+        .test-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .test-header strong {
+            color: #1e293b;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .test-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 2rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: white;
+        }
+
+        .test-blocked .test-status {
+            background: linear-gradient(135deg, #FF512F, #DD2476);
+        }
+
+        .test-passed .test-status {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+        }
+
+        .test-payload {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            background: #f8fafc;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin: 0.75rem 0;
+            font-size: 0.85rem;
+            word-break: break-all;
+            color: #1e293b;
+            border: 1px solid #e2e8f0;
+        }
+
+        .test-details {
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+
+        /* Recommendations */
+        .recommendations-list {
+            display: block;
+            width: 100%;
+        }
+
+        .recommendation-category {
+            margin-bottom: 1.5rem;
+            padding: 1.25rem;
+            background: #f8fafc;
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        .recommendation-category h4 {
+            color: #4158D0;
+            margin: 0 0 1rem 0;
+            font-size: 1rem;
+            font-weight: 600;
+            border-bottom: 2px solid rgba(65, 88, 208, 0.2);
+            padding-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .recommendation-category h4 i {
+            color: #FF6B6B;
+        }
+
+        .recommendation-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s;
+            color: #1e293b;
+        }
+
+        .recommendation-item:hover {
+            background: linear-gradient(135deg, #ffffff 0%, #f0f0ff 100%);
+            transform: translateX(5px);
+            box-shadow: 0 25px 50px -12px rgba(65, 88, 208, 0.25);
+        }
+
+        .recommendation-checkmark {
+            color: #10b981;
+            font-weight: bold;
+            font-size: 1rem;
+            min-width: 20px;
+        }
+
+        .recommendation-text {
+            flex: 1;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        /* Fingerprinting */
+        .fingerprinting-content {
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .fingerprinting-content h4 {
+            color: #4158D0;
+            margin: 1.5rem 0 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .fingerprinting-content h4:first-child {
+            margin-top: 0;
+        }
+
+        .fingerprinting-content pre {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            font-size: 0.85rem;
+            color: #1e293b;
+            border: 1px solid #e2e8f0;
+            overflow-x: auto;
+        }
+
+        .fingerprinting-content ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .fingerprinting-content li {
+            padding: 0.75rem 1rem;
+            background: white;
+            margin-bottom: 0.5rem;
+            border-radius: 0.5rem;
+            border-left: 3px solid #4158D0;
+            color: #1e293b;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .summary-stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .test-controls {
+                flex-direction: column;
+            }
+            
+            .headers-table {
+                font-size: 0.85rem;
+            }
+            
+            .headers-table th,
+            .headers-table td {
+                padding: 0.75rem;
+            }
+            
+            .test-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            
+            .result-section h3 {
+                padding: 1rem;
+                font-size: 1rem;
+            }
+            
+            .result-card {
+                padding: 1rem;
+            }
+            
+            .recommendation-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .recommendation-checkmark {
+                margin-bottom: 0.5rem;
+            }
+        }
+    `;
+    
+    const styleElement = document.createElement('style');
+    styleElement.id = 'waf-styles';
+    styleElement.textContent = styles;
+    document.head.appendChild(styleElement);
+})();
+
 async function runWafAnalysis() {
     // Try multiple possible element IDs to maintain compatibility
     const targetInput = document.getElementById('waf-target') || 
@@ -5,14 +591,14 @@ async function runWafAnalysis() {
                        document.getElementById('waf-input');
     
     if (!targetInput) {
-        alert('Error: WAF input field not found. Please check the HTML structure.');
+        showNotification('Error: WAF input field not found. Please check the HTML structure.', 'error');
         return;
     }
     
     const target = targetInput.value.trim();
     
     if (!target) {
-        alert('Please enter a target URL or WAF configuration');
+        showNotification('Please enter a target URL or WAF configuration', 'warning');
         return;
     }
     
@@ -30,13 +616,14 @@ async function runWafAnalysis() {
     }
     
     if (!resultsElement) {
-        alert('Error: WAF results container not found. Please check the page structure.');
+        showNotification('Error: WAF results container not found. Please check the page structure.', 'error');
         return;
     }
     
     if (loadingElement) {
         loadingElement.style.display = 'block';
-        document.getElementById('waf-btn').disabled = true;
+        const analyzeBtn = document.getElementById('waf-btn');
+        if (analyzeBtn) analyzeBtn.disabled = true;
     }
     resultsElement.style.display = 'none';
     
@@ -60,25 +647,30 @@ async function runWafAnalysis() {
             loadingElement.style.display = 'none';
         }
         
-        console.log('Full API Response:', data); // Debug the complete response
+        console.log('Full API Response:', data);
         
         if (!data.success) {
-            alert('Error: ' + (data.error || 'Analysis failed'));
+            showNotification('Error: ' + (data.error || 'Analysis failed'), 'error');
             return;
         }
         
         resultsElement.style.display = 'block';
-        document.getElementById('waf-btn').disabled = false;
+        const analyzeBtn = document.getElementById('waf-btn');
+        if (analyzeBtn) analyzeBtn.disabled = false;
         
         // Use the unified display function with proper data handling
         displayWafResults(data);
+        showNotification('WAF analysis completed successfully!', 'success');
         
     } catch (error) {
         if (loadingElement) {
             loadingElement.style.display = 'none';
         }
         console.error('WAF Analysis Error:', error);
-        alert('Request failed: ' + error.message);
+        showNotification('Request failed: ' + error.message, 'error');
+        
+        const analyzeBtn = document.getElementById('waf-btn');
+        if (analyzeBtn) analyzeBtn.disabled = false;
     }
 }
 
@@ -93,7 +685,7 @@ function displayWafResults(results) {
     
     console.log('WAF Data structure:', wafData);
     
-    // Show the WAF results section - BUT DON'T RECREATE THE HTML
+    // Show the WAF results section
     const resultsElement = document.getElementById('wafResults') || 
                           document.getElementById('waf-results') || 
                           document.getElementById('results-waf');
@@ -114,7 +706,8 @@ function displayWafResults(results) {
         'bypassTechniques': '#bypassTechniques',
         'securityHeaders': '#securityHeaders tbody',
         'detailedTests': '#detailedTests',
-        'waf-recommendations': '#waf-recommendations'
+        'waf-recommendations': '#waf-recommendations',
+        'fingerprintingContent': '#fingerprintingContent'
     };
     
     Object.entries(sectionsToClear).forEach(([id, selector]) => {
@@ -125,6 +718,12 @@ function displayWafResults(results) {
             console.warn(`Element not found: ${selector}`);
         }
     });
+    
+    // Hide fingerprinting section initially
+    const fingerprintSection = document.getElementById('fingerprintingSection');
+    if (fingerprintSection) {
+        fingerprintSection.style.display = 'none';
+    }
     
     // Determine analysis type and display accordingly
     const analysisType = wafData.summary?.type || (wafData.target_url ? 'url_analysis' : 'configuration');
@@ -141,10 +740,6 @@ function displayWafResults(results) {
 function displayUrlAnalysis(data) {
     console.log('=== DISPLAY URL ANALYSIS ===');
     console.log('Data received by displayUrlAnalysis:', data);
-    console.log('Data keys:', Object.keys(data));
-    console.log('Recommendations in displayUrlAnalysis:', data.recommendations);
-    console.log('Type of recommendations:', typeof data.recommendations);
-    console.log('============================');
     
     // Safe data extraction with fallbacks - using the actual structure
     const summary = data.summary || {
@@ -179,7 +774,6 @@ function displayUrlAnalysis(data) {
     const fingerprinting = data.fingerprinting || {};
     
     console.log('Processed recommendations data for display:', recommendations);
-    console.log('Recommendations keys:', Object.keys(recommendations));
     
     // Display all sections for URL analysis with safe data
     displayWafSummary(summary);
@@ -197,30 +791,22 @@ function displayWafSummary(summary) {
                         document.querySelector('.summary-stats');
     
     const wafList = document.getElementById('wafList') || 
-                   document.querySelector('.detected-wafs') ||
                    document.querySelector('#wafList');
     
+    const securityScore = document.getElementById('securityScore');
+    const effectivenessEl = document.getElementById('effectiveness');
+    const confidenceEl = document.getElementById('confidence');
+    const totalTestsEl = document.getElementById('totalTests');
+    const blockedRequestsEl = document.getElementById('blockedRequests');
+    const wafDetectedEl = document.getElementById('wafDetected');
+    
     if (!summaryStats) {
-        console.warn('WAF summary stats element not found, searching...');
-        // Try to find it after a short delay
-        setTimeout(() => {
-            const retryStats = document.getElementById('wafSummaryStats') || 
-                             document.querySelector('.summary-stats');
-            if (retryStats) {
-                console.log('Found summary stats on retry');
-                displayWafSummary(summary);
-            }
-        }, 100);
-        return;
-    }
-
-    if (!wafList) {
-        console.warn('WAF list element not found');
+        console.warn('WAF summary stats element not found');
         return;
     }
 
     // Safe data access with defaults
-    const securityScore = summary.security_score || summary.score || 0;
+    const securityScoreVal = summary.security_score || summary.score || 0;
     const effectiveness = summary.effectiveness || 'UNKNOWN';
     const confidence = summary.confidence || 75;
     const totalTests = summary.total_tests || 0;
@@ -228,41 +814,56 @@ function displayWafSummary(summary) {
     const detectedWafs = summary.detected_wafs || summary.wafs || [];
     const wafDetected = summary.waf_detected || (detectedWafs.length > 0);
 
+    // Update individual elements if they exist
+    if (securityScore) securityScore.textContent = securityScoreVal;
+    if (effectivenessEl) {
+        effectivenessEl.textContent = effectiveness;
+        effectivenessEl.className = `stat-value ${effectiveness.toLowerCase()}`;
+    }
+    if (confidenceEl) confidenceEl.textContent = confidence + '%';
+    if (totalTestsEl) totalTestsEl.textContent = totalTests;
+    if (blockedRequestsEl) blockedRequestsEl.textContent = blockedRequests;
+    if (wafDetectedEl) wafDetectedEl.textContent = wafDetected ? 'Yes' : 'No';
+
     // Create summary stats HTML
-    summaryStats.innerHTML = `
-        <div class="stat-item">
-            <span class="stat-label">Security Score</span>
-            <span class="stat-value">${securityScore}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Effectiveness</span>
-            <span class="stat-value ${effectiveness.toLowerCase()}">${effectiveness}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Confidence</span>
-            <span class="stat-value">${confidence}%</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Tests Performed</span>
-            <span class="stat-value">${totalTests}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Requests Blocked</span>
-            <span class="stat-value">${blockedRequests}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">WAF Detected</span>
-            <span class="stat-value">${wafDetected ? 'Yes' : 'No'}</span>
-        </div>
-    `;
+    if (summaryStats && !securityScore) { // Fallback if individual elements don't exist
+        summaryStats.innerHTML = `
+            <div class="stat-item">
+                <span class="stat-label">Security Score</span>
+                <span class="stat-value">${securityScoreVal}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Effectiveness</span>
+                <span class="stat-value ${effectiveness.toLowerCase()}">${effectiveness}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Confidence</span>
+                <span class="stat-value">${confidence}%</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Tests Performed</span>
+                <span class="stat-value">${totalTests}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Requests Blocked</span>
+                <span class="stat-value">${blockedRequests}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">WAF Detected</span>
+                <span class="stat-value">${wafDetected ? 'Yes' : 'No'}</span>
+            </div>
+        `;
+    }
 
     // Display detected WAFs
-    if (detectedWafs && detectedWafs.length > 0) {
-        wafList.innerHTML = detectedWafs.map(waf => 
-            `<span class="waf-tag">${waf}</span>`
-        ).join('');
-    } else {
-        wafList.innerHTML = '<span class="no-waf">No WAF detected</span>';
+    if (wafList) {
+        if (detectedWafs && detectedWafs.length > 0) {
+            wafList.innerHTML = detectedWafs.map(waf => 
+                `<span class="waf-tag">${escapeHtml(waf)}</span>`
+            ).join('');
+        } else {
+            wafList.innerHTML = '<span class="no-waf">No WAF detected</span>';
+        }
     }
 }
 
@@ -306,10 +907,10 @@ function displayBypassTechniques(techniques) {
 
     if (techniques && techniques.length > 0) {
         techniquesElement.innerHTML = techniques.map(technique => 
-            `<div class="technique-item">${technique}</div>`
+            `<div class="technique-item">${escapeHtml(technique)}</div>`
         ).join('');
     } else {
-        techniquesElement.innerHTML = '<p>No specific bypass techniques identified in the main data. Check the detailed analysis for techniques.</p>';
+        techniquesElement.innerHTML = '<p class="no-waf">No specific bypass techniques identified in the main data. Check the detailed analysis for techniques.</p>';
     }
 }
 
@@ -321,9 +922,14 @@ function displaySecurityHeaders(headers) {
     }
 
     const tbody = headersTable.querySelector('tbody');
+    if (!tbody) {
+        console.warn('Security headers tbody not found');
+        return;
+    }
+    
     tbody.innerHTML = '';
     
-    if (headers && typeof headers === 'object') {
+    if (headers && typeof headers === 'object' && Object.keys(headers).length > 0) {
         Object.entries(headers).forEach(([header, value]) => {
             const row = document.createElement('tr');
             
@@ -335,8 +941,8 @@ function displaySecurityHeaders(headers) {
                             String(value).includes('detected') ||
                             !String(value).includes('Not present') && !String(value).includes('Not detected');
             statusCell.innerHTML = isPresent ? 
-                '<span class="header-present">PRESENT</span>' : 
-                '<span class="header-missing">MISSING</span>';
+                '<span class="header-present">✓ PRESENT</span>' : 
+                '<span class="header-missing">✗ MISSING</span>';
             
             const valueCell = document.createElement('td');
             valueCell.textContent = value;
@@ -347,7 +953,7 @@ function displaySecurityHeaders(headers) {
             tbody.appendChild(row);
         });
     } else {
-        tbody.innerHTML = '<tr><td colspan="3">No header data available</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" class="no-waf">No header data available</td></tr>';
     }
 }
 
@@ -360,7 +966,7 @@ function displayDetailedTests(tests) {
 
     testsElement.innerHTML = '';
     
-    if (tests && typeof tests === 'object') {
+    if (tests && typeof tests === 'object' && Object.keys(tests).length > 0) {
         Object.entries(tests).forEach(([testName, test]) => {
             // Ensure test is an object
             const testData = typeof test === 'object' ? test : {};
@@ -370,7 +976,7 @@ function displayDetailedTests(tests) {
             
             testItem.innerHTML = `
                 <div class="test-header">
-                    <strong>${testName.replace(/_/g, ' ').toUpperCase()}</strong>
+                    <strong>${escapeHtml(testName.replace(/_/g, ' ').toUpperCase())}</strong>
                     <span class="test-status">${testData.blocked ? 'BLOCKED' : 'PASSED'}</span>
                 </div>
                 <div class="test-payload">Payload: ${escapeHtml(testData.payload || 'N/A')}</div>
@@ -384,7 +990,7 @@ function displayDetailedTests(tests) {
             testsElement.appendChild(testItem);
         });
     } else {
-        testsElement.innerHTML = '<p>No test data available</p>';
+        testsElement.innerHTML = '<p class="no-waf">No test data available</p>';
     }
     
     // Add search and filter functionality
@@ -411,7 +1017,6 @@ function displayRecommendations(recommendations) {
             const validItems = items.filter(item => 
                 item && typeof item === 'string' && item.trim() !== ''
             );
-            console.log(items);
             
             if (validItems.length === 0) {
                 return;
@@ -423,16 +1028,13 @@ function displayRecommendations(recommendations) {
             categoryDiv.className = 'recommendation-category';
             
             const categoryTitle = document.createElement('h4');
-            const formattedCategory = category.replace(/_/g, ' ')
-                .replace(/\b\w/g, l => l.toUpperCase());
-            categoryTitle.textContent = formattedCategory;
+            categoryTitle.innerHTML = `<i class="fas fa-lightbulb"></i> ${formatCategoryName(category)}`;
             categoryDiv.appendChild(categoryTitle);
             
             validItems.forEach(item => {
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'recommendation-item';
                 
-                // Use span with class instead of :before pseudo-element
                 const checkmark = document.createElement('span');
                 checkmark.className = 'recommendation-checkmark';
                 checkmark.textContent = '✓';
@@ -440,7 +1042,7 @@ function displayRecommendations(recommendations) {
                 const textSpan = document.createElement('span');
                 textSpan.className = 'recommendation-text';
                 textSpan.textContent = item;
-                console.log(item);
+                
                 itemDiv.appendChild(checkmark);
                 itemDiv.appendChild(textSpan);
                 categoryDiv.appendChild(itemDiv);
@@ -450,10 +1052,10 @@ function displayRecommendations(recommendations) {
         });
         
         if (!hasContent) {
-            recElement.innerHTML = '<p>No valid recommendations found.</p>';
+            recElement.innerHTML = '<p class="no-waf">No valid recommendations found.</p>';
         }
     } else {
-        recElement.innerHTML = '<p>No recommendations data available.</p>';
+        recElement.innerHTML = '<p class="no-waf">No recommendations data available.</p>';
     }
 }
 
@@ -462,27 +1064,17 @@ function displayFingerprinting(fingerprinting) {
     let fingerprintSection = document.getElementById('fingerprintingSection');
     if (!fingerprinting || Object.keys(fingerprinting).length === 0) {
         if (fingerprintSection) {
-            fingerprintSection.remove();
+            fingerprintSection.style.display = 'none';
         }
         return;
     }
     
     if (!fingerprintSection) {
-        fingerprintSection = document.createElement('div');
-        fingerprintSection.id = 'fingerprintingSection';
-        fingerprintSection.className = 'result-section';
-        fingerprintSection.innerHTML = `
-            <h3>WAF Fingerprinting</h3>
-            <div class="result-card">
-                <div id="fingerprintingContent" class="fingerprinting-content"></div>
-            </div>
-        `;
-        
-        // Insert after detailed tests section
-        const detailedTestsSection = document.getElementById('detailedTestsSection');
-        if (detailedTestsSection) {
-            detailedTestsSection.parentNode.insertBefore(fingerprintSection, detailedTestsSection.nextSibling);
-        }
+        fingerprintSection = document.getElementById('fingerprintingSection');
+    }
+    
+    if (fingerprintSection) {
+        fingerprintSection.style.display = 'block';
     }
     
     const contentElement = document.getElementById('fingerprintingContent');
@@ -491,23 +1083,23 @@ function displayFingerprinting(fingerprinting) {
         
         if (fingerprinting.normal_request) {
             content += `<h4>Normal Request</h4>`;
-            content += `<pre>${JSON.stringify(fingerprinting.normal_request, null, 2)}</pre>`;
+            content += `<pre>${escapeHtml(JSON.stringify(fingerprinting.normal_request, null, 2))}</pre>`;
         }
         
         if (fingerprinting.encoding_tests) {
             content += `<h4>Encoding Tests</h4>`;
             Object.entries(fingerprinting.encoding_tests).forEach(([encoding, test]) => {
                 content += `<h5>${encoding.toUpperCase()}</h5>`;
-                content += `<pre>${JSON.stringify(test, null, 2)}</pre>`;
+                content += `<pre>${escapeHtml(JSON.stringify(test, null, 2))}</pre>`;
             });
         }
         
         if (fingerprinting.fingerprint_analysis && fingerprinting.fingerprint_analysis.length > 0) {
             content += `<h4>Fingerprint Analysis</h4>`;
-            content += `<ul>${fingerprinting.fingerprint_analysis.map(item => `<li>${item}</li>`).join('')}</ul>`;
+            content += `<ul>${fingerprinting.fingerprint_analysis.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
         }
         
-        contentElement.innerHTML = content || '<p>No fingerprinting data available</p>';
+        contentElement.innerHTML = content || '<p class="no-waf">No fingerprinting data available</p>';
     }
 }
 
@@ -521,84 +1113,99 @@ function displayConfigAnalysis(data) {
     const recommendations = data.recommendations || {};
     const risk = data.risk_assessment || 'Medium';
     
-    resultsElement.innerHTML = `
-        <div class="result-section">
-            <h3>WAF Configuration Analysis</h3>
-            <div class="result-card">
-                <div class="config-summary">
-                    <div class="summary-stats">
-                        <div class="stat-item">
-                            <span class="stat-label">Effectiveness Score</span>
-                            <span class="stat-value">${summary.security_score || summary.score || 'N/A'}</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Effectiveness</span>
-                            <span class="stat-value ${(summary.effectiveness || 'moderate').toLowerCase()}">
-                                ${summary.effectiveness || 'MODERATE'}
-                            </span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Confidence</span>
-                            <span class="stat-value">${summary.confidence || '75'}%</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Risk Level</span>
-                            <span class="stat-value">${risk}</span>
-                        </div>
-                    </div>
-                </div>
+    // Hide sections that are not relevant for config analysis
+    const sectionsToHide = ['securityHeadersSection', 'detailedTestsSection', 'fingerprintingSection'];
+    sectionsToHide.forEach(id => {
+        const section = document.getElementById(id);
+        if (section) section.style.display = 'none';
+    });
+    
+    // Show sections that are relevant
+    const sectionsToShow = ['wafSummarySection', 'wafAnalysisSection', 'bypassTechniquesSection', 'recommendationsSection'];
+    sectionsToShow.forEach(id => {
+        const section = document.getElementById(id);
+        if (section) section.style.display = 'block';
+    });
+    
+    // Update summary for config analysis
+    const summaryStats = document.querySelector('.summary-stats');
+    if (summaryStats) {
+        summaryStats.innerHTML = `
+            <div class="stat-item">
+                <span class="stat-label">Effectiveness Score</span>
+                <span class="stat-value">${summary.security_score || summary.score || 'N/A'}</span>
             </div>
-        </div>
-        
-        <div class="result-section">
-            <h3>Configuration Analysis</h3>
-            <div class="result-card">
-                <div class="analysis-content">${escapeHtml(formatAnalysisText(analysis))}</div>
+            <div class="stat-item">
+                <span class="stat-label">Effectiveness</span>
+                <span class="stat-value ${(summary.effectiveness || 'moderate').toLowerCase()}">
+                    ${summary.effectiveness || 'MODERATE'}
+                </span>
             </div>
-        </div>
-        
-        <div class="result-section">
-            <h3>Bypass Techniques</h3>
-            <div class="result-card">
-                <div class="techniques-list">
-                    ${techniques.length > 0 ? 
-                      techniques.map(tech => `<div class="technique-item">${escapeHtml(tech)}</div>`).join('') : 
-                      '<p>No specific bypass techniques identified.</p>'}
-                </div>
+            <div class="stat-item">
+                <span class="stat-label">Confidence</span>
+                <span class="stat-value">${summary.confidence || '75'}%</span>
             </div>
-        </div>
-        
-        <div class="result-section">
-            <h3>Recommendations</h3>
-            <div class="result-card">
-                <div class="recommendations-list">
-                    ${Object.keys(recommendations).length > 0 ? 
-                      formatRecommendations(recommendations) : 
-                      '<p>No specific recommendations available.</p>'}
-                </div>
+            <div class="stat-item">
+                <span class="stat-label">Risk Level</span>
+                <span class="stat-value">${risk}</span>
             </div>
-        </div>
-    `;
+        `;
+    }
+    
+    // Update analysis
+    const analysisElement = document.getElementById('wafAnalysis');
+    if (analysisElement) {
+        analysisElement.textContent = formatAnalysisText(analysis);
+    }
+    
+    // Update bypass techniques
+    const techniquesElement = document.getElementById('bypassTechniques');
+    if (techniquesElement) {
+        if (techniques.length > 0) {
+            techniquesElement.innerHTML = techniques.map(tech => 
+                `<div class="technique-item">${escapeHtml(tech)}</div>`
+            ).join('');
+        } else {
+            techniquesElement.innerHTML = '<p class="no-waf">No specific bypass techniques identified.</p>';
+        }
+    }
+    
+    // Update recommendations
+    displayRecommendations(recommendations);
 }
 
-// Keep all the helper functions the same as before...
 function setupTestFilters() {
     const searchInput = document.getElementById('testSearch');
     const filterSelect = document.getElementById('testFilter');
     
     if (searchInput && filterSelect) {
-        searchInput.addEventListener('input', filterTests);
-        filterSelect.addEventListener('change', filterTests);
+        // Remove existing listeners
+        const newSearch = searchInput.cloneNode(true);
+        const newFilter = filterSelect.cloneNode(true);
+        searchInput.parentNode.replaceChild(newSearch, searchInput);
+        filterSelect.parentNode.replaceChild(newFilter, filterSelect);
+        
+        // Add new listeners
+        newSearch.addEventListener('input', filterTests);
+        newFilter.addEventListener('change', filterTests);
     }
 }
 
 function filterTests() {
-    const searchTerm = document.getElementById('testSearch').value.toLowerCase();
-    const filterValue = document.getElementById('testFilter').value;
+    const searchInput = document.getElementById('testSearch');
+    const filterSelect = document.getElementById('testFilter');
+    
+    if (!searchInput || !filterSelect) return;
+    
+    const searchTerm = searchInput.value.toLowerCase();
+    const filterValue = filterSelect.value;
     const testItems = document.querySelectorAll('.test-item');
     
     testItems.forEach(item => {
-        const testName = item.querySelector('strong').textContent.toLowerCase();
+        const testHeader = item.querySelector('strong');
+        if (!testHeader) return;
+        
+        const testName = testHeader.textContent.toLowerCase();
         const isBlocked = item.classList.contains('test-blocked');
         const matchesSearch = testName.includes(searchTerm);
         const matchesFilter = filterValue === 'all' || 
@@ -615,31 +1222,10 @@ function formatAnalysisText(analysis) {
     return 'Analysis data not available in expected format.';
 }
 
-function formatRecommendations(recommendations) {
-    if (typeof recommendations === 'string') {
-        return `<div class="recommendation-item">${escapeHtml(recommendations)}</div>`;
-    }
-    
-    if (Array.isArray(recommendations)) {
-        return recommendations.map(rec => 
-            `<div class="recommendation-item">${escapeHtml(rec)}</div>`
-        ).join('');
-    }
-    
-    if (typeof recommendations === 'object') {
-        let html = '';
-        for (const [category, items] of Object.entries(recommendations)) {
-            html += `<div class="recommendation-category">
-                <h4>${escapeHtml(category.replace(/_/g, ' ').toUpperCase())}</h4>
-                ${Array.isArray(items) ? items.map(item => 
-                    `<div class="recommendation-item">${escapeHtml(item)}</div>`
-                ).join('') : `<div class="recommendation-item">${escapeHtml(items)}</div>`}
-            </div>`;
-        }
-        return html;
-    }
-    
-    return '<p>No recommendations available.</p>';
+function formatCategoryName(category) {
+    return category.split('_').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
 }
 
 function escapeHtml(unsafe) {
@@ -652,623 +1238,105 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
-function showError(message) {
-    alert('Error: ' + message);
-}
-
-function injectWafStyles() {
-    if (document.getElementById('waf-styles')) return;
+function showNotification(message, type = 'info') {
+    // Remove existing notification if any
+    const existingNotification = document.querySelector('.global-notification');
+    if (existingNotification) {
+        existingNotification.remove();
+    }
     
-    const styles = `
-        /* WAF Results Styles - Professional Blue & White Theme */
-        #wafResults {
-            margin-top: 25px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        .result-section {
-            margin-bottom: 30px;
-            border: none;
-            border-radius: 16px;
-            padding: 0;
-            background: linear-gradient(145deg, #ffffff 0%, #f8fbff 50%, #e3f2fd 100%);
-            box-shadow: 0 10px 30px rgba(0, 123, 255, 0.1);
-            overflow: hidden;
-            border: 1px solid #e9ecef;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .result-section:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 40px rgba(0, 123, 255, 0.15);
-        }
-
-        .result-section h3 {
-            color: #ffffff;
-            border-bottom: none;
-            padding: 25px 30px 20px;
-            margin: 0;
-            font-size: 1.4em;
-            font-weight: 600;
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            position: relative;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .result-section h3::before {
-            content: "🔒";
-            font-size: 1.2em;
-        }
-
-        .result-card {
-            background: #ffffff;
-            padding: 30px;
-            border-radius: 0 0 16px 16px;
-            border: 1px solid #e3f2fd;
-            border-top: none;
-        }
-
-        /* Summary Stats */
-        .summary-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 20px;
-            margin-bottom: 25px;
-        }
-
-        .stat-item {
-            text-align: center;
-            padding: 25px 15px;
-            background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
-            border-radius: 12px;
-            border: 1px solid #e3f2fd;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.08);
-        }
-
-        .stat-item::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 123, 255, 0.1), transparent);
-            transition: left 0.5s ease;
-        }
-
-        .stat-item:hover::before {
-            left: 100%;
-        }
-
-        .stat-item:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0, 123, 255, 0.12);
-            border-color: #4dabf7;
-        }
-
-        .stat-label {
-            display: block;
-            font-weight: 500;
-            color: #6c757d;
-            font-size: 0.95em;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .stat-value {
-            display: block;
-            font-size: 2em;
-            font-weight: 700;
-            color: #007bff;
-            text-shadow: 0 2px 4px rgba(0, 123, 255, 0.1);
-        }
-
-        /* Effectiveness colors */
-        .stat-value.excellent { 
-            color: #28a745;
-            text-shadow: 0 0 10px rgba(40, 167, 69, 0.2);
-        }
-        .stat-value.good { 
-            color: #20c997;
-            text-shadow: 0 0 10px rgba(32, 201, 151, 0.2);
-        }
-        .stat-value.moderate { 
-            color: #ffc107;
-            text-shadow: 0 0 10px rgba(255, 193, 7, 0.2);
-        }
-        .stat-value.poor { 
-            color: #fd7e14;
-            text-shadow: 0 0 10px rgba(253, 126, 20, 0.2);
-        }
-        .stat-value.very_poor { 
-            color: #dc3545;
-            text-shadow: 0 0 10px rgba(220, 53, 69, 0.2);
-        }
-        .stat-value.unknown { 
-            color: #6c757d;
-        }
-
-        /* Detected WAFs */
-        .detected-wafs {
-            margin-top: 25px;
-            padding: 20px;
-            background: #f8fbff;
-            border-radius: 12px;
-            border: 1px solid #e3f2fd;
-        }
-
-        .detected-wafs h4 {
-            color: #0056b3;
-            margin-bottom: 15px;
-            font-size: 1.1em;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .detected-wafs h4::before {
-            content: "🛡️";
-        }
-
-        #wafList {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        .waf-tag {
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            font-weight: 500;
-            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.2);
-            transition: all 0.3s ease;
-            border: 1px solid #007bff;
-        }
-
-        .waf-tag:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.3);
-        }
-
-        .no-waf { 
-            color: #6c757d; 
-            font-style: italic;
-            padding: 15px;
-            text-align: center;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border: 1px dashed #dee2e6;
-        }
-
-        /* Analysis Content */
-        .analysis-content {
-            line-height: 1.7;
-            white-space: pre-wrap;
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            background: #f8fbff;
-            padding: 25px;
-            border-radius: 12px;
-            max-height: 500px;
-            overflow-y: auto;
-            color: #212529;
-            border: 1px solid #e3f2fd;
-            font-size: 0.95em;
-            box-shadow: inset 0 2px 10px rgba(0, 123, 255, 0.05);
-        }
-
-        .analysis-content::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .analysis-content::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 4px;
-        }
-
-        .analysis-content::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            border-radius: 4px;
-        }
-
-        /* Techniques List */
-        .techniques-list {
-            display: grid;
-            gap: 15px;
-        }
-
-        .technique-item {
-            padding: 18px 20px;
-            background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
-            border-left: 4px solid #ffc107;
-            border-radius: 10px;
-            color: #212529;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            border: 1px solid #e3f2fd;
-            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.08);
-        }
-
-        .technique-item:hover {
-            transform: translateX(5px);
-            background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%);
-            border-left-color: #fd7e14;
-            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.12);
-        }
-
-        /* Headers Table */
-        .headers-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #ffffff;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid #e3f2fd;
-            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.08);
-        }
-
-        .headers-table th,
-        .headers-table td {
-            padding: 16px 20px;
-            text-align: left;
-            border-bottom: 1px solid #f8fbff;
-        }
-
-        .headers-table th {
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            color: white;
-            font-weight: 600;
-            font-size: 0.95em;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .headers-table td {
-            color: #212529;
-            font-weight: 500;
-        }
-
-        .headers-table tr:hover td {
-            background: #f8fbff;
-        }
-
-        .header-present {
-            color: #28a745;
-            font-weight: 600;
-            padding: 4px 12px;
-            background: rgba(40, 167, 69, 0.1);
-            border-radius: 6px;
-            border: 1px solid rgba(40, 167, 69, 0.3);
-        }
-
-        .header-missing {
-            color: #dc3545;
-            font-weight: 600;
-            padding: 4px 12px;
-            background: rgba(220, 53, 69, 0.1);
-            border-radius: 6px;
-            border: 1px solid rgba(220, 53, 69, 0.3);
-        }
-
-        /* Test Controls */
-        .test-controls {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-
-        .search-input, .filter-select {
-            padding: 12px 18px;
-            border: 1px solid #e3f2fd;
-            border-radius: 10px;
-            flex: 1;
-            background: #ffffff;
-            color: #212529;
-            font-size: 0.95em;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.05);
-        }
-
-        .search-input:focus, .filter-select:focus {
-            outline: none;
-            border-color: #007bff;
-            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-        }
-
-        .search-input::placeholder {
-            color: #6c757d;
-        }
-
-        /* Tests Container */
-        .tests-container {
-            max-height: 500px;
-            overflow-y: auto;
-            padding-right: 10px;
-        }
-
-        .tests-container::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .tests-container::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 4px;
-        }
-
-        .tests-container::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            border-radius: 4px;
-        }
-
-        .test-item {
-            padding: 20px;
-            margin-bottom: 15px;
-            border-radius: 12px;
-            border-left: 4px solid #dee2e6;
-            background: #ffffff;
-            border: 1px solid #e3f2fd;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.08);
-        }
-
-        .test-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 123, 255, 0.12);
-        }
-
-        .test-blocked {
-            background: linear-gradient(135deg, #ffffff 0%, #fff5f5 100%);
-            border-left-color: #dc3545;
-        }
-
-        .test-passed {
-            background: linear-gradient(135deg, #ffffff 0%, #f8fff9 100%);
-            border-left-color: #28a745;
-        }
-
-        .test-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .test-header strong {
-            color: #212529;
-            font-size: 1.1em;
-            font-weight: 600;
-        }
-
-        .test-status {
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .test-blocked .test-status {
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-            color: white;
-            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.2);
-        }
-
-        .test-passed .test-status {
-            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
-            color: white;
-            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2);
-        }
-
-        .test-payload {
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            background: #f8fbff;
-            padding: 12px;
-            border-radius: 8px;
-            margin: 10px 0;
-            font-size: 0.9em;
-            word-break: break-all;
-            color: #212529;
-            border: 1px solid #e3f2fd;
-        }
-
-        .test-details {
-            font-size: 0.9em;
-            color: #6c757d;
-            margin-top: 10px;
-        }
-
-        /* RECOMMENDATIONS SECTION */
-        .recommendations-list {
-            display: block;
-            width: 100%;
-        }
-
-        .recommendation-category {
-            display: block;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: #f8fbff;
-            border-radius: 12px;
-            border: 1px solid #e3f2fd;
-        }
-
-        .recommendation-category h4 {
-            color: #007bff;
-            margin: 0 0 15px 0;
-            font-size: 1.2em;
-            font-weight: 600;
-            border-bottom: 2px solid rgba(0, 123, 255, 0.3);
-            padding-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .recommendation-category h4::before {
-            content: "💡";
-            font-size: 1.1em;
-        }
-
-        .recommendation-item {
-            display: flex;
-            align-items: center;
-            padding: 12px 15px;
-            margin-bottom: 8px;
-            background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
-            border-radius: 8px;
-            border: 1px solid #e3f2fd;
-            transition: all 0.3s ease;
-            color: #212529;
-            font-weight: 500;
-            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.05);
-        }
-
-        .recommendation-item:hover {
-            background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%);
-            transform: translateX(5px);
-            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.1);
-        }
-
-        .recommendation-checkmark {
-            color: #28a745;
-            margin-right: 12px;
-            font-weight: bold;
-            font-size: 1.1em;
-            min-width: 20px;
-        }
-
-        .recommendation-text {
-            flex: 1;
-            font-weight: 500;
-            line-height: 1.5;
-        }
-
-        /* Fingerprinting */
-        .fingerprinting-content {
-            max-height: 400px;
-            overflow-y: auto;
-            padding-right: 10px;
-        }
-
-        .fingerprinting-content h4 {
-            color: #0056b3;
-            margin: 20px 0 15px;
-            font-size: 1.1em;
-            font-weight: 600;
-        }
-
-        .fingerprinting-content h4:first-child {
-            margin-top: 0;
-        }
-
-        .fingerprinting-content h5 {
-            color: #6c757d;
-            margin: 15px 0 10px;
-            font-size: 1em;
-            font-weight: 500;
-        }
-
-        .fingerprinting-content pre {
-            background: #f8fbff;
-            padding: 15px;
-            border-radius: 8px;
-            font-size: 0.9em;
-            color: #212529;
-            border: 1px solid #e3f2fd;
-            overflow-x: auto;
-        }
-
-        .fingerprinting-content ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        .fingerprinting-content li {
-            padding: 10px 15px;
-            background: #ffffff;
-            margin-bottom: 8px;
-            border-radius: 6px;
-            border-left: 3px solid #007bff;
-            color: #212529;
-            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.05);
-        }
-
-        /* Configuration Analysis */
-        .config-summary {
-            margin-bottom: 25px;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .summary-stats {
-                grid-template-columns: 1fr;
-            }
-            
-            .test-controls {
-                flex-direction: column;
-            }
-            
-            .headers-table {
-                font-size: 0.9em;
-            }
-            
-            .test-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px;
-            }
-            
-            .test-status {
-                align-self: flex-start;
-            }
-
-            .result-section h3 {
-                padding: 20px;
-                font-size: 1.2em;
-            }
-
-            .result-card {
-                padding: 20px;
-            }
-
-            /* Responsive recommendations */
-            .recommendation-item {
-                padding: 10px 12px;
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            
-            .recommendation-checkmark {
-                margin-right: 0;
-                margin-bottom: 8px;
-            }
-        }
-
-        /* Animation for loading */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .result-section {
-            animation: fadeIn 0.6s ease-out;
-        }
+    const notification = document.createElement('div');
+    notification.className = `global-notification notification-${type}`;
+    
+    const icons = {
+        'info': 'info-circle',
+        'success': 'check-circle',
+        'warning': 'exclamation-triangle',
+        'error': 'exclamation-circle'
+    };
+    
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class="fas fa-${icons[type] || 'info-circle'}"></i>
+            <span>${message}</span>
+            <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
     `;
     
-    const styleElement = document.createElement('style');
-    styleElement.id = 'waf-styles';
-    styleElement.textContent = styles;
-    document.head.appendChild(styleElement);
+    // Add styles if not already added
+    if (!document.querySelector('#notification-styles')) {
+        const styles = document.createElement('style');
+        styles.id = 'notification-styles';
+        styles.textContent = `
+            .global-notification {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 10000;
+                min-width: 300px;
+                max-width: 500px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                animation: slideInRight 0.3s ease;
+                font-family: 'Inter', sans-serif;
+            }
+            .notification-content {
+                display: flex;
+                align-items: center;
+                padding: 1rem;
+                gap: 0.75rem;
+            }
+            .notification-info { 
+                background: linear-gradient(135deg, #4158D0, #C850C0); 
+                color: white; 
+                border-left: 4px solid #fff;
+            }
+            .notification-success { 
+                background: linear-gradient(135deg, #11998e, #38ef7d); 
+                color: white; 
+                border-left: 4px solid #fff;
+            }
+            .notification-warning { 
+                background: linear-gradient(135deg, #f59e0b, #fbbf24); 
+                color: white; 
+                border-left: 4px solid #fff;
+            }
+            .notification-error { 
+                background: linear-gradient(135deg, #ef4444, #f87171); 
+                color: white; 
+                border-left: 4px solid #fff;
+            }
+            .notification-close {
+                background: none;
+                border: none;
+                margin-left: auto;
+                cursor: pointer;
+                opacity: 0.7;
+                color: white;
+            }
+            .notification-close:hover { opacity: 1; }
+            @keyframes slideInRight {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(styles);
+    }
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+function showError(message) {
+    showNotification(message, 'error');
 }
 
 // Initialize WAF styles when the page loads

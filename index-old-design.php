@@ -14,7 +14,6 @@ $listActiveTools = $tools->listActiveTools();
 <body>
     <!-- Header -->
     <?php require_once __DIR__ . '/includes/nav-new.php'; ?>
-
     <!-- Hero Section -->
     <section class="hero">
         <div class="container">
@@ -28,6 +27,7 @@ $listActiveTools = $tools->listActiveTools();
                                 <i class="fas fa-bullhorn"></i>
                             </div>
                             <div class="notification-message">
+                                <!-- <h4>Admin Notification</h4> -->
                                 <p><?= htmlspecialchars($notification['message']) ?></p>
                             </div>
                         </div>
@@ -39,7 +39,6 @@ $listActiveTools = $tools->listActiveTools();
                 </div>
                 <?php endif; ?>
             <?php endif; ?>
-            
             <h1>Welcome to Petawall Security Platform</h1>
             <p>Your comprehensive suite of AI-powered security tools designed to protect and analyze digital assets. Explore our advanced security tools and services to strengthen your cybersecurity posture.</p>
         </div>
@@ -48,10 +47,10 @@ $listActiveTools = $tools->listActiveTools();
     <div class="container" style="text-align: center; margin-top:20px;">
         <div class="matrix-tagline">Tools + Services = Complete Protection</div>
     </div>
-    
     <div class="container" style="text-align: center; margin-top:8px;">
         <span class="explore-btn-span"><a href="#solutions" class="explore-btn">Explore Our Tools and Services</a></span>
     </div>
+    
 
     <!-- Responsible Use Banner -->
     <div class="container">
@@ -67,7 +66,8 @@ $listActiveTools = $tools->listActiveTools();
             <div class="tools-column">
                 <h2 class="section-heading">AI-Powered Security Tools</h2>
                 <div class="tools-grid">
-                    <?php foreach ($listActiveTools as $listActiveTool): ?>
+                    <!-- Tool 1 -->
+                     <?php foreach ($listActiveTools as $listActiveTool): ?>
                         <a href="<?php echo htmlspecialchars($listActiveTool['tool_name']); ?>.php" class="tool-card">
                             <div class="tool-icon">
                                 <i class="fas fa-<?php 
@@ -171,6 +171,41 @@ $listActiveTools = $tools->listActiveTools();
                             <a href="services.php#consulting" class="service-link">Learn more →</a>
                         </div>
                     </div>
+                    
+                    <!-- Service 7
+                    <div class="service-item">
+                        <div class="service-icon">
+                            <i class="fas fa-first-aid"></i>
+                        </div>
+                        <div class="service-content">
+                            <h3>Incident Response & Threat Hunting</h3>
+                            <p>Detect, contain, and recover from cyber threats with speed and precision.</p>
+                            <a href="services.php#incident-response" class="service-link">Learn more →</a>
+                        </div>
+                    </div> -->
+                    
+                    <!-- Service 8 -->
+                    <!-- <div class="service-item">
+                        <div class="service-icon">
+                            <i class="fas fa-shield-virus"></i>
+                        </div>
+                        <div class="service-content">
+                            <h3>Ransomware Protection & Business Continuity</h3>
+                            <p>Build resilience against ransomware threats and ensure continuity of operations.</p>
+                            <a href="services.php#ransomware-protection" class="service-link">Learn more →</a>
+                        </div>
+                    </div> -->
+                    <!-- Service 9 -->
+                    <!-- <div class="service-item">
+                        <div class="service-icon">
+                            <i class="fas fa-fish"></i>
+                        </div>
+                        <div class="service-content">
+                            <h3>Phishing & Social Engineering Testing</h3>
+                            <p>Test your staff cybersecurity awareness and readiness though our robust phishing campaign.</p>
+                            <a href="services.php#ransomware-protection" class="service-link">Learn more →</a>
+                        </div>
+                    </div> -->
                 </div>
             </div>
         </div>
@@ -218,27 +253,20 @@ $listActiveTools = $tools->listActiveTools();
             
             <div class="cta-buttons">
                 <?php if(!$isLoggedIn) : ?>
-                    <a href="#" class="cta-btn-primary signup-btn">
-                        <i class="fas fa-rocket"></i> SignUp to start using our tools
-                    </a>
+                    <a href="#" class="cta-btn-primary signup-btn">SignUp to start using our tools</a>
                 <?php endif; ?>
-                <a href="contactus.php" class="cta-btn-secondary">
-                    <i class="fas fa-calendar-check"></i> Schedule Service Consultation
-                </a>
+                <a href="contactus.php" class="cta-btn-secondary">Schedule Service Consultation</a>
             </div>
         </div>
     </div>
-
-    <!-- Login Modal -->
+     <!-- Login Modal -->
     <?php require_once __DIR__ . '/includes/login-modal.php'; ?>
-    
     <!-- Footer -->
     <?php require_once __DIR__ . '/includes/footer.php'; ?>
 
     <script src="assets/js/nav.js"></script>
     <script src="assets/js/auth.js"></script>
-    <!-- <script src="assets/js/notification.js"></script> -->
-    <link rel="stylesheet" href="assets/styles/homepage.css">
+    <script src="assets/js/notification.js"></script>
     <link rel="stylesheet" href="assets/styles/notification.css">
     <link rel="stylesheet" href="assets/styles/modal.css">
 </body>
