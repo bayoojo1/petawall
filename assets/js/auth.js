@@ -18,7 +18,7 @@ class AuthManager {
     bindEvents() {
         // Modal triggers
         document.getElementById('login-btn')?.addEventListener('click', () => this.showLogin());
-        document.getElementById('mobile-login-btn')?.addEventListener('click', () => this.showLogin());
+        document.getElementById('mobile-login')?.addEventListener('click', () => this.showLogin());
         document.getElementById('btn-verify')?.addEventListener('click', () => this.showLogin());
         document.getElementById('btn-verify2')?.addEventListener('click', () => this.showLogin());
         document.getElementById('btn-resend')?.addEventListener('click', () => this.showLogin());
@@ -62,7 +62,7 @@ class AuthManager {
 
         // Logout buttons
         document.getElementById('logout-btn')?.addEventListener('click', (e) => this.handleLogout(e));
-        document.getElementById('mobile-logout-btn')?.addEventListener('click', (e) => this.handleLogout(e));
+        document.getElementById('mobile-logout')?.addEventListener('click', (e) => this.handleLogout(e));
     }
 
     showLogin() {

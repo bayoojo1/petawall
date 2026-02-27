@@ -92,6 +92,609 @@ $currentNotification = $auth->getCurrentNotification();
 $activeUsers = $auth->getActiveUsersCount();
 
 ?>
+<style>
+    /* ===== VIBRANT COLOR THEME - USER MANAGEMENT ===== */
+    :root {
+        --gradient-1: linear-gradient(135deg, #4158D0, #C850C0);
+        --gradient-2: linear-gradient(135deg, #FF6B6B, #FF8E53);
+        --gradient-3: linear-gradient(135deg, #11998e, #38ef7d);
+        --gradient-4: linear-gradient(135deg, #F093FB, #F5576C);
+        --gradient-5: linear-gradient(135deg, #4A00E0, #8E2DE2);
+        --gradient-6: linear-gradient(135deg, #FF512F, #DD2476);
+        --gradient-7: linear-gradient(135deg, #667eea, #764ba2);
+        --gradient-8: linear-gradient(135deg, #00b09b, #96c93d);
+        --gradient-9: linear-gradient(135deg, #fa709a, #fee140);
+        --gradient-10: linear-gradient(135deg, #30cfd0, #330867);
+        
+        --primary: #4158D0;
+        --secondary: #C850C0;
+        --accent-1: #FF6B6B;
+        --accent-2: #11998e;
+        --accent-3: #F093FB;
+        --accent-4: #FF512F;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --info: #3b82f6;
+        
+        --bg-light: #ffffff;
+        --bg-offwhite: #f8fafc;
+        --bg-gradient-light: linear-gradient(135deg, #f5f3ff 0%, #ffffff 100%);
+        --text-dark: #1e293b;
+        --text-medium: #475569;
+        --text-light: #64748b;
+        --border-light: #e2e8f0;
+        --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+        --card-hover-shadow: 0 25px 50px -12px rgba(65, 88, 208, 0.25);
+    }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.8; transform: scale(1.05); }
+    }
+
+    /* ===== PROFILE TAB ===== */
+    .profile-tab {
+        padding: 1.5rem;
+        animation: slideIn 0.5s ease-out;
+    }
+
+    .tab-header {
+        margin-bottom: 2rem;
+    }
+
+    .tab-header h2 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        background: var(--gradient-1);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .tab-header h2::before {
+        content: '👥';
+        font-size: 2rem;
+    }
+
+    .tab-header p {
+        color: var(--text-medium);
+        font-size: 1rem;
+    }
+
+    /* ===== ALERTS ===== */
+    .alert {
+        padding: 1rem 1.5rem;
+        border-radius: 1rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        animation: slideInRight 0.5s ease-out;
+        border-left: 4px solid;
+        box-shadow: var(--card-shadow);
+    }
+
+    .alert-success {
+        background: linear-gradient(135deg, #d1fae5, #ffffff);
+        border-left-color: var(--success);
+        color: #065f46;
+    }
+
+    .alert-success i {
+        color: var(--success);
+    }
+
+    .alert-error {
+        background: linear-gradient(135deg, #fee2e2, #ffffff);
+        border-left-color: var(--danger);
+        color: #991b1b;
+    }
+
+    .alert-error i {
+        color: var(--danger);
+    }
+
+    /* ===== STATS GRID ===== */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, #ffffff, var(--bg-offwhite));
+        border: 1px solid var(--border-light);
+        border-radius: 1.5rem;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s;
+        box-shadow: var(--card-shadow);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--card-hover-shadow);
+    }
+
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: var(--gradient-1);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        line-height: 1.2;
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+        color: var(--text-medium);
+        font-size: 0.9rem;
+    }
+
+    /* ===== INFO CARD ===== */
+    .info-card {
+        background: white;
+        border: 1px solid var(--border-light);
+        border-radius: 1.5rem;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--card-shadow);
+        transition: all 0.3s;
+        animation: slideIn 0.5s ease-out;
+        animation-fill-mode: both;
+    }
+
+    .info-card:nth-child(1) { animation-delay: 0.1s; }
+    .info-card:nth-child(2) { animation-delay: 0.15s; }
+    .info-card:nth-child(3) { animation-delay: 0.2s; }
+    .info-card:nth-child(4) { animation-delay: 0.25s; }
+    .info-card:nth-child(5) { animation-delay: 0.3s; }
+    .info-card:nth-child(6) { animation-delay: 0.35s; }
+
+    .info-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--card-hover-shadow);
+    }
+
+    .info-card h3 {
+        font-size: 1.2rem;
+        margin-bottom: 1.25rem;
+        color: var(--text-dark);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid var(--border-light);
+    }
+
+    .info-card h3 i {
+        color: var(--primary);
+    }
+
+    /* ===== NOTIFICATION FORM ===== */
+    .notification-form {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: var(--text-dark);
+        font-size: 0.95rem;
+    }
+
+    .form-group label i {
+        margin-right: 0.5rem;
+        color: var(--primary);
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid var(--border-light);
+        border-radius: 1rem;
+        font-size: 1rem;
+        transition: all 0.3s;
+        background: white;
+        color: var(--text-dark);
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(65, 88, 208, 0.1);
+    }
+
+    .current-notification {
+        background: linear-gradient(135deg, #f0f9ff, #ffffff);
+        border: 1px solid var(--info);
+        border-radius: 1rem;
+        padding: 1rem;
+        margin-top: 1rem;
+        border-left: 4px solid var(--info);
+    }
+
+    /* ===== FILTER FORM ===== */
+    .filter-form {
+        margin-bottom: 1rem;
+    }
+
+    .filter-form > div {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr auto;
+        gap: 1rem;
+        align-items: end;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border-radius: 2rem;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: none;
+        text-decoration: none;
+    }
+
+    .btn-sm {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
+
+    .btn-primary {
+        background: var(--gradient-1);
+        color: white;
+        box-shadow: 0 10px 20px -5px rgba(65, 88, 208, 0.3);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 20px 30px -10px rgba(65, 88, 208, 0.4);
+    }
+
+    .btn-outline {
+        background: transparent;
+        border: 1px solid var(--border-light);
+        color: var(--text-dark);
+    }
+
+    .btn-outline:hover {
+        background: var(--bg-offwhite);
+        transform: translateY(-2px);
+        border-color: var(--primary);
+        color: var(--primary);
+    }
+
+    .btn-warning {
+        background: var(--gradient-9);
+        color: white;
+    }
+
+    .btn-warning:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(250, 112, 154, 0.3);
+    }
+
+    .btn-success {
+        background: var(--gradient-3);
+        color: white;
+    }
+
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(17, 153, 142, 0.3);
+    }
+
+    .btn-danger {
+        background: var(--gradient-6);
+        color: white;
+    }
+
+    .btn-danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(255, 81, 47, 0.3);
+    }
+
+    /* ===== DATA TABLE ===== */
+    .data-table {
+        overflow-x: auto;
+        border-radius: 1rem;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    thead {
+        background: var(--gradient-1);
+    }
+
+    th {
+        padding: 1rem;
+        color: white;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-align: left;
+        white-space: nowrap;
+    }
+
+    th:first-child {
+        border-top-left-radius: 1rem;
+    }
+
+    th:last-child {
+        border-top-right-radius: 1rem;
+    }
+
+    tbody tr {
+        border-bottom: 1px solid var(--border-light);
+        transition: all 0.3s;
+    }
+
+    tbody tr:hover {
+        background: var(--bg-offwhite);
+    }
+
+    .user-row {
+        cursor: pointer;
+    }
+
+    .user-row:hover {
+        background: var(--bg-offwhite);
+    }
+
+    td {
+        padding: 1rem;
+        color: var(--text-dark);
+    }
+
+    /* ===== ROLE BADGES ===== */
+    .role-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 2rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: white;
+        margin: 2px;
+    }
+
+    .role-badge.role-admin { background: var(--gradient-6); }
+    .role-badge.role-moderator { background: var(--gradient-2); }
+    .role-badge.role-premium { background: var(--gradient-3); }
+    .role-badge.role-basic { background: var(--gradient-8); }
+    .role-badge.role-free { background: var(--gradient-5); }
+
+    /* ===== STATUS BADGES ===== */
+    .status-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 2rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: white;
+    }
+
+    .status-badge.status-active {
+        background: var(--gradient-3);
+    }
+
+    .status-badge.status-inactive {
+        background: var(--gradient-6);
+    }
+
+    /* ===== ACTION BUTTONS ===== */
+    .action-buttons {
+        display: flex;
+        gap: 0.25rem;
+        flex-wrap: wrap;
+    }
+
+    .action-buttons form {
+        display: inline;
+    }
+
+    .action-buttons select {
+        padding: 0.3rem 0.5rem;
+        border: 1px solid var(--border-light);
+        border-radius: 0.5rem;
+        font-size: 0.75rem;
+        background: white;
+        cursor: pointer;
+    }
+
+    .inline-form {
+        display: inline;
+    }
+
+    /* ===== PAGINATION ===== */
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .pagination .btn-sm {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
+
+    /* ===== MODAL ===== */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(5px);
+        z-index: 10000;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 2rem;
+        width: 90%;
+        max-width: 600px;
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .modal-header {
+        background: var(--gradient-1);
+        color: white;
+        padding: 1.25rem 1.5rem;
+        border-radius: 2rem 2rem 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+
+    .close-modal {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 1.2rem;
+        transition: all 0.3s;
+    }
+
+    .close-modal:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: rotate(90deg);
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+
+    /* ===== LOADING SPINNER ===== */
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid var(--border-light);
+        border-top: 4px solid var(--primary);
+        border-radius: 50%;
+        margin: 0 auto 1rem;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 1024px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .filter-form > div {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .profile-tab {
+            padding: 1rem;
+        }
+        
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .action-buttons select {
+            width: 100%;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            font-size: 0.85rem;
+        }
+        
+        .pagination {
+            flex-direction: column;
+        }
+    }
+</style>
+
 <div class="profile-tab">
     <div class="tab-header">
         <h2>User Management</h2>
@@ -100,6 +703,7 @@ $activeUsers = $auth->getActiveUsersCount();
 
     <?php if (isset($_SESSION['message'])): ?>
         <div class="alert alert-<?= $_SESSION['message_type'] === 'success' ? 'success' : 'error' ?>">
+            <i class="fas fa-<?= $_SESSION['message_type'] === 'success' ? 'check-circle' : 'exclamation-circle' ?>"></i>
             <?= $_SESSION['message'] ?>
             <?php unset($_SESSION['message'], $_SESSION['message_type']); ?>
         </div>
@@ -127,15 +731,19 @@ $activeUsers = $auth->getActiveUsersCount();
 
     <!-- Notification Management -->
     <div class="info-card">
-        <h3>User Notifications</h3>
+        <h3><i class="fas fa-bullhorn"></i> User Notifications</h3>
         <form method="POST" class="notification-form">
             <div class="form-group">
-                <label for="notification_message">Broadcast Message</label>
+                <label for="notification_message">
+                    <i class="fas fa-comment"></i> Broadcast Message
+                </label>
                 <textarea id="notification_message" name="notification_message" rows="3" 
                           placeholder="Enter a message to broadcast to all users..." required></textarea>
             </div>
             <div class="form-group">
-                <label for="target_user">Send to Specific User (Optional)</label>
+                <label for="target_user">
+                    <i class="fas fa-user"></i> Send to Specific User (Optional)
+                </label>
                 <select id="target_user" name="user_id">
                     <option value="">All Users</option>
                     <?php foreach ($users as $user): ?>
@@ -147,38 +755,49 @@ $activeUsers = $auth->getActiveUsersCount();
             </div>
             <div class="form-actions">
                 <button type="submit" name="action" value="send_notification" class="btn btn-primary">
-                    <i class="fas fa-bullhorn"></i> Send Notification
+                    <i class="fas fa-paper-plane"></i> Send Notification
                 </button>
                 <?php if ($currentNotification): ?>
                 <button type="submit" name="action" value="stop_notification" class="btn btn-secondary">
-                    <i class="fas fa-stop"></i> Stop Current Notification
+                    <i class="fas fa-stop-circle"></i> Stop Current Notification
                 </button>
                 <?php endif; ?>
             </div>
         </form>
         
         <?php if ($currentNotification): ?>
-        <div class="current-notification" style="margin-top: 15px; padding: 10px; background: #f0f7ff; border: 1px solid #0060df; border-radius: 6px;">
-            <strong>Active Notification:</strong> 
-            <?= htmlspecialchars($currentNotification['message']) ?>
-            <br><small>Expires: <?= date('M j, Y g:i A', strtotime($currentNotification['expires_at'])) ?></small>
+        <div class="current-notification">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div style="background: var(--info); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-bell"></i>
+                </div>
+                <div>
+                    <strong>Active Notification:</strong>
+                    <p style="margin: 0.25rem 0;"><?= htmlspecialchars($currentNotification['message']) ?></p>
+                    <small>Expires: <?= date('M j, Y g:i A', strtotime($currentNotification['expires_at'])) ?></small>
+                </div>
+            </div>
         </div>
         <?php endif; ?>
     </div>
 
     <!-- Search and Filters -->
     <div class="info-card">
-        <h3>Search & Filter Users</h3>
+        <h3><i class="fas fa-filter"></i> Search & Filter Users</h3>
         <form method="GET" class="filter-form">
             <input type="hidden" name="tab" value="user-management">
-            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 15px; align-items: end;">
+            <div>
                 <div class="form-group">
-                    <label for="search">Search Users</label>
+                    <label for="search">
+                        <i class="fas fa-search"></i> Search Users
+                    </label>
                     <input type="text" id="search" name="search" value="<?= htmlspecialchars($search) ?>" 
                            placeholder="Search by username or email...">
                 </div>
                 <div class="form-group">
-                    <label for="role">Filter by Role</label>
+                    <label for="role">
+                        <i class="fas fa-tag"></i> Filter by Role
+                    </label>
                     <select id="role" name="role">
                         <option value="">All Roles</option>
                         <option value="free" <?= $roleFilter === 'free' ? 'selected' : '' ?>>Free</option>
@@ -189,16 +808,22 @@ $activeUsers = $auth->getActiveUsersCount();
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="status">Filter by Status</label>
+                    <label for="status">
+                        <i class="fas fa-circle"></i> Filter by Status
+                    </label>
                     <select id="status" name="status">
                         <option value="">All Status</option>
                         <option value="active" <?= $statusFilter === 'active' ? 'selected' : '' ?>>Active</option>
                         <option value="inactive" <?= $statusFilter === 'inactive' ? 'selected' : '' ?>>Inactive</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <button type="submit" class="btn btn-primary">Apply Filters</button>
-                    <a href="?tab=user-management" class="btn btn-outline">Clear</a>
+                <div class="form-group form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i> Apply
+                    </button>
+                    <a href="?tab=user-management" class="btn btn-outline">
+                        <i class="fas fa-times"></i> Clear
+                    </a>
                 </div>
             </div>
         </form>
@@ -206,10 +831,10 @@ $activeUsers = $auth->getActiveUsersCount();
 
     <!-- Users Table -->
     <div class="info-card">
-        <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0;">User Accounts (<?= $totalUsers ?> users)</h3>
-            <div style="color: #64748b; font-size: 0.9rem;">
-                Showing <?= count($users) ?> of <?= $totalUsers ?> users
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+            <h3 style="margin: 0;"><i class="fas fa-users"></i> User Accounts</h3>
+            <div style="color: var(--text-light); font-size: 0.9rem; background: var(--bg-offwhite); padding: 0.5rem 1rem; border-radius: 2rem;">
+                <i class="fas fa-eye"></i> Showing <?= count($users) ?> of <?= $totalUsers ?> users
             </div>
         </div>
         
@@ -228,12 +853,15 @@ $activeUsers = $auth->getActiveUsersCount();
                 <tbody>
                     <?php foreach ($users as $user): ?>
                     <?php $lastLogin = $auth->getLastLogin($user['user_id']); ?>
-                    <tr class="user-row" data-user-id="<?= $user['user_id'] ?>" style="cursor: pointer;">
+                    <tr class="user-row" data-user-id="<?= $user['user_id'] ?>">
                         <td onclick="showUserDetails(<?= $user['user_id'] ?>)">
                             <strong><?= htmlspecialchars($user['username']) ?></strong>
-                            <br><small>ID: <?= $user['user_id'] ?></small>
+                            <br><small style="color: var(--text-light);">ID: <?= $user['user_id'] ?></small>
                         </td>
-                        <td onclick="showUserDetails(<?= $user['user_id'] ?>)"><?= htmlspecialchars($user['email']) ?></td>
+                        <td onclick="showUserDetails(<?= $user['user_id'] ?>)">
+                            <i class="fas fa-envelope" style="color: var(--primary); margin-right: 0.25rem;"></i>
+                            <?= htmlspecialchars($user['email']) ?>
+                        </td>
                         <td onclick="showUserDetails(<?= $user['user_id'] ?>)">
                             <?php 
                             $roles = explode(',', $user['roles'] ?? '');
@@ -241,7 +869,7 @@ $activeUsers = $auth->getActiveUsersCount();
                             foreach ($uniqueRoles as $role): 
                                 if (!empty(trim($role))):
                             ?>
-                                <span class="role-badge role-<?= trim($role) ?>" style="margin: 2px;">
+                                <span class="role-badge role-<?= trim($role) ?>">
                                     <?= ucfirst(trim($role)) ?>
                                 </span>
                             <?php 
@@ -251,14 +879,17 @@ $activeUsers = $auth->getActiveUsersCount();
                         </td>
                         <td onclick="showUserDetails(<?= $user['user_id'] ?>)">
                             <span class="status-badge status-<?= $user['is_active'] ? 'active' : 'inactive' ?>">
+                                <i class="fas fa-<?= $user['is_active'] ? 'check-circle' : 'times-circle' ?>"></i>
                                 <?= $user['is_active'] ? 'Active' : 'Inactive' ?>
                             </span>
                         </td>
                         <td onclick="showUserDetails(<?= $user['user_id'] ?>)">
+                            <i class="fas fa-clock" style="color: var(--text-light); margin-right: 0.25rem;"></i>
                             <?= $lastLogin ? date('M j, Y g:i A', strtotime($lastLogin)) : 'Never' ?>
                         </td>
                         <td>
                             <div class="action-buttons">
+                                <!-- View Details -->
                                 <button type="button" class="btn btn-sm btn-outline" onclick="showUserDetails(<?= $user['user_id'] ?>)" title="View Details">
                                     <i class="fas fa-eye"></i>
                                 </button>
@@ -267,7 +898,7 @@ $activeUsers = $auth->getActiveUsersCount();
                                 <form method="POST" class="inline-form" onsubmit="return confirm('Change role for <?= $user['username'] ?>?')">
                                     <input type="hidden" name="user_id" value="<?= $user['user_id'] ?>">
                                     <select name="new_role" onchange="this.form.submit()" style="font-size: 0.8rem; padding: 4px;">
-                                        <option value="">Change Role</option>
+                                        <option value="">Role</option>
                                         <option value="free">Free</option>
                                         <option value="basic">Basic</option>
                                         <option value="premium">Premium</option>
@@ -305,12 +936,14 @@ $activeUsers = $auth->getActiveUsersCount();
                                 <?php endif; ?>
 
                                 <!-- Delete User -->
-                                <form method="POST" class="inline-form" onsubmit="return confirm('Permanently delete <?= $user['username'] ?>? This cannot be undone!')">
+                                <?php if ($isAdmin): ?>
+                                <form method="POST" class="inline-form" onsubmit="return confirm('⚠️ Permanently delete <?= $user['username'] ?>? This cannot be undone!')">
                                     <input type="hidden" name="user_id" value="<?= $user['user_id'] ?>">
                                     <button type="submit" name="action" value="delete_user" class="btn btn-sm btn-danger" title="Delete">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </form>
+                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>
@@ -321,41 +954,35 @@ $activeUsers = $auth->getActiveUsersCount();
 
         <!-- Pagination -->
         <?php if ($totalPages > 1): ?>
-        <div class="pagination" style="margin-top: 20px; display: flex; justify-content: center; align-items: center; gap: 10px;">
+        <div class="pagination">
             <?php if ($currentPage > 1): ?>
-                <a href="?tab=user-management&page=1&search=<?= urlencode($search) ?>&role=<?= urlencode($roleFilter) ?>&status=<?= urlencode($statusFilter) ?>" class="btn btn-outline btn-sm">First</a>
-                <a href="?tab=user-management&page=<?= $currentPage - 1 ?>&search=<?= urlencode($search) ?>&role=<?= urlencode($roleFilter) ?>&status=<?= urlencode($statusFilter) ?>" class="btn btn-outline btn-sm">Previous</a>
+                <a href="?tab=user-management&page=1&search=<?= urlencode($search) ?>&role=<?= urlencode($roleFilter) ?>&status=<?= urlencode($statusFilter) ?>" class="btn btn-outline btn-sm">
+                    <i class="fas fa-angle-double-left"></i> First
+                </a>
+                <a href="?tab=user-management&page=<?= $currentPage - 1 ?>&search=<?= urlencode($search) ?>&role=<?= urlencode($roleFilter) ?>&status=<?= urlencode($statusFilter) ?>" class="btn btn-outline btn-sm">
+                    <i class="fas fa-chevron-left"></i> Prev
+                </a>
             <?php endif; ?>
             
-            <span style="color: #64748b;">
+            <span class="btn btn-outline btn-sm" style="background: var(--gradient-1); color: white; border: none;">
                 Page <?= $currentPage ?> of <?= $totalPages ?>
             </span>
             
             <?php if ($currentPage < $totalPages): ?>
-                <a href="?tab=user-management&page=<?= $currentPage + 1 ?>&search=<?= urlencode($search) ?>&role=<?= urlencode($roleFilter) ?>&status=<?= urlencode($statusFilter) ?>" class="btn btn-outline btn-sm">Next</a>
-                <a href="?tab=user-management&page=<?= $totalPages ?>&search=<?= urlencode($search) ?>&role=<?= urlencode($roleFilter) ?>&status=<?= urlencode($statusFilter) ?>" class="btn btn-outline btn-sm">Last</a>
+                <a href="?tab=user-management&page=<?= $currentPage + 1 ?>&search=<?= urlencode($search) ?>&role=<?= urlencode($roleFilter) ?>&status=<?= urlencode($statusFilter) ?>" class="btn btn-outline btn-sm">
+                    Next <i class="fas fa-chevron-right"></i>
+                </a>
+                <a href="?tab=user-management&page=<?= $totalPages ?>&search=<?= urlencode($search) ?>&role=<?= urlencode($roleFilter) ?>&status=<?= urlencode($statusFilter) ?>" class="btn btn-outline btn-sm">
+                    Last <i class="fas fa-angle-double-right"></i>
+                </a>
             <?php endif; ?>
         </div>
         <?php endif; ?>
     </div>
 
-    <!-- User Details Modal -->
-    <div id="userDetailsModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header">
-                <h3>User Details</h3>
-                <button type="button" class="close-modal" onclick="$auth->closeUserDetails()">&times;</button>
-            </div>
-            <div class="modal-body" id="userDetailsContent">
-                <!-- User details will be loaded here via AJAX -->
-            </div>
-        </div>
-    </div>
-</div>
-
     <!-- Login Statistics -->
     <div class="info-card">
-        <h3>Login Statistics (Last 7 Days)</h3>
+        <h3><i class="fas fa-chart-line"></i> Login Statistics (Last 7 Days)</h3>
         <div class="data-table">
             <table>
                 <thead>
@@ -368,14 +995,23 @@ $activeUsers = $auth->getActiveUsersCount();
                 <tbody>
                     <?php if (empty($userStats)): ?>
                     <tr>
-                        <td colspan="3" style="text-align: center; color: #64748b;">No login data available</td>
+                        <td colspan="3" style="text-align: center; color: var(--text-light); padding: 2rem;">
+                            <i class="fas fa-info-circle" style="color: var(--info);"></i> No login data available
+                        </td>
                     </tr>
                     <?php else: ?>
                     <?php foreach ($userStats as $stat): ?>
                     <tr>
-                        <td><?= date('M j, Y', strtotime($stat['login_date'])) ?></td>
-                        <td><?= $stat['unique_logins'] ?></td>
-                        <td><?= $stat['total_logins'] ?></td>
+                        <td>
+                            <i class="fas fa-calendar" style="color: var(--primary); margin-right: 0.25rem;"></i>
+                            <?= date('M j, Y', strtotime($stat['login_date'])) ?>
+                        </td>
+                        <td>
+                            <span style="color: var(--success); font-weight: 600;"><?= $stat['unique_logins'] ?></span>
+                        </td>
+                        <td>
+                            <span style="color: var(--info); font-weight: 600;"><?= $stat['total_logins'] ?></span>
+                        </td>
                     </tr>
                     <?php endforeach; ?>
                     <?php endif; ?>
@@ -384,5 +1020,19 @@ $activeUsers = $auth->getActiveUsersCount();
         </div>
     </div>
 </div>
+
+<!-- User Details Modal -->
+<div id="userDetailsModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-user"></i> User Details</h3>
+            <button type="button" class="close-modal" onclick="closeUserDetails()">&times;</button>
+        </div>
+        <div class="modal-body" id="userDetailsContent">
+            <!-- User details will be loaded here via AJAX -->
+        </div>
+    </div>
+</div>
+
 <script src="assets/js/usermanagement.js"></script>
 <link rel="stylesheet" href="assets/styles/usermanagement.css">

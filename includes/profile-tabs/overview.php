@@ -1,6 +1,6 @@
 <div class="profile-tab">
     <div class="tab-header">
-        <h2>Account Overview</h2>
+        <h2><i class="fas fa-tachometer-alt" style="color: var(--primary);"></i> Account Overview</h2>
         <p>Welcome back! Here's your account summary.</p>
     </div>
 
@@ -9,10 +9,6 @@
             <div class="stat-number"><?php echo count($allowedTools); ?></div>
             <div class="stat-label">Available Tools</div>
         </div>
-        <!-- <div class="stat-card">
-            <div class="stat-number"><?php //echo count($userRoles); ?></div>
-            <div class="stat-label">User Roles</div>
-        </div> -->
         <div class="stat-card">
             <div class="stat-number">
                 <?php 
@@ -31,32 +27,44 @@
     </div>
 
     <div class="info-card">
-        <h3>Account Information</h3>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <div>
-                <strong>Username:</strong><br>
-                <span style="color: #94a3b8;"><?php echo htmlspecialchars($username); ?></span>
+        <h3><i class="fas fa-info-circle"></i> Account Information</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <div class="info-item">
+                <strong>Username:</strong>
+                <span style="color: var(--text-light); display: block; margin-top: 0.25rem;">
+                    <?php echo htmlspecialchars($username); ?>
+                </span>
             </div>
-            <div>
-                <strong>Account Status:</strong><br>
-                <span style="color: #10b981;">● Active</span>
+            <div class="info-item">
+                <strong>Account Status:</strong>
+                <span style="color: var(--success); display: block; margin-top: 0.25rem;">
+                    <i class="fas fa-circle" style="font-size: 0.5rem; vertical-align: middle;"></i> Active
+                </span>
             </div>
-            <div>
-                <strong>Member Since:</strong><br>
-                <span style="color: #94a3b8;"><?php echo date('M j, Y', strtotime($userCreatedDate)); ?></span>
+            <div class="info-item">
+                <strong>Member Since:</strong>
+                <span style="color: var(--text-light); display: block; margin-top: 0.25rem;">
+                    <?php echo date('M j, Y', strtotime($userCreatedDate)); ?>
+                </span>
             </div>
-            <div>
-                <strong>User ID:</strong><br>
-                <span style="color: #94a3b8;">#<?php echo $_SESSION['user_id'] ?? 'N/A'; ?></span>
+            <div class="info-item">
+                <strong>User ID:</strong>
+                <span style="color: var(--text-light); display: block; margin-top: 0.25rem;">
+                    #<?php echo $_SESSION['user_id'] ?? 'N/A'; ?>
+                </span>
             </div>
         </div>
     </div>
 
     <div class="info-card">
-        <h3>Quick Actions</h3>
+        <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
         <div class="form-actions">
-            <a href="?tab=tools" class="btn btn-primary">View My Tools</a>
-            <a href="?tab=subscription" class="btn btn-outline">Upgrade Plan</a>
+            <a href="?tab=tools" class="btn btn-primary">
+                <i class="fas fa-tools"></i> View My Tools
+            </a>
+            <a href="?tab=subscription" class="btn btn-outline">
+                <i class="fas fa-crown"></i> Upgrade Plan
+            </a>
         </div>
     </div>
 </div>

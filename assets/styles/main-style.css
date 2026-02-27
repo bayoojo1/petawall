@@ -47,7 +47,7 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 0;
+    /* padding: 15px 0; */
 }
 
 .nav-links li:hover {
@@ -55,10 +55,10 @@ header {
     color: #00BFFF;
 }
 
-.nav-links li.active a {
+/* .nav-links li.active a {
     text-decoration: underline;
     color: #00BFFF;
-}
+} */
 
 .logo {
     font-size: 1.8rem;
