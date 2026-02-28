@@ -415,7 +415,7 @@ body {
     top: 1rem;
     right: 1rem;
     padding: 0.25rem 0.75rem;
-    background: var(--gradient-2);
+    /* background: var(--gradient-2); */
     color: white;
     border-radius: 2rem;
     font-size: 0.7rem;
@@ -437,6 +437,19 @@ body {
     color: var(--text-medium);
     line-height: 1.5;
     margin: 0;
+}
+
+/* Plan Colors */
+.badge-free {
+    background-color: #4158D0;
+}
+
+.badge-basic {
+    background-color: #FF6B6B;
+}
+
+.badge-premium {
+    background-color: #11998e;
 }
 
 /* ===== SERVICES COLUMN ===== */

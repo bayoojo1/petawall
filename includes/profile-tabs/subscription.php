@@ -100,7 +100,7 @@ foreach ($displayPlans as $plan) {
     <div class="info-card">
         <h3><i class="fas fa-id-card"></i> Current Plan: <?= ucfirst($currentRole); ?></h3>
         <p>
-            You're currently on the <strong class="gradient-text" style="background: var(--gradient-<?= $subscriptionPlans[$currentRole]['gradient'] ?? '5' ?>); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            You're currently on the <strong class="gradient-text" style="background: var(--gradient-<?= $subscriptionPlans[$currentRole]['gradient'] ?? '5' ?>); -webkit-background-clip: text;">
                 <?= ucfirst($subscriptionPlans[$currentRole]['name'] ?? $currentRole); ?>
             </strong> plan.
         </p>

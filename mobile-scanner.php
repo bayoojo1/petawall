@@ -6,12 +6,8 @@ $auth = new Auth();
 $accessControl = new AccessControl();
 $toolName = 'mobile-scanner';
 
-if (!$auth->isLoggedIn()) {
-    header('Location: plan.php');
-    exit;
-}
-
-$accessControl->requireToolAccess($toolName, 'plan.php');
+// Store the login status
+$isLoggedIn = $auth->isLoggedIn();
 
 require_once __DIR__ . '/includes/header-new.php';
 ?>
@@ -50,6 +46,103 @@ require_once __DIR__ . '/includes/header-new.php';
         --border-light: #e2e8f0;
         --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
         --card-hover-shadow: 0 25px 50px -12px rgba(65, 88, 208, 0.25);
+    }
+
+    /* ===== BUTTON WRAPPER FOR ACCESS CONTROL ===== */
+    .button-wrapper {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+    }
+
+    .button-wrapper.disabled .btn-primary {
+        opacity: 0.7;
+        cursor: not-allowed;
+        filter: grayscale(50%);
+    }
+
+    .button-wrapper.disabled::after {
+        content: '🔒';
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        font-size: 1.2rem;
+        background: var(--danger);
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+        animation: pulse 2s infinite;
+        z-index: 10;
+    }
+
+    /* ===== LOGIN TOOLTIP ===== */
+    .login-required-tooltip {
+        position: absolute;
+        bottom: 120%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--text-dark);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 2rem;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s;
+        pointer-events: none;
+        z-index: 20;
+    }
+
+    .login-required-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 5px;
+        border-style: solid;
+        border-color: var(--text-dark) transparent transparent transparent;
+    }
+
+    .button-wrapper.disabled:hover .login-required-tooltip {
+        opacity: 1;
+        visibility: visible;
+        bottom: 100%;
+    }
+
+    /* ===== LOCK ICON ON BUTTONS ===== */
+    .btn-primary.disabled-btn {
+        opacity: 0.7;
+        cursor: not-allowed;
+        filter: grayscale(50%);
+        position: relative;
+        width: 100%;
+    }
+
+    .btn-primary.disabled-btn::after {
+        content: '🔒';
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        font-size: 1rem;
+        background: var(--danger);
+        color: white;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
     }
 
     * {
@@ -195,7 +288,7 @@ require_once __DIR__ . '/includes/header-new.php';
         -webkit-text-fill-color: transparent;
     }
 
-    /* ===== MOBILE AWARENESS SECTION (NEW) ===== */
+    /* ===== MOBILE AWARENESS SECTION ===== */
     .mobile-awareness-section {
         margin: 2rem 0;
         animation: slideIn 1s ease-out;
@@ -321,7 +414,7 @@ require_once __DIR__ . '/includes/header-new.php';
         font-size: 0.7rem;
     }
 
-    /* ===== MOBILE STATS SECTION (NEW) ===== */
+    /* ===== MOBILE STATS SECTION ===== */
     .mobile-stats-section {
         margin: 2rem 0;
         padding: 2rem;
@@ -912,6 +1005,33 @@ require_once __DIR__ . '/includes/header-new.php';
             grid-template-columns: 1fr;
         }
     }
+
+    /* ===== ACCESS CONTROL BADGES ===== */
+    .free-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        background: var(--gradient-5);
+        color: white;
+        border-radius: 2rem;
+        font-size: 0.6rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+        text-transform: uppercase;
+        vertical-align: middle;
+    }
+
+    .premium-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        background: var(--gradient-1);
+        color: white;
+        border-radius: 2rem;
+        font-size: 0.6rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+        text-transform: uppercase;
+        vertical-align: middle;
+    }
 </style>
 
 <body>
@@ -930,7 +1050,7 @@ require_once __DIR__ . '/includes/header-new.php';
                 <h2>Mobile Application Security Scanner</h2>
             </div>
 
-            <!-- NEW: Mobile Awareness Section -->
+            <!-- Mobile Awareness Section -->
             <div class="mobile-awareness-section">
                 <div class="awareness-header">
                     <i class="fas fa-shield-alt"></i>
@@ -1012,7 +1132,7 @@ require_once __DIR__ . '/includes/header-new.php';
                 </div>
             </div>
 
-            <!-- NEW: Mobile Stats Section -->
+            <!-- Mobile Stats Section -->
             <div class="mobile-stats-section">
                 <div class="stats-header">
                     <i class="fas fa-chart-line"></i>
@@ -1214,9 +1334,29 @@ require_once __DIR__ . '/includes/header-new.php';
                 </div>
             </div>
 
-            <button id="mobile-scan-btn" class="btn btn-primary">
-                <i class="fas fa-search"></i> Start Security Scan
-            </button>
+            <!-- Start Scan Button with Access Control -->
+            <?php if ($isLoggedIn && $accessControl->canUseTool($toolName)): ?>
+                <!-- User is logged in and has permission -->
+                <button id="mobile-scan-btn" class="btn btn-primary" onclick="startMobileScan()">
+                    <i class="fas fa-search"></i> Start Security Scan
+                </button>
+            <?php elseif ($isLoggedIn && !$accessControl->canUseTool($toolName)): ?>
+                <!-- User is logged in but doesn't have permission -->
+                <div class="button-wrapper disabled">
+                    <button id="mobile-scan-btn" class="btn btn-primary disabled-btn" disabled>
+                        <i class="fas fa-search"></i> Start Security Scan
+                    </button>
+                    <span class="login-required-tooltip">Upgrade your plan to use this tool</span>
+                </div>
+            <?php else: ?>
+                <!-- User is not logged in -->
+                <div class="button-wrapper disabled">
+                    <button id="mobile-scan-btn" class="btn btn-primary disabled-btn" onclick="redirectToLogin()" disabled>
+                        <i class="fas fa-search"></i> Start Security Scan
+                    </button>
+                    <span class="login-required-tooltip">Login required to use this tool</span>
+                </div>
+            <?php endif; ?>
 
             <!-- Loading Indicator -->
             <div class="loading" id="mobile-loading">
@@ -1319,7 +1459,75 @@ require_once __DIR__ . '/includes/header-new.php';
 
     <script src="assets/js/mobile-scanner.js"></script>
     <script src="assets/js/auth.js"></script>
-    <!-- <link rel="stylesheet" href="assets/styles/mobile-scanner.css"> -->
     <link rel="stylesheet" href="assets/styles/modal.css">
+
+    <script>
+    // Function to redirect to login
+    function redirectToLogin() {
+        // Show login modal instead of redirect
+        const loginModal = document.getElementById('login-modal');
+        if (loginModal) {
+            loginModal.style.display = 'flex';
+        } else {
+            // Fallback to redirect
+            window.location.href = 'plan.php';
+        }
+    }
+
+    // Override the startMobileScan function for non-logged-in users
+    <?php if (!$isLoggedIn): ?>
+    window.startMobileScan = function() {
+        redirectToLogin();
+        return false;
+    };
+    <?php endif; ?>
+
+    // Check permission before running scan
+    function checkPermissionAndRun() {
+        <?php if ($isLoggedIn && $accessControl->canUseTool($toolName)): ?>
+            if (typeof window.startMobileScan === 'function') {
+                window.startMobileScan();
+            } else {
+                console.error('No mobile scan function found');
+                alert('Mobile scan function not available. Please check the JavaScript console.');
+            }
+        <?php elseif ($isLoggedIn && !$accessControl->canUseTool($toolName)): ?>
+            window.location.href = 'plan.php';
+        <?php else: ?>
+            redirectToLogin();
+        <?php endif; ?>
+    }
+
+    // Platform tab switching
+    document.querySelectorAll('.platform-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            // Update active tab
+            document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Update active content
+            const platform = this.dataset.platform;
+            document.querySelectorAll('.platform-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(platform + '-scanner').classList.add('active');
+        });
+    });
+
+    // Add click handler for scan button if it exists and is not disabled
+    document.addEventListener('DOMContentLoaded', function() {
+        const scanBtn = document.getElementById('mobile-scan-btn');
+        if (scanBtn && !scanBtn.disabled) {
+            scanBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                <?php if ($isLoggedIn && $accessControl->canUseTool($toolName)): ?>
+                if (typeof window.startMobileScan === 'function') {
+                    window.startMobileScan();
+                }
+                <?php endif; ?>
+            });
+        }
+    });
+    </script>
 </body>
 </html>

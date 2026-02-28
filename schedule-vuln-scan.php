@@ -14,6 +14,10 @@ if (!$auth->isLoggedIn()) {
     exit;
 }
 
+if (!$auth->hasAnyRole(['admin', 'moderator', 'premium'])) {
+    header('Location: plan.php');
+    exit;
+}
 // Check if user has permission
 $accessControl->requireToolAccess($toolName, 'plan.php');
 

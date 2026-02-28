@@ -6,15 +6,8 @@ $auth = new Auth();
 $accessControl = new AccessControl();
 $toolName = 'phishing-detector';
 
-// If user is not logged In, do this...
-// Check if user is logged in
-if (!$auth->isLoggedIn()) {
-    header('Location: plan.php');
-    exit;
-}
-
-// Check if user has permission to access this tool
-$accessControl->requireToolAccess($toolName, 'plan.php');
+// Store the login status
+$isLoggedIn = $auth->isLoggedIn();
 
 require_once __DIR__ . '/includes/header-new.php';
 ?>
@@ -196,7 +189,7 @@ require_once __DIR__ . '/includes/header-new.php';
             -webkit-text-fill-color: transparent;
         }
 
-        /* ===== PHISHING AWARENESS SECTION (NEW) ===== */
+        /* ===== PHISHING AWARENESS SECTION ===== */
         .phishing-awareness-section {
             margin: 2rem 0;
             animation: slideIn 1s ease-out;
@@ -322,7 +315,7 @@ require_once __DIR__ . '/includes/header-new.php';
             font-size: 0.7rem;
         }
 
-        /* ===== PHISHING CAMPAIGN IMPORTANCE SECTION (NEW) ===== */
+        /* ===== PHISHING CAMPAIGN IMPORTANCE SECTION ===== */
         .campaign-importance-section {
             margin: 2rem 0;
             padding: 2rem;
@@ -557,6 +550,104 @@ require_once __DIR__ . '/includes/header-new.php';
         .btn-primary a {
             color: white;
             text-decoration: none;
+        }
+
+        /* ===== BUTTON WRAPPER FOR ACCESS CONTROL ===== */
+        .button-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        /* .button-wrapper.disabled {
+            pointer-events: none;
+        } */
+
+        .button-wrapper.disabled .btn {
+            opacity: 0.7;
+            cursor: not-allowed;
+            filter: grayscale(50%);
+        }
+
+        .button-wrapper.disabled::after {
+            content: '🔒';
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            font-size: 1.2rem;
+            background: var(--danger);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+            animation: pulse 2s infinite;
+        }
+
+        /* ===== LOGIN TOOLTIP ===== */
+        .login-required-tooltip {
+            position: absolute;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--text-dark);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .login-required-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 5px;
+            border-style: solid;
+            border-color: var(--text-dark) transparent transparent transparent;
+        }
+
+        .button-wrapper.disabled:hover .login-required-tooltip {
+            opacity: 1;
+            visibility: visible;
+            bottom: 100%;
+        }
+
+        /* ===== LOCK ICON ON BUTTONS ===== */
+        .btn-primary.disabled-btn {
+            opacity: 0.7;
+            cursor: not-allowed;
+            filter: grayscale(50%);
+            position: relative;
+        }
+
+        .btn-primary.disabled-btn::after {
+            content: '🔒';
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            font-size: 1rem;
+            background: var(--danger);
+            color: white;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
         }
 
         /* ===== LOADING ===== */
@@ -956,6 +1047,33 @@ require_once __DIR__ . '/includes/header-new.php';
                 padding: 1rem;
             }
         }
+
+        /* ===== ACCESS CONTROL BADGES ===== */
+        .free-badge {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            background: var(--gradient-5);
+            color: white;
+            border-radius: 2rem;
+            font-size: 0.6rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+            text-transform: uppercase;
+            vertical-align: middle;
+        }
+
+        .premium-badge {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            background: var(--gradient-1);
+            color: white;
+            border-radius: 2rem;
+            font-size: 0.6rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+            text-transform: uppercase;
+            vertical-align: middle;
+        }
     </style>
 
     <!-- Phishing Detector Tool -->
@@ -972,7 +1090,7 @@ require_once __DIR__ . '/includes/header-new.php';
                 <h2>Phishing Detector</h2>
             </div>
 
-            <!-- NEW: Phishing Awareness Section -->
+            <!-- Phishing Awareness Section -->
             <div class="phishing-awareness-section">
                 <div class="awareness-header">
                     <i class="fas fa-exclamation-triangle"></i>
@@ -1054,7 +1172,7 @@ require_once __DIR__ . '/includes/header-new.php';
                 </div>
             </div>
 
-            <!-- NEW: Phishing Campaign Importance Section -->
+            <!-- Phishing Campaign Importance Section -->
             <div class="campaign-importance-section">
                 <div class="campaign-header">
                     <i class="fas fa-bullhorn"></i>
@@ -1166,16 +1284,57 @@ https://your-bank-security.verification.com"
             </div>
             
             <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-                <button id="phishing-btn" class="btn btn-primary" onclick="runPhishingAnalysis()">
-                    <i class="fas fa-search"></i> Analyze
-                </button>
+                <!-- Analyze Button with Access Control -->
+                <?php if ($isLoggedIn && $accessControl->canUseTool($toolName)): ?>
+                    <!-- User is logged in and has permission -->
+                    <button id="phishing-btn" class="btn btn-primary" onclick="runPhishingAnalysis()">
+                        <i class="fas fa-search"></i> Analyze
+                    </button>
+                <?php elseif ($isLoggedIn && !$accessControl->canUseTool($toolName)): ?>
+                    <!-- User is logged in but doesn't have permission -->
+                    <div class="button-wrapper disabled">
+                        <button id="phishing-btn" class="btn btn-primary disabled-btn" disabled>
+                            <i class="fas fa-search"></i> Analyze
+                        </button>
+                        <span class="login-required-tooltip">Upgrade your plan to use this tool</span>
+                    </div>
+                <?php else: ?>
+                    <!-- User is not logged in -->
+                    <div class="button-wrapper disabled">
+                        <button id="phishing-btn" class="btn btn-primary disabled-btn" onclick="redirectToLogin()" disabled>
+                            <i class="fas fa-search"></i> Analyze
+                        </button>
+                        <span class="login-required-tooltip">Login required to use this tool</span>
+                    </div>
+                <?php endif; ?>
 
+                <!-- Start Phishing Campaign Button with Access Control -->
+                <?php 
+                $campaignToolName = 'phishing-campaigns';
+                $canAccessCampaign = $isLoggedIn && $accessControl->canUseTool($campaignToolName);
+                ?>
+                
                 <?php if ($auth->hasAnyRole(['admin', 'moderator', 'premium'])): ?>
-                <button class="btn btn-primary">
-                    <a href="phishing-campaigns.php" style="color: white; text-decoration: none;">
+                    <!-- User has permission -->
+                    <a href="phishing-campaigns.php" class="btn btn-primary" style="color: white; text-decoration: none;">
                         <i class="fas fa-bullhorn"></i> Start Phishing Campaign
                     </a>
-                </button>
+                <?php elseif ($isLoggedIn && !$accessControl->canUseTool($campaignToolName)): ?>
+                    <!-- User is logged in but doesn't have permission -->
+                    <div class="button-wrapper disabled">
+                        <span class="btn btn-primary disabled-btn" style="display: inline-block; cursor: not-allowed;">
+                            <i class="fas fa-bullhorn"></i> Start Phishing Campaign
+                        </span>
+                        <span class="login-required-tooltip">Premium feature - upgrade required</span>
+                    </div>
+                <?php else: ?>
+                    <!-- User is not logged in -->
+                    <div class="button-wrapper disabled">
+                        <span class="btn btn-primary disabled-btn" style="display: inline-block; cursor: not-allowed;">
+                            <i class="fas fa-bullhorn"></i> Start Phishing Campaign
+                        </span>
+                        <span class="login-required-tooltip">Login required to use campaigns</span>
+                    </div>
                 <?php endif; ?>
             </div>
             
@@ -1255,7 +1414,39 @@ https://your-bank-security.verification.com"
 
     <script src="assets/js/phishing-detector.js"></script>
     <script src="assets/js/auth.js"></script>
-    <!-- <link rel="stylesheet" href="assets/styles/phishing.css"> -->
     <link rel="stylesheet" href="assets/styles/modal.css">
+
+    <script>
+    // Function to redirect to login
+    function redirectToLogin() {
+        // Show login modal instead of redirect
+        const loginModal = document.getElementById('login-modal');
+        if (loginModal) {
+            loginModal.style.display = 'flex';
+        } else {
+            // Fallback to redirect
+            window.location.href = 'plan.php';
+        }
+    }
+
+    // Override the runPhishingAnalysis function for non-logged-in users
+    <?php if (!$isLoggedIn): ?>
+    window.runPhishingAnalysis = function() {
+        redirectToLogin();
+        return false;
+    };
+    <?php endif; ?>
+
+    // Check permission before running analysis
+    function checkPermissionAndRun() {
+        <?php if ($isLoggedIn && $accessControl->canUseTool($toolName)): ?>
+            runPhishingAnalysis();
+        <?php elseif ($isLoggedIn && !$accessControl->canUseTool($toolName)): ?>
+            window.location.href = 'plan.php';
+        <?php else: ?>
+            redirectToLogin();
+        <?php endif; ?>
+    }
+    </script>
 </body>
 </html>

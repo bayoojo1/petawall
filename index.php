@@ -88,7 +88,9 @@ $listActiveTools = $tools->listActiveTools();
                                     echo $icons[$listActiveTool['tool_name']] ?? 'tool';
                                 ?>"></i>
                             </div>
-                            <span class="card-badge"><?php echo htmlspecialchars($listActiveTool['tool_plan']); ?></span>
+                            <span class="card-badge badge-<?php echo strtolower(htmlspecialchars($listActiveTool['tool_plan'])); ?>">
+                                <?php echo htmlspecialchars($listActiveTool['tool_plan']); ?>
+                            </span>
                             <h3><?php echo htmlspecialchars($listActiveTool['display_name']); ?></h3>
                             <p><?php echo htmlspecialchars($listActiveTool['description']); ?></p>
                         </a>

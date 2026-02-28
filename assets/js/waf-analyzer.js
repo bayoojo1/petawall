@@ -1,7 +1,7 @@
 // waf-analyzer.js - Enhanced with Vibrant Color Theme
 
 /* ===== STYLESHEET INJECTION ===== */
-(function injectWafStyles() {
+function injectWafStyles() {
     if (document.getElementById('waf-styles')) return;
     
     const styles = `
@@ -129,7 +129,7 @@
 
         .stat-value {
             display: block;
-            font-size: 1.2rem;
+            font-size: 2rem;
             font-weight: 700;
             background: linear-gradient(135deg, #FF6B6B, #FF8E53);
             -webkit-background-clip: text;
@@ -582,7 +582,7 @@
     styleElement.id = 'waf-styles';
     styleElement.textContent = styles;
     document.head.appendChild(styleElement);
-})();
+}
 
 async function runWafAnalysis() {
     // Try multiple possible element IDs to maintain compatibility

@@ -14,8 +14,13 @@ if (!$auth->isLoggedIn()) {
     exit;
 }
 
+if (!$auth->hasAnyRole(['admin', 'moderator', 'premium'])) {
+    header('Location: plan.php');
+    exit;
+}
+
 // Check if user has permission to access this tool
-//$accessControl->requireToolAccess($toolName, 'plan.php');
+$accessControl->requireToolAccess($toolName, 'plan.php');
 
 // Get user info
 $userId = $_SESSION['user_id'] ?? 0;

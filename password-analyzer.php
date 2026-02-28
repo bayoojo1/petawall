@@ -6,15 +6,8 @@ $auth = new Auth();
 $accessControl = new AccessControl();
 $toolName = 'password-analyzer';
 
-// If user is not logged In, do this...
-// Check if user is logged in
-if (!$auth->isLoggedIn()) {
-    header('Location: plan.php');
-    exit;
-}
-
-// Check if user has permission to access this tool
-$accessControl->requireToolAccess($toolName, 'plan.php');
+// Store the login status
+$isLoggedIn = $auth->isLoggedIn();
 
 require_once __DIR__ . '/includes/header-new.php';
 ?>
@@ -53,6 +46,129 @@ require_once __DIR__ . '/includes/header-new.php';
         --border-light: #e2e8f0;
         --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
         --card-hover-shadow: 0 25px 50px -12px rgba(65, 88, 208, 0.25);
+    }
+
+    /* ===== BUTTON WRAPPER FOR ACCESS CONTROL ===== */
+    .button-wrapper {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+    }
+
+    .button-wrapper.disabled .btn {
+        opacity: 0.7;
+        cursor: not-allowed;
+        filter: grayscale(50%);
+    }
+
+    .button-wrapper.disabled::after {
+        content: '🔒';
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        font-size: 1.2rem;
+        background: var(--danger);
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+        animation: pulse 2s infinite;
+        z-index: 10;
+    }
+
+    /* ===== LOGIN TOOLTIP ===== */
+    .login-required-tooltip {
+        position: absolute;
+        bottom: 120%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--text-dark);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 2rem;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s;
+        pointer-events: none;
+        z-index: 20;
+    }
+
+    .login-required-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 5px;
+        border-style: solid;
+        border-color: var(--text-dark) transparent transparent transparent;
+    }
+
+    .button-wrapper.disabled:hover .login-required-tooltip {
+        opacity: 1;
+        visibility: visible;
+        bottom: 100%;
+    }
+
+    /* ===== LOCK ICON ON BUTTONS ===== */
+    .btn.disabled-btn {
+        opacity: 0.7;
+        cursor: not-allowed;
+        filter: grayscale(50%);
+        position: relative;
+        width: 100%;
+    }
+
+    .btn.disabled-btn::after {
+        content: '🔒';
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        font-size: 1rem;
+        background: var(--danger);
+        color: white;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+    }
+
+    /* ===== BUTTON LOADING STATE ===== */
+    .btn-loading {
+        position: relative;
+        pointer-events: none;
+        opacity: 0.7;
+    }
+
+    .btn-loading .btn-text {
+        visibility: hidden;
+    }
+
+    .btn-loading::after {
+        content: '';
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        top: 50%;
+        left: 50%;
+        margin-left: -10px;
+        margin-top: -10px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
     }
 
     * {
@@ -193,7 +309,7 @@ require_once __DIR__ . '/includes/header-new.php';
         -webkit-text-fill-color: transparent;
     }
 
-    /* ===== PASSWORD AWARENESS SECTION (NEW) ===== */
+    /* ===== PASSWORD AWARENESS SECTION ===== */
     .password-awareness-section {
         margin: 2rem 0;
         animation: slideIn 1s ease-out;
@@ -319,7 +435,7 @@ require_once __DIR__ . '/includes/header-new.php';
         font-size: 0.7rem;
     }
 
-    /* ===== PASSWORD STATS SECTION (NEW) ===== */
+    /* ===== PASSWORD STATS SECTION ===== */
     .password-stats-section {
         margin: 2rem 0;
         padding: 2rem;
@@ -492,6 +608,8 @@ require_once __DIR__ . '/includes/header-new.php';
         cursor: pointer;
         transition: all 0.3s;
         border: none;
+        width: 100%;
+        position: relative;
     }
 
     .btn-primary {
@@ -546,6 +664,14 @@ require_once __DIR__ . '/includes/header-new.php';
         box-shadow: 0 20px 30px -10px rgba(17, 153, 142, 0.4);
     }
 
+    #generate-btn {
+        background-color: bisque;
+    }
+
+    #regenerate-password {
+        background-color: bisque;
+    }
+
     /* ===== LOADING ===== */
     .loading {
         display: none;
@@ -572,6 +698,11 @@ require_once __DIR__ . '/includes/header-new.php';
     #password-results {
         margin-top: 2rem;
         animation: slideIn 0.8s ease-out;
+    }
+
+    /* Results container can be visible or hidden - we'll control via JS */
+    #password-results.visible {
+        display: block;
     }
 
     .results-header {
@@ -773,6 +904,14 @@ require_once __DIR__ . '/includes/header-new.php';
     }
 
     /* ===== GENERATED PASSWORD ===== */
+    #generated-password {
+        display: none;
+    }
+
+    #generated-password.visible {
+        display: block;
+    }
+
     .generated-password-display {
         display: flex;
         gap: 1rem;
@@ -835,6 +974,33 @@ require_once __DIR__ . '/includes/header-new.php';
             flex-direction: column;
         }
     }
+
+    /* ===== ACCESS CONTROL BADGES ===== */
+    .free-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        background: var(--gradient-5);
+        color: white;
+        border-radius: 2rem;
+        font-size: 0.6rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+        text-transform: uppercase;
+        vertical-align: middle;
+    }
+
+    .premium-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        background: var(--gradient-1);
+        color: white;
+        border-radius: 2rem;
+        font-size: 0.6rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+        text-transform: uppercase;
+        vertical-align: middle;
+    }
 </style>
 
 <body>
@@ -855,7 +1021,7 @@ require_once __DIR__ . '/includes/header-new.php';
                 <h2>Password Analyzer</h2>
             </div>
             
-            <!-- NEW: Password Awareness Section -->
+            <!-- Password Awareness Section -->
             <div class="password-awareness-section">
                 <div class="awareness-header">
                     <i class="fas fa-shield-alt"></i>
@@ -937,7 +1103,7 @@ require_once __DIR__ . '/includes/header-new.php';
                 </div>
             </div>
             
-            <!-- NEW: Password Stats Section -->
+            <!-- Password Stats Section -->
             <div class="password-stats-section">
                 <div class="stats-header">
                     <i class="fas fa-chart-line"></i>
@@ -1030,11 +1196,32 @@ require_once __DIR__ . '/includes/header-new.php';
             </div>
             
             <div class="button-group">
-                <button id="analyze-btn" class="btn btn-primary">
-                    <i class="fas fa-search"></i> Analyze Password
-                </button>
+                <!-- Analyze Password Button with Access Control -->
+                <?php if ($isLoggedIn && $accessControl->canUseTool($toolName)): ?>
+                    <!-- User is logged in and has permission -->
+                    <button id="analyze-btn" class="btn btn-primary" onclick="checkPermissionAndRun()">
+                        <i class="fas fa-search"></i> Analyze Password
+                    </button>
+                <?php elseif ($isLoggedIn && !$accessControl->canUseTool($toolName)): ?>
+                    <!-- User is logged in but doesn't have permission -->
+                    <div class="button-wrapper disabled">
+                        <button id="analyze-btn" class="btn btn-primary disabled-btn" disabled>
+                            <i class="fas fa-search"></i> Analyze Password
+                        </button>
+                        <span class="login-required-tooltip">Upgrade your plan to use this tool</span>
+                    </div>
+                <?php else: ?>
+                    <!-- User is not logged in -->
+                    <div class="button-wrapper disabled">
+                        <button id="analyze-btn" class="btn btn-primary disabled-btn" onclick="redirectToLogin()" disabled>
+                            <i class="fas fa-search"></i> Analyze Password
+                        </button>
+                        <span class="login-required-tooltip">Login required to use this tool</span>
+                    </div>
+                <?php endif; ?>
 
-                <button id="generate-btn" class="btn btn-outline">
+                <!-- Generate Strong Password Button - This is a local feature, always available -->
+                <button id="generate-btn" class="btn btn-outline" onclick="handleGeneratePassword()">
                     <i class="fas fa-magic"></i> Generate Strong Password
                 </button>
             </div>
@@ -1044,6 +1231,7 @@ require_once __DIR__ . '/includes/header-new.php';
                 <p>Analyzing password strength...</p>
             </div>
             
+            <!-- Password Results Container - Initially hidden -->
             <div id="password-results" class="results-container" style="display: none;">
                 <div class="results-header">
                     <h3><i class="fas fa-chart-bar"></i> Password Analysis</h3>
@@ -1081,20 +1269,23 @@ require_once __DIR__ . '/includes/header-new.php';
                     <h3><i class="fas fa-lightbulb"></i> Recommendations</h3>
                     <div id="password-recommendations"></div>
                 </div>
+            </div>
 
-                <div class="result-card" id="generated-password" style="display: none;">
+            <!-- Generated Password Container - Separate from results, initially hidden -->
+            <div id="generated-password" style="display: none;">
+                <div class="result-card">
                     <h3><i class="fas fa-key"></i> Generated Strong Password</h3>
                     <div class="generated-password-display">
                         <input type="text" id="new-password" readonly class="password-display">
-                        <button id="copy-password" class="btn btn-primary">
+                        <button id="copy-password" class="btn btn-primary" onclick="copyPassword()">
                             <i class="fas fa-copy"></i> Copy
                         </button>
                     </div>
                     <div class="password-actions">
-                        <button id="regenerate-password" class="btn btn-outline">
+                        <button id="regenerate-password" class="btn btn-outline" onclick="handleGeneratePassword()">
                             <i class="fas fa-sync-alt"></i> Regenerate
                         </button>
-                        <button id="use-password" class="btn btn-success">
+                        <button id="use-password" class="btn btn-success" onclick="useGeneratedPassword()">
                             <i class="fas fa-check"></i> Use This Password
                         </button>
                     </div>
@@ -1110,7 +1301,285 @@ require_once __DIR__ . '/includes/header-new.php';
 
     <script src="assets/js/password-analysis.js"></script>
     <script src="assets/js/auth.js"></script>
-    <!-- <link rel="stylesheet" href="assets/styles/password.css"> -->
     <link rel="stylesheet" href="assets/styles/modal.css">
+
+    <script>
+    // Global variable to track analysis state
+    let isAnalysisRunning = false;
+
+    // Function to redirect to login
+    function redirectToLogin() {
+        // Show login modal instead of redirect
+        const loginModal = document.getElementById('login-modal');
+        if (loginModal) {
+            loginModal.style.display = 'flex';
+        } else {
+            // Fallback to redirect
+            window.location.href = 'plan.php';
+        }
+    }
+
+    // Function to toggle button loading states
+    function setButtonsLoadingState(loading) {
+        isAnalysisRunning = loading;
+        
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const generateBtn = document.getElementById('generate-btn');
+        const regenerateBtn = document.getElementById('regenerate-password');
+        
+        if (loading) {
+            // Disable and show loading state on analyze button
+            if (analyzeBtn && !analyzeBtn.disabled) {
+                analyzeBtn.classList.add('btn-loading');
+                analyzeBtn.disabled = true;
+            }
+            
+            // Disable generate button during analysis
+            if (generateBtn) {
+                generateBtn.classList.add('btn-loading');
+                generateBtn.disabled = true;
+            }
+            
+            if (regenerateBtn) {
+                regenerateBtn.classList.add('btn-loading');
+                regenerateBtn.disabled = true;
+            }
+        } else {
+            // Remove loading states
+            
+            // Only enable analyze button if user has permission
+            <?php if ($isLoggedIn && $accessControl->canUseTool($toolName)): ?>
+            if (analyzeBtn) {
+                analyzeBtn.classList.remove('btn-loading');
+                analyzeBtn.disabled = false;
+            }
+            <?php endif; ?>
+            
+            // Generate button is always enabled (local feature)
+            if (generateBtn) {
+                generateBtn.classList.remove('btn-loading');
+                generateBtn.disabled = false;
+            }
+            
+            if (regenerateBtn) {
+                regenerateBtn.classList.remove('btn-loading');
+                regenerateBtn.disabled = false;
+            }
+        }
+    }
+
+    // Check permission before running analysis
+    function checkPermissionAndRun() {
+        <?php if ($isLoggedIn && $accessControl->canUseTool($toolName)): ?>
+            // Call the actual analyze function from password-analysis.js
+            if (typeof window.analyzePassword === 'function') {
+                setButtonsLoadingState(true);
+                window.analyzePassword();
+            } else if (typeof window.startPasswordAnalysis === 'function') {
+                setButtonsLoadingState(true);
+                window.startPasswordAnalysis();
+            } else {
+                console.error('No password analysis function found');
+                alert('Password analysis function not available. Please check the JavaScript console.');
+            }
+        <?php elseif ($isLoggedIn && !$accessControl->canUseTool($toolName)): ?>
+            window.location.href = 'plan.php';
+        <?php else: ?>
+            redirectToLogin();
+        <?php endif; ?>
+    }
+
+    // Generate strong password handler - always available
+    function handleGeneratePassword() {
+        // Don't generate if analysis is running
+        if (isAnalysisRunning) {
+            alert('Please wait for the current analysis to complete.');
+            return;
+        }
+        
+        // Hide password results if they're visible
+        const passwordResults = document.getElementById('password-results');
+        if (passwordResults) {
+            passwordResults.style.display = 'none';
+        }
+        
+        if (typeof window.generateStrongPassword === 'function') {
+            window.generateStrongPassword();
+        } else {
+            // Fallback implementation
+            generatePasswordFallback();
+        }
+        
+        // Show the generated password container
+        const generatedPassword = document.getElementById('generated-password');
+        if (generatedPassword) {
+            generatedPassword.style.display = 'block';
+            generatedPassword.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+    // Fallback password generator
+    function generatePasswordFallback() {
+        const length = 16;
+        const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+        const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const numbers = '0123456789';
+        const special = '!@#$%^&*()_-+={}[]|:;<>,.?';
+        let password = '';
+        
+        // Ensure at least one of each type
+        password += uppercase[Math.floor(Math.random() * uppercase.length)];
+        password += lowercase[Math.floor(Math.random() * lowercase.length)];
+        password += numbers[Math.floor(Math.random() * numbers.length)];
+        password += special[Math.floor(Math.random() * special.length)];
+        
+        // Fill the rest with random characters from all sets
+        const allChars = lowercase + uppercase + numbers + special;
+        for (let i = password.length; i < length; i++) {
+            password += allChars[Math.floor(Math.random() * allChars.length)];
+        }
+        
+        // Shuffle the password
+        password = password.split('').sort(() => 0.5 - Math.random()).join('');
+        
+        // Display the generated password
+        const passwordField = document.getElementById('new-password');
+        if (passwordField) {
+            passwordField.value = password;
+        }
+    }
+
+    // Use the generated password
+    function useGeneratedPassword() {
+        const generatedPassword = document.getElementById('new-password').value;
+        const passwordInput = document.getElementById('password-input');
+        
+        if (passwordInput && generatedPassword) {
+            passwordInput.value = generatedPassword;
+            
+            // Show success message
+            const useBtn = document.getElementById('use-password');
+            if (useBtn) {
+                const originalHtml = useBtn.innerHTML;
+                useBtn.innerHTML = '<i class="fas fa-check"></i> Password Applied!';
+                useBtn.classList.add('btn-success');
+                
+                setTimeout(() => {
+                    useBtn.innerHTML = originalHtml;
+                    useBtn.classList.remove('btn-success');
+                }, 2000);
+            }
+            
+            // Hide generated password after using it
+            const generatedPasswordDiv = document.getElementById('generated-password');
+            if (generatedPasswordDiv) {
+                generatedPasswordDiv.style.display = 'none';
+            }
+            
+            // Auto-analyze the generated password if user has permission
+            <?php if ($isLoggedIn && $accessControl->canUseTool($toolName)): ?>
+            setTimeout(() => {
+                if (typeof window.analyzePassword === 'function' && !isAnalysisRunning) {
+                    setButtonsLoadingState(true);
+                    window.analyzePassword();
+                }
+            }, 500);
+            <?php endif; ?>
+        }
+    }
+
+    // Copy password to clipboard
+    function copyPassword() {
+        const passwordField = document.getElementById('new-password');
+        if (!passwordField || !passwordField.value) return;
+        
+        passwordField.select();
+        passwordField.setSelectionRange(0, 99999);
+        
+        try {
+            navigator.clipboard.writeText(passwordField.value).then(() => {
+                const copyBtn = document.getElementById('copy-password');
+                const originalHtml = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                copyBtn.classList.add('btn-success');
+                
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalHtml;
+                    copyBtn.classList.remove('btn-success');
+                }, 2000);
+            });
+        } catch (err) {
+            document.execCommand('copy');
+        }
+    }
+
+    // Override the analyzePassword function to manage loading state
+    const originalAnalyzePassword = window.analyzePassword;
+    if (typeof originalAnalyzePassword === 'function') {
+        window.analyzePassword = function() {
+            setButtonsLoadingState(true);
+            
+            // Hide generated password when starting analysis
+            const generatedPassword = document.getElementById('generated-password');
+            if (generatedPassword) {
+                generatedPassword.style.display = 'none';
+            }
+            
+            const result = originalAnalyzePassword.apply(this, arguments);
+            
+            // Check if the function returns a promise
+            if (result && typeof result.then === 'function') {
+                return result.finally(() => {
+                    setButtonsLoadingState(false);
+                });
+            } else {
+                // If not a promise, assume it's synchronous and set a timeout
+                setTimeout(() => {
+                    setButtonsLoadingState(false);
+                }, 1000);
+            }
+            return result;
+        };
+    }
+
+    // Attach event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        const copyBtn = document.getElementById('copy-password');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', copyPassword);
+        }
+        
+        const useBtn = document.getElementById('use-password');
+        if (useBtn) {
+            useBtn.addEventListener('click', useGeneratedPassword);
+        }
+        
+        const regenerateBtn = document.getElementById('regenerate-password');
+        if (regenerateBtn) {
+            regenerateBtn.addEventListener('click', handleGeneratePassword);
+        }
+        
+        // Add click handler for analyze button if it exists and is not disabled
+        const analyzeBtn = document.getElementById('analyze-btn');
+        if (analyzeBtn && !analyzeBtn.disabled) {
+            analyzeBtn.addEventListener('click', function(e) {
+                if (this.disabled) return;
+                <?php if ($isLoggedIn && $accessControl->canUseTool($toolName)): ?>
+                if (typeof window.analyzePassword === 'function') {
+                    setButtonsLoadingState(true);
+                    
+                    // Hide generated password when starting analysis
+                    const generatedPassword = document.getElementById('generated-password');
+                    if (generatedPassword) {
+                        generatedPassword.style.display = 'none';
+                    }
+                    
+                    window.analyzePassword();
+                }
+                <?php endif; ?>
+            });
+        }
+    });
+    </script>
 </body>
 </html>
