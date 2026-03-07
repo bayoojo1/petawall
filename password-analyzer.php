@@ -1189,8 +1189,8 @@ require_once __DIR__ . '/includes/header-new.php';
                     
                 <div style="margin-bottom: 0.5rem;">
                     <span class="check-leaks">
-                        <input type="checkbox" id="check-leaks">
-                        <label for="check-leaks">Check against known breaches (online)</label>
+                        <input type="checkbox" id="check-leaks" disabled>
+                        <label for="check-leaks">Check against known breaches (coming soon...)</label>
                     </span>
                 </div>
             </div>

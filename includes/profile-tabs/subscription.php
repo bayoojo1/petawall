@@ -248,7 +248,7 @@ foreach ($displayPlans as $plan) {
                         <i class="fas fa-lock"></i> <?= $plan['name']; ?>
                     </button>
                 <?php else: ?>
-                    <button class="btn btn-primary" style="width:100%; background: var(--gradient-<?= $plan['gradient'] ?>);"
+                    <button class="btn btn-primary" style="width:100%;);"
                             onclick="upgradeToPlan('<?= $planKey ?>', <?= $plan['price'] ?>)">
                         <i class="fas fa-arrow-up"></i> Upgrade to <?= $plan['name']; ?>
                     </button>

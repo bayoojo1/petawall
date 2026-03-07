@@ -147,9 +147,8 @@ require_once __DIR__ . '/includes/header-new.php';
     }
 
     .container {
-        max-width: 1400px;
+        max-width: 1200px;
         margin: 0 auto;
-        padding: 0 1.5rem 2rem;
     }
 
     .gap {

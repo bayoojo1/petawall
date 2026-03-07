@@ -60,11 +60,11 @@
             <div class="footer-section">
                 <h4 class="footer-heading">Legal</h4>
                 <ul class="footer-links">
-                    <li><a href="#">Privacy Policy</a></li>
-                    <li><a href="#">Terms of Service</a></li>
-                    <li><a href="#">Security Policy</a></li>
-                    <li><a href="#">Responsible Disclosure</a></li>
-                    <li><a href="#">Compliance</a></li>
+                    <li><a href="privacy.php">Privacy Policy</a></li>
+                    <li><a href="terms.php">Terms of Service</a></li>
+                    <li><a href="securitypolicy.php">Security Policy</a></li>
+                    <li><a href="responsible-disclosure.php">Responsible Disclosure</a></li>
+                    <li><a href="compliance.php">Compliance</a></li>
                 </ul>
             </div>
         </div>

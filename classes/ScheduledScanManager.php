@@ -79,6 +79,22 @@ class ScheduledScanManager {
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function executeScanById($scanId) {
+        $stmt = $this->pdo->prepare("
+            SELECT * FROM scheduled_vuln_scans
+            WHERE id = ?
+        ");
+        
+        $stmt->execute([$scanId]);
+        $scan = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$scan) {
+            throw new Exception("Scan not found: {$scanId}");
+        }
+
+        return $this->executeScan($scan);
+    }
     
     /**
      * Execute a single scan

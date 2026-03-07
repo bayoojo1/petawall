@@ -11,9 +11,9 @@
     --campaign-info: #17a2b8;
     
     /* Background Colors */
-    --campaign-bg: #00A0D6;
+    /* --campaign-bg: #00A0D6;
     --campaign-card-bg: #ffffff;
-    --campaign-sidebar-bg: #343a40;
+    --campaign-sidebar-bg: #343a40; */
     
     /* Text Colors */
     --campaign-text: #212529;
@@ -289,7 +289,7 @@
 }
 
 .campaign-table thead {
-    background: deepskyblue;
+    /* background: deepskyblue; */
     color: white;
 }
 
@@ -297,7 +297,7 @@
     padding: 0.75rem 1rem;
     text-align: left;
     font-weight: 600;
-    color: var(--campaign-text);
+    /* color: var(--campaign-text); */
     border-bottom: 2px solid var(--campaign-border);
     white-space: nowrap;
 }
@@ -324,6 +324,10 @@
     overflow: hidden;
 }
 
+.campaign-count {
+    color: white;
+}
+
 .campaign-progress-bar {
     height: 100%;
     background: var(--campaign-primary);
@@ -340,7 +344,7 @@
 }
 
 .campaign-stat-card {
-    background: var(--campaign-card-bg);
+    /* background: var(--campaign-card-bg); */
     padding: var(--campaign-spacing);
     border-radius: var(--campaign-radius-lg);
     box-shadow: var(--campaign-shadow);
@@ -433,7 +437,7 @@
     font-size: 0.875rem;
     line-height: 1.5;
     color: var(--campaign-text);
-    background-color: var(--campaign-card-bg);
+    background-color: honeydew;
     border: 1px solid var(--campaign-border);
     border-radius: var(--campaign-radius);
     transition: var(--campaign-transition);
@@ -461,7 +465,7 @@
 }
 
 .campaign-editor-toolbar {
-    background: var(--campaign-bg);
+    /* background: var(--campaign-bg); */
     padding: 0.75rem;
     border-bottom: 1px solid var(--campaign-border);
     display: flex;
@@ -1414,23 +1418,21 @@ input.error:focus {
 
 /* Custom Confirmation Modal */
 .campaign-confirm-modal {
+    display: none;   /* Hide completely by default */
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.7);
-    display: flex;
     align-items: center;
     justify-content: center;
     z-index: 10000;
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.3s ease;
     backdrop-filter: blur(3px);
 }
 
 .campaign-confirm-modal.show {
+    display: flex;
     opacity: 1;
     visibility: visible;
 }

@@ -84,7 +84,7 @@
 .form-group label {
     display: block;
     margin-bottom: 8px;
-    color: #e2e8f0;
+    /* color: #e2e8f0; */
     font-weight: 500;
     font-size: 0.9rem;
 }
@@ -95,7 +95,7 @@
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid #374151;
     border-radius: 8px;
-    color: #ffffff;
+    /* color: #ffffff; */
     font-size: 0.95rem;
     transition: all 0.3s ease;
     box-sizing: border-box;

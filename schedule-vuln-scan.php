@@ -682,12 +682,14 @@ require_once __DIR__ . '/includes/header-new.php';
     }
 
     .modal-footer {
-        padding: 1.25rem 1.5rem;
-        border-top: 1px solid var(--border-light);
+        margin-top: -50px;
+        /* border-top: 1px solid var(--border-light); */
         display: flex;
         gap: 0.75rem;
         justify-content: flex-end;
-        background: var(--bg-offwhite);
+        background-color: #fff !important
+        position: relative
+        z-index: 10;
     }
 
     .btn-secondary {
@@ -916,6 +918,73 @@ require_once __DIR__ . '/includes/header-new.php';
                             </div>
                         </div>
 
+                        <!-- Dynamic Schedule Options -->
+                        <div id="schedule_options">
+                            <!-- Daily Options -->
+                            <div class="schedule-option daily-options">
+                                <div class="form-group">
+                                    <label for="daily_time">Daily Time</label>
+                                    <input type="time" class="form-control" id="daily_time" name="daily_time" value="02:00">
+                                </div>
+                            </div>
+
+                            <!-- Weekly Options -->
+                            <div class="schedule-option weekly-options" style="display: none;">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="weekly_day">Day of Week</label>
+                                            <select class="form-control" id="weekly_day" name="weekly_day">
+                                                <option value="0">Sunday</option>
+                                                <option value="1">Monday</option>
+                                                <option value="2">Tuesday</option>
+                                                <option value="3">Wednesday</option>
+                                                <option value="4">Thursday</option>
+                                                <option value="5">Friday</option>
+                                                <option value="6">Saturday</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="weekly_time">Time</label>
+                                            <input type="time" class="form-control" id="weekly_time" name="weekly_time" value="02:00">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Monthly Options -->
+                            <div class="schedule-option monthly-options" style="display: none;">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="monthly_day">Day of Month (1-28)</label>
+                                            <input type="number" class="form-control" id="monthly_day" name="monthly_day" 
+                                                   min="1" max="28" value="1">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="monthly_time">Time</label>
+                                            <input type="time" class="form-control" id="monthly_time" name="monthly_time" value="02:00">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Custom Options -->
+                            <div class="schedule-option custom-options" style="display: none;">
+                                <div class="form-group">
+                                    <label for="custom_interval">Interval (Hours)</label>
+                                    <input type="number" class="form-control" id="custom_interval" name="custom_interval" 
+                                           min="1" max="720" value="24" placeholder="24">
+                                    <small class="form-text text-muted">Scan will run every specified number of hours</small>
+                                </div>
+                            </div>
+                        </div>
+
+
                         <div class="form-group">
                             <label for="recipients">
                                 <i class="fas fa-envelope" style="color: var(--primary); margin-right: 0.5rem;"></i>
@@ -1033,9 +1102,9 @@ require_once __DIR__ . '/includes/header-new.php';
 
     <!-- Edit Scan Modal -->
     <div class="modal" id="editScanModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
+        <div class="modal-dialog" style="max-width: 500px; margin: 1.75rem auto;">
+            <div class="modal-content" style="max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+                <div class="modal-header" style="flex-shrink: 0;">
                     <h5 class="modal-title">
                         <i class="fas fa-edit"></i> Edit Scheduled Scan
                     </h5>
@@ -1044,7 +1113,7 @@ require_once __DIR__ . '/includes/header-new.php';
                     </button>
                 </div>
                 <form method="POST" id="editScanForm">
-                    <div class="modal-body">
+                    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
                         <input type="hidden" name="scan_id" id="edit_scan_id">
                         
                         <div class="form-group">
@@ -1116,9 +1185,15 @@ require_once __DIR__ . '/includes/header-new.php';
         </div>
     </div>
 
-    <?php require_once __DIR__ . '/includes/footer.php'; ?>
+   <!-- Login Modal -->
+    <?php require_once __DIR__ . '/includes/login-modal.php'; ?>
+    
+    <!-- Page Footer -->
+    <?php require_once __DIR__ . '/includes/footer.php' ?>
 
-    <link rel="stylesheet" href="assets/styles/schedule-vuln-scan.css">
+    <!-- <link rel="stylesheet" href="assets/styles/schedule-vuln-scan.css"> -->
     <script src="assets/js/scheduled-vuln-scans.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <link rel="stylesheet" href="assets/styles/modal.css">
 </body>
 </html>

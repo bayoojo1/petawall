@@ -19,9 +19,6 @@ if (!$auth->hasAnyRole(['admin', 'moderator', 'premium'])) {
     exit;
 }
 
-// Check if user has permission to access this tool
-$accessControl->requireToolAccess($toolName, 'plan.php');
-
 // Get user info
 $userId = $_SESSION['user_id'] ?? 0;
 $userEmail = $_SESSION['email'] ?? '';
@@ -1956,7 +1953,7 @@ require_once __DIR__ . '/includes/header-new.php';
         <div class="campaign-card">
             <div class="campaign-card-header">
                 <h3><i class="fas fa-list"></i> Campaign Dashboard</h3>
-                <span class="campaign-badge campaign-badge-primary"><?php echo count($campaigns); ?> Campaigns</span>
+                <span class="campaign-badge campaign-badge-primary campaign-count"><?php echo count($campaigns); ?> Campaigns</span>
             </div>
             <div class="campaign-card-body">
                 <?php if (empty($campaigns)): ?>
@@ -2104,28 +2101,28 @@ require_once __DIR__ . '/includes/header-new.php';
                                                 <form method="post" style="display: inline;" 
                                                       data-confirm-message="Retry sending to <?php echo $pendingCount; ?> recipients?"
                                                       data-confirm-type="success">
-                                                    <input type="hidden" name"action" value="retry_failed">
+                                                    <input type="hidden" name="action" value="retry_failed">
                                                     <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
                                                     <button type="submit" 
                                                             class="campaign-action-btn campaign-action-success"
-                                                            data-tooltip="Retry Failed Recipients">
-                                                        <span class="campaign-tooltip-text">Retry Failed</span>
+                                                            data-tooltip="Retry Recipient">
+                                                        <span class="campaign-tooltip-text">Retry Campaign</span>
                                                         <i class="fas fa-redo"></i>
                                                     </button>
                                                 </form>
-                                            <?php elseif ($status == 'running'): ?>
+                                            <!-- <?php //elseif ($status == 'running'): ?>
                                                 <form method="post" style="display: inline;" 
                                                       data-confirm-message="Stop this campaign? This will mark it as completed."
                                                       data-confirm-type="danger">
                                                     <input type="hidden" name="action" value="stop">
-                                                    <input type="hidden" name="phishing_campaign_id" value="<?php echo $campaign['phishing_campaign_id']; ?>">
+                                                    <input type="hidden" name="phishing_campaign_id" value="<?php //echo $campaign['phishing_campaign_id']; ?>">
                                                     <button type="submit" 
                                                             class="campaign-action-btn campaign-action-danger"
                                                             data-tooltip="Stop Campaign">
                                                         <span class="campaign-tooltip-text">Stop Campaign</span>
                                                         <i class="fas fa-stop"></i>
                                                     </button>
-                                                </form>
+                                                </form> -->
                                             <?php endif; ?>
                                             <form method="post" style="display: inline;"
                                                   data-confirm-message="Are you sure you want to delete this campaign? This action cannot be undone."
@@ -2356,7 +2353,7 @@ require_once __DIR__ . '/includes/header-new.php';
     <script src="assets/js/nav.js"></script>
     <script src="assets/js/auth.js"></script>
 
-    <!-- <link rel="stylesheet" href="assets/styles/campaign.css"> -->
+    <link rel="stylesheet" href="assets/styles/campaign.css">
     <link rel="stylesheet" href="assets/styles/modal.css">
 
     <script>
