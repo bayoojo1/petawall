@@ -7,6 +7,20 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(403);
+    exit('Invalid request');
+}
+
+if (
+    empty($_POST['csrf_token']) ||
+    empty($_SESSION['csrf_token']) ||
+    !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])
+) {
+    http_response_code(403);
+    exit('CSRF validation failed');
+}
+
 // Check if user is logged in
 $auth = new Auth();
 if (!$auth->isLoggedIn()) {
@@ -15,8 +29,8 @@ if (!$auth->isLoggedIn()) {
 }
 
 $userId = $_SESSION['user_id'] ?? null;
-$plan = $_GET['plan'] ?? null;
-$price = $_GET['price'] ?? null;
+$plan = $_POST['plan'] ?? null;
+$price = $_POST['price'] ?? null;
 
 // Validate inputs
 if (!$userId || !$plan || !in_array($plan, ['basic', 'premium'])) {
@@ -47,16 +61,7 @@ if ($currentRole === $plan) {
 // Generate a secure token for this checkout session
 $checkoutToken = bin2hex(random_bytes(32));
 
-// Store checkout session data in database with the token
 try {
-    $db = Database::getInstance()->getConnection();
-    $stmt = $db->prepare("
-        INSERT INTO stripe_checkout_sessions 
-        (checkout_token, user_id, plan, status, created_at) 
-        VALUES (?, ?, ?, 'pending', NOW())
-    ");
-    $stmt->execute([$checkoutToken, $userId, $plan]);
-    
     // Store token in session for validation later
     $_SESSION['stripe_checkout_token'] = $checkoutToken;
     

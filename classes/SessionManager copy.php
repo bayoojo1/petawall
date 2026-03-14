@@ -3,65 +3,38 @@ class SessionManager {
     private static $initialized = false;
 
     public static function startSession() {
-
         if (self::$initialized) {
             return;
         }
 
         if (session_status() === PHP_SESSION_NONE) {
-
-            // Secure session settings
+            // Set secure session settings before starting
             ini_set('session.cookie_httponly', 1);
-            ini_set('session.cookie_secure', isset($_SERVER['HTTPS']));
+            ini_set('session.cookie_secure', 1); // Use only with HTTPS
             ini_set('session.use_strict_mode', 1);
-
-            // IMPORTANT: Stripe redirect requires Lax, not Strict
-            ini_set('session.cookie_samesite', 'Lax');
-
+            ini_set('session.cookie_samesite', 'Strict');
             ini_set('session.gc_maxlifetime', 1800); // 30 minutes
-
+            
             session_start();
-
-            // First-time session initialization
-            if (!isset($_SESSION['initiated'])) {
-                session_regenerate_id(true);
-                $_SESSION['initiated'] = true;
-            }
-
-            // Regenerate session periodically
+            
+            // Initialize session regeneration tracking
             if (!isset($_SESSION['last_regeneration'])) {
                 $_SESSION['last_regeneration'] = time();
             }
-
+            
+            // Regenerate session ID periodically
             if (time() - $_SESSION['last_regeneration'] > 900) { // 15 minutes
                 session_regenerate_id(true);
                 $_SESSION['last_regeneration'] = time();
             }
         }
-
+        
         self::$initialized = true;
     }
 
     public static function destroySession() {
-
         if (session_status() === PHP_SESSION_ACTIVE) {
-
             $_SESSION = [];
-
-            if (ini_get("session.use_cookies")) {
-                $params = session_get_cookie_params();
-
-                setcookie(
-                    session_name(),
-                    '',
-                    time() - 42000,
-                    $params["path"],
-                    $params["domain"],
-                    $params["secure"],
-                    $params["httponly"]
-                );
-            }
-
             session_destroy();
             self::$initialized = false;
         }

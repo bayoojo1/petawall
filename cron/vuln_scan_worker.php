@@ -1,9 +1,8 @@
 <?php
-
 require_once __DIR__.'/../classes/Database.php';
 require_once __DIR__.'/../classes/ScheduledScanManager.php';
 
-$pdo = Database::getInstance()->getConnection();
+// Don't initialize $pdo globally - we'll get fresh connections when needed
 $scanner = new ScheduledScanManager();
 
 $workerId = gethostname()."-".getmypid();
@@ -25,8 +24,10 @@ while(true){
         exit(0);
     }
 
-    try{
+    // Get a fresh connection for each iteration
+    $pdo = Database::getInstance()->getConnection();
 
+    try{
         $pdo->beginTransaction();
 
         $stmt=$pdo->prepare("
@@ -69,43 +70,88 @@ while(true){
 
     }
     catch(Exception $e){
-
-        $pdo->rollBack();
-        error_log($e->getMessage());
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log("Error claiming jobs: " . $e->getMessage());
         sleep(2);
         continue;
     }
 
     foreach($jobs as $job){
-
         try{
-
             error_log("Worker $workerId executing scan ".$job['scan_id']);
-
+            
             $scanner->executeScanById($job['scan_id']);
-
-            $pdo->prepare("
+            
+            // IMPORTANT: Get a NEW connection after the long-running scan
+            $pdo = Database::getInstance()->getConnection();
+            
+            // Update with error checking
+            $stmt = $pdo->prepare("
             UPDATE vuln_scan_jobs
             SET status='completed',
             finished_at=NOW()
-            WHERE id=?
-            ")->execute([$job['id']]);
-
+            WHERE id=? AND status='running'
+            ");
+            
+            if (!$stmt->execute([$job['id']])) {
+                error_log("Failed to update job {$job['id']} to completed status");
+                
+                // Log the actual PDO error
+                $errorInfo = $stmt->errorInfo();
+                if ($errorInfo[0] != '00000') {
+                    error_log("PDO Error: " . json_encode($errorInfo));
+                }
+                
+            } else if ($stmt->rowCount() === 0) {
+                error_log("Job {$job['id']} was not in 'running' state when trying to complete");
+                
+                // Check what state it's actually in
+                $checkStmt = $pdo->prepare("SELECT status FROM vuln_scan_jobs WHERE id = ?");
+                $checkStmt->execute([$job['id']]);
+                $currentStatus = $checkStmt->fetchColumn();
+                error_log("Job {$job['id']} current status: " . $currentStatus);
+            } else {
+                error_log("Worker $workerId successfully completed scan ".$job['scan_id']);
+            }
+            
         }
         catch(Exception $e){
-
-            $pdo->prepare("
-            UPDATE vuln_scan_jobs
-            SET status='failed'
-            WHERE id=?
-            ")->execute([$job['id']]);
-
-            error_log("Scan failed ".$e->getMessage());
+            error_log("Scan failed for job {$job['id']}: " . $e->getMessage());
+            
+            // Get a fresh connection for error handling too
+            try {
+                $pdo = Database::getInstance()->getConnection();
+                
+                $stmt = $pdo->prepare("
+                UPDATE vuln_scan_jobs
+                SET status='failed',
+                finished_at=NOW(),
+                error_message=?
+                WHERE id=?
+                ");
+                
+                if (!$stmt->execute([substr($e->getMessage(), 0, 255), $job['id']])) {
+                    error_log("Failed to update job {$job['id']} to failed status");
+                    
+                    $errorInfo = $stmt->errorInfo();
+                    if ($errorInfo[0] != '00000') {
+                        error_log("PDO Error: " . json_encode($errorInfo));
+                    }
+                } else {
+                    error_log("Worker $workerId marked scan ".$job['scan_id']." as failed");
+                }
+                
+            } catch (Exception $updateError) {
+                error_log("Critical: Could not update job status at all: " . $updateError->getMessage());
+            }
         }
-
+        
         $jobsProcessed++;
-
+        
         if($jobsProcessed >= $maxJobs){
+            error_log("Worker $workerId processed $jobsProcessed jobs, restarting");
             exit(0);
         }
     }

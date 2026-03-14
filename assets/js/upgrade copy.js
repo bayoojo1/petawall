@@ -35,31 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (confirmed) {
                 if (price > 0) {
-                   const form = document.createElement('form');
-                    form.method = 'POST';
-                    form.action = 'checkout.php';
-
-                    const planInput = document.createElement('input');
-                    planInput.type = 'hidden';
-                    planInput.name = 'plan';
-                    planInput.value = plan;
-
-                    const priceInput = document.createElement('input');
-                    priceInput.type = 'hidden';
-                    priceInput.name = 'price';
-                    priceInput.value = price;
-
-                    const csrfInput = document.createElement('input');
-                    csrfInput.type = 'hidden';
-                    csrfInput.name = 'csrf_token';
-                    csrfInput.value = window.CSRF_TOKEN;
-
-                    form.appendChild(planInput);
-                    form.appendChild(priceInput);
-                    form.appendChild(csrfInput);
-
-                    document.body.appendChild(form);
-                    form.submit();
+                    window.location.href = `checkout.php?plan=${plan}&price=${price}`;
                 } else {
                     window.location.href = `change-plan.php?plan=${plan}`;
                 }
@@ -87,31 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (confirmed) {
             if (price > 0) {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = 'checkout.php';
-
-                const planInput = document.createElement('input');
-                planInput.type = 'hidden';
-                planInput.name = 'plan';
-                planInput.value = plan;
-
-                const priceInput = document.createElement('input');
-                priceInput.type = 'hidden';
-                priceInput.name = 'price';
-                priceInput.value = price;
-
-                const csrfInput = document.createElement('input');
-                csrfInput.type = 'hidden';
-                csrfInput.name = 'csrf_token';
-                csrfInput.value = window.CSRF_TOKEN;
-
-                form.appendChild(planInput);
-                form.appendChild(priceInput);
-                form.appendChild(csrfInput);
-
-                document.body.appendChild(form);
-                form.submit();
+                window.location.href = `checkout.php?plan=${plan}&price=${price}`;
             } else {
                 window.location.href = `change-plan.php?plan=${plan}`;
             }

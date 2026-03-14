@@ -1,5 +1,6 @@
 <?php 
 require_once __DIR__ . '/classes/NotificationManager.php';
+require_once __DIR__ . '/classes/StripeManager.php';
 require_once __DIR__ . '/includes/header-new.php';
 
 // Check if user is logged in
@@ -8,6 +9,7 @@ if (!$isLoggedIn) {
     exit;
 }
 $notificationManager = new NotificationManager();
+$subscription = new StripeManager();
 // Get user details
 $userRoles = $auth->getUserRoles();
 $allowedTools = $accessControl->getAllowedTools();
@@ -24,6 +26,8 @@ $userCreatedDate = $user['created_at'];
 
 // Default active tab
 $activeTab = $_GET['tab'] ?? 'overview';
+
+$subStatus = $subscription->getActiveSubscription($user['user_id']);
 ?>
 
 <style>
@@ -691,12 +695,14 @@ $activeTab = $_GET['tab'] ?? 'overview';
                 <?php endif; ?>
                 
                 <li class="nav-section-header">Danger Zone</li>
+                <?php if ($subStatus['status'] === 'active' && !$subStatus['cancel_at_period_end']): ?>
                 <li class="nav-item-profile <?php echo $activeTab === 'cancel-subscription' ? 'active' : ''; ?>">
                     <a href="?tab=cancel-subscription" class="nav-link-profile danger">
                         <i class="fas fa-exclamation-triangle"></i>
                         <span>Cancel Subscription</span>
                     </a>
                 </li>
+                <?php endif; ?>
                 <li class="nav-item-profile <?php echo $activeTab === 'delete-account' ? 'active' : ''; ?>">
                     <a href="?tab=delete-account" class="nav-link-profile danger">
                         <i class="fas fa-exclamation-triangle"></i>
@@ -753,6 +759,7 @@ $activeTab = $_GET['tab'] ?? 'overview';
 
 <!-- Login Modal -->
 <?php require_once __DIR__ . '/includes/login-modal.php'; ?>
+<?php require_once __DIR__ . '/includes/plan-confirmation-modal.php'; ?>
 <!-- Page Footer -->
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
     
@@ -765,4 +772,3 @@ $activeTab = $_GET['tab'] ?? 'overview';
 <link rel="stylesheet" href="assets/styles/modal.css">
 <link rel="stylesheet" href="assets/styles/profile.css">
 <link rel="stylesheet" href="assets/styles/notification.css">
-<link rel="stylesheet" href="assets/styles/cancel-subs.css">

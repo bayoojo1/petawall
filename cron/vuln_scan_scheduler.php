@@ -21,7 +21,7 @@ $scans = $stmt->fetchAll(PDO::FETCH_ASSOC);
 foreach ($scans as $scan) {
 
     $insert = $pdo->prepare("
-    INSERT INTO vuln_scan_jobs (scan_id,status,created_at)
+    INSERT IGNORE INTO vuln_scan_jobs (scan_id,status,created_at)
     VALUES (?, 'pending', NOW())
     ");
 

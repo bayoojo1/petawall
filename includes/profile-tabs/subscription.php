@@ -7,6 +7,12 @@ $roleManager = new RoleManager();
 $accessControl = new AccessControl();
 $stripeManager = new StripeManager();
 
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$csrfToken = $_SESSION['csrf_token'];
+
 // Current role
 $currentRole = $userRoles[0]['role'] ?? 'free';
 
@@ -186,13 +192,7 @@ foreach ($displayPlans as $plan) {
         </div>
         <?php endif; ?>
 
-        <?php if (!in_array($currentRole, ['premium', 'admin', 'moderator'])): ?>
-            <div class="form-actions" style="margin-top: 1.5rem;">
-                <button class="btn btn-primary" onclick="upgradePlan()">
-                    <i class="fas fa-arrow-up"></i> Upgrade Plan
-                </button>
-            </div>
-        <?php else: ?>
+        <?php if (in_array($currentRole, ['premium', 'admin', 'moderator'])): ?>
             <div class="stat-card" style="display: inline-block; margin-top: 1rem; padding: 1rem 2rem;">
                 <div class="stat-number" style="font-size: 1.5rem;">
                     <i class="fas fa-crown" style="color: #FFD700;"></i> Premium
@@ -248,8 +248,9 @@ foreach ($displayPlans as $plan) {
                         <i class="fas fa-lock"></i> <?= $plan['name']; ?>
                     </button>
                 <?php else: ?>
-                    <button class="btn btn-primary" style="width:100%;);"
-                            onclick="upgradeToPlan('<?= $planKey ?>', <?= $plan['price'] ?>)">
+                    <button class="btn btn-primary upgrade-btn" style="width:100%;);"
+                            data-plan="<?= $planKey ?>"
+                            data-price="<?= $plan['price'] ?>">
                         <i class="fas fa-arrow-up"></i> Upgrade to <?= $plan['name']; ?>
                     </button>
                 <?php endif; ?>
@@ -257,21 +258,7 @@ foreach ($displayPlans as $plan) {
         <?php endforeach; ?>
     </div>
 </div>
-
 <script>
-function upgradeToPlan(plan, price) {
-    const planNames = { free:'Free', basic:'Basic', premium:'Premium' };
-    const planIcons = { free:'🆓', basic:'⚡', premium:'👑' };
-
-    if (confirm(`${planIcons[plan]} Upgrade to ${planNames[plan]} plan for $${price}/month?`)) {
-        window.location.href = `/checkout.php?plan=${plan}&price=${price}`;
-    }
-}
-
-function upgradePlan() {
-    document.querySelector('.pricing-plans').scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-    });
-}
+    window.CSRF_TOKEN = "<?= htmlspecialchars($csrfToken) ?>";
 </script>
+<script src="assets/js/upgrade.js"></script>

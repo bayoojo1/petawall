@@ -9,11 +9,6 @@ $toolName = 'code-analyzer';
 // Store the login status
 $isLoggedIn = $auth->isLoggedIn();
 
-// If user is logged in, check permission for the tool page itself
-if ($isLoggedIn) {
-    $accessControl->requireToolAccess($toolName, 'plan.php');
-}
-
 require_once __DIR__ . '/includes/header-new.php';
 ?>
 

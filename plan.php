@@ -6,7 +6,13 @@ require_once __DIR__ . '/classes/StripeManager.php'; // Add this
 $accessControl = new AccessControl();
 $roleManager = new RoleManager();
 $auth = new Auth();
-$stripeManager = new StripeManager(); // Add thiss
+$stripeManager = new StripeManager(); // Add this
+
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$csrfToken = $_SESSION['csrf_token'];
 
 // Get all plans (roles) and their features from database
 $allPlans = $roleManager->getAllRoles();
@@ -842,11 +848,13 @@ require_once __DIR__ . '/includes/nav-new.php';
                             <i class="fas fa-lock"></i> <?= ucfirst($planName) ?>
                         </button>
                     <?php else: ?>
+                        
                         <button class="btn btn-primary upgrade-btn"
                                 data-plan="<?= $planName ?>"
                                 data-price="<?= $price ?>">
                             <i class="fas fa-arrow-up"></i> Upgrade to <?= ucfirst($planName) ?>
-                        </button>
+                        </button> 
+
                     <?php endif; ?>
                 </div>
             </div>
@@ -902,12 +910,14 @@ require_once __DIR__ . '/includes/nav-new.php';
     </div>
 </div>
 
+<?php require_once __DIR__ . '/includes/plan-confirmation-modal.php'; ?>
 <?php require_once __DIR__ . '/includes/login-modal.php'; ?>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
 
+<script>
+    window.CSRF_TOKEN = "<?= htmlspecialchars($csrfToken) ?>";
+</script>
 <script src="assets/js/upgrade.js"></script>
 <script src="assets/js/nav.js"></script>
 <script src="assets/js/auth.js"></script>
-
-<!-- <link rel="stylesheet" href="assets/styles/upgrade.css"> -->
 <link rel="stylesheet" href="assets/styles/modal.css">

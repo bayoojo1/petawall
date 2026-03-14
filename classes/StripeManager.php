@@ -106,16 +106,20 @@ class StripeManager {
                 case 'customer.subscription.updated':
                 case 'customer.subscription.deleted':
                     $subscription = $event->data->object;
-                    $this->syncSubscriptionFromStripe($subscription->id);
+                    $this->syncSubscriptionFromStripe($subscription);
                     break;
 
                 case 'invoice.paid':
                 case 'invoice.payment_failed':
                     $invoice = $event->data->object;
                     if (!empty($invoice->subscription)) {
-                        $this->syncSubscriptionFromStripe($invoice->subscription);
+                        $subscription = \Stripe\Subscription::retrieve([
+                            'id' => $invoice->subscription,
+                            'expand' => ['items.data.price']
+                        ]);
+                        $this->syncSubscriptionFromStripe($subscription);
                     }
-                    break;
+                      break;
             }
 
             $this->markEventProcessed($event->id);
@@ -132,43 +136,137 @@ class StripeManager {
        STRIPE SOURCE OF TRUTH SYNC
     ========================================================== */
 
-    private function syncSubscriptionFromStripe($subscriptionId) {
+    private function syncSubscriptionFromStripe($subscription) {
+        // Handle deleted subscriptions immediately
+        if ($subscription->status === 'canceled' || $subscription->status === 'incomplete_expired') {
 
-        $subscription = \Stripe\Subscription::retrieve([
-            'id' => $subscriptionId,
-            'expand' => ['items.data.price']
-        ]);
+            $userId = $subscription->metadata->user_id ?? null;
 
-        $userId = $subscription->metadata->user_id ?? null;
-        $plan   = $subscription->metadata->plan ?? null;
+            if (!$userId) {
 
-        if (!$userId || empty($subscription->items->data)) {
+                $stmt = $this->db->prepare("
+                    SELECT user_id
+                    FROM user_subscriptions
+                    WHERE stripe_subscription_id = ?
+                    LIMIT 1
+                ");
+
+                $stmt->execute([$subscription->id]);
+
+                $userId = $stmt->fetchColumn();
+            }
+
+            if ($userId) {
+
+                $this->updateSubscriptionStatus($subscription->id, 'canceled');
+
+                $this->updateUserRole($userId, 1); // free role
+
+                error_log("Subscription cancelled and user downgraded: ".$userId);
+            }
+
             return;
         }
+        try {
 
-        $item = $subscription->items->data[0];
+            if (!$subscription) {
+                return;
+            }
 
-        if (!isset($item->current_period_start) || !isset($item->current_period_end)) {
-            return; // Never fake billing dates
+            $userId = $subscription->metadata->user_id ?? null;
+            $plan   = $subscription->metadata->plan ?? null;
+
+            /* fallback lookup if metadata missing */
+
+            if (!$userId) {
+
+                $stmt = $this->db->prepare("
+                    SELECT user_id, plan
+                    FROM user_subscriptions
+                    WHERE stripe_subscription_id = ?
+                    LIMIT 1
+                ");
+
+                $stmt->execute([$subscription->id]);
+
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($row) {
+                    $userId = $row['user_id'];
+                    $plan   = $row['plan'];
+                }
+            }
+
+            if (!$userId) {
+                error_log("Unable to resolve user for subscription: " . $subscription->id);
+                return;
+            }
+
+            if (empty($subscription->items->data)) {
+                error_log("Stripe subscription has no items");
+                return;
+            }
+
+            $item = $subscription->items->data[0];
+
+            $priceId = $item->price->id ?? null;
+
+            $periodStart = $subscription->current_period_start ?? null;
+            $periodEnd   = $subscription->current_period_end ?? null;
+
+            if (!$periodStart || !$periodEnd) {
+
+                $item = $subscription->items->data[0] ?? null;
+
+                if ($item) {
+                    $periodStart = $item->current_period_start ?? $periodStart;
+                    $periodEnd   = $item->current_period_end ?? $periodEnd;
+                }
+            }
+
+            if (!$periodStart || !$periodEnd) {
+                error_log("Stripe subscription missing billing period");
+                return;
+            }
+
+            $periodStart = date('Y-m-d H:i:s', $periodStart);
+            $periodEnd   = date('Y-m-d H:i:s', $periodEnd);
+
+            if (!$periodStart || !$periodEnd) {
+                error_log("Stripe subscription missing billing period");
+                return;
+            }
+
+            $status = $subscription->status;
+
+            // Store subscription safely
+            $this->storeSubscription(
+                $userId,
+                $subscription->id,
+                $subscription->customer,
+                $plan,
+                $periodStart,
+                $periodEnd,
+                $status
+            );
+
+            // Update user role
+            $this->updateUserRoleBasedOnStatus($userId, $status, $priceId);
+
+        } catch (Exception $e) {
+
+            error_log("Stripe subscription sync error: " . $e->getMessage());
         }
+    }
 
-        $periodStart = date('Y-m-d H:i:s', $item->current_period_start);
-        $periodEnd   = date('Y-m-d H:i:s', $item->current_period_end);
+    private function updateSubscriptionStatus($subscriptionId, $status) {
+        $stmt = $this->db->prepare("
+            UPDATE user_subscriptions
+            SET status = ?, updated_at = NOW()
+            WHERE stripe_subscription_id = ?
+        ");
 
-        $priceId = $item->price->id ?? null;
-        $status  = $subscription->status;
-
-        $this->storeSubscription(
-            $userId,
-            $subscription->id,
-            $subscription->customer,
-            $plan,
-            $periodStart,
-            $periodEnd,
-            $status
-        );
-
-        $this->updateUserRoleBasedOnStatus($userId, $status, $priceId);
+        $stmt->execute([$status, $subscriptionId]);
     }
 
     /* ==========================================================
@@ -259,30 +357,58 @@ class StripeManager {
     ========================================================== */
 
     public function cancelSubscription($userId, $immediately = false) {
-
         $subscription = $this->getActiveSubscription($userId);
 
         if (!$subscription) {
-            return ['success' => false, 'message' => 'No active subscription found.'];
+            return [
+                'success' => false,
+                'message' => 'No active subscription found.'
+            ];
         }
 
         $stripeSubscriptionId = $subscription['stripe_subscription_id'];
 
-        if ($immediately) {
+        try {
 
-            \Stripe\Subscription::cancel($stripeSubscriptionId);
+            if ($immediately) {
 
-        } else {
+                $stripeSub = \Stripe\Subscription::retrieve($stripeSubscriptionId);
+                $stripeSub->cancel();
 
-            \Stripe\Subscription::update($stripeSubscriptionId, [
-                'cancel_at_period_end' => true
-            ]);
+            } else {
+
+                \Stripe\Subscription::update($stripeSubscriptionId, [
+                    'cancel_at_period_end' => true
+                ]);
+            }
+
+            return [
+                'success' => true,
+                'message' => $immediately
+                    ? 'Subscription cancelled immediately.'
+                    : 'Subscription will cancel at the end of the billing period.'
+            ];
+
+        } catch (\Stripe\Exception\InvalidRequestException $e) {
+
+            if (str_contains($e->getMessage(), 'No such subscription')) {
+
+                $this->updateSubscriptionStatus($stripeSubscriptionId, 'canceled');
+                $this->updateUserRole($userId, 1);
+
+                return [
+                    'success' => true,
+                    'message' => 'Subscription was already cancelled.'
+                ];
+            }
+
+            error_log("Cancellation error: " . $e->getMessage());
+
+            return [
+                'success' => false,
+                'message' => 'Error cancelling subscription.'
+            ];
         }
-
-        // Let webhook sync state
-        $this->syncSubscriptionFromStripe($stripeSubscriptionId);
-
-        return ['success' => true];
     }
 
     public function reactivateSubscription($userId) {
@@ -422,5 +548,124 @@ class StripeManager {
         }
 
         return 'Renews on ' . $endDate->format('M j, Y');
+    }
+
+    public function createCheckoutSession($planName, $userId, $successUrl, $cancelUrl, $checkoutToken) {
+        // Expire old sessions
+        $this->db->prepare("
+            UPDATE stripe_checkout_sessions
+            SET status = 'expired'
+            WHERE status = 'pending'
+            AND created_at < NOW() - INTERVAL 10 MINUTE
+        ")->execute();
+
+        // Check for existing pending session
+        $stmt = $this->db->prepare("
+            SELECT id
+            FROM stripe_checkout_sessions
+            WHERE user_id = ?
+            AND status = 'pending'
+            LIMIT 1
+        ");
+
+        $stmt->execute([$userId]);
+
+        if ($stmt->fetch()) {
+            throw new Exception("A checkout session is already in progress.");
+        }
+
+        // Check active subscription
+        if ($this->hasActiveSubscription($userId)) {
+            throw new Exception("User already has active subscription.");
+        }
+
+        $priceId = $this->getPriceIdFromPlan($planName);
+
+        if (!$priceId) {
+            throw new Exception("Invalid plan selected");
+        }
+
+        // Create Stripe session
+        $session = \Stripe\Checkout\Session::create([
+            'mode' => 'subscription',
+
+            'line_items' => [[
+                'price' => $priceId,
+                'quantity' => 1
+            ]],
+
+            'success_url' => $successUrl,
+            'cancel_url' => $cancelUrl,
+
+            'customer' => $this->getOrCreateStripeCustomer($userId),
+
+            'client_reference_id' => $checkoutToken,
+
+            'metadata' => [
+                'checkout_token' => $checkoutToken,
+                'user_id' => $userId,
+                'plan' => $planName
+            ],
+
+            'subscription_data' => [
+                'metadata' => [
+                    'checkout_token' => $checkoutToken,
+                    'user_id' => $userId,
+                    'plan' => $planName
+                ]
+            ]
+        ]);
+
+        // INSERT AFTER STRIPE SESSION CREATED
+        $stmt = $this->db->prepare("
+            INSERT INTO stripe_checkout_sessions
+            (checkout_token, user_id, plan, stripe_session_id, status, created_at)
+            VALUES (?, ?, ?, ?, 'pending', NOW())
+        ");
+
+        $stmt->execute([
+            $checkoutToken,
+            $userId,
+            $planName,
+            $session->id
+        ]);
+
+        return $session->url;
+    }
+
+    private function getUserEmail($userId) {
+        $stmt = $this->db->prepare("SELECT email FROM users WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $user['email'] ?? null;
+    }
+
+    private function getOrCreateStripeCustomer($userId) {
+        $stmt = $this->db->prepare("
+            SELECT stripe_customer_id
+            FROM user_subscriptions
+            WHERE user_id = ?
+            AND stripe_customer_id IS NOT NULL
+            LIMIT 1
+        ");
+
+        $stmt->execute([$userId]);
+        $customer = $stmt->fetchColumn();
+
+        if ($customer) {
+            return $customer;
+        }
+
+        $email = $this->getUserEmail($userId);
+
+        $stripeCustomer = \Stripe\Customer::create([
+            'email' => $email,
+            'metadata' => [
+                'user_id' => $userId
+            ]
+        ]);
+
+        return $stripeCustomer->id;
     }
 }
