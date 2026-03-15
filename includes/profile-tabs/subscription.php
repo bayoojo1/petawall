@@ -113,84 +113,122 @@ foreach ($displayPlans as $plan) {
         
         <!-- Subscription Status Section -->
         <div class="subscription-details">
+
             <?php if (in_array($currentRole, ['basic', 'premium'])): ?>
+
                 <?php if ($subscriptionInfo): ?>
+
+                    <?php
+                        $status = $subscriptionInfo['status'] ?? 'active';
+                        $isTrial = ($status === 'trialing');
+                    ?>
+
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+
                         <div>
                             <strong>Subscription Status:</strong>
-                            <span style="margin-left: 0.5rem; padding: 0.25rem 1rem; border-radius: 2rem; 
-                                background: <?= $daysRemaining > 7 ? '#d4edda' : ($daysRemaining > 0 ? '#fff3cd' : '#f8d7da') ?>; 
-                                color: <?= $daysRemaining > 7 ? '#155724' : ($daysRemaining > 0 ? '#856404' : '#721c24') ?>;">
-                                <i class="fas fa-<?= $daysRemaining > 7 ? 'check-circle' : ($daysRemaining > 0 ? 'exclamation-triangle' : 'times-circle') ?>"></i>
-                                <?= $daysRemaining > 7 ? 'Active' : ($daysRemaining > 0 ? 'Expiring Soon' : 'Expired') ?>
-                            </span>
+
+                            <?php if ($isTrial): ?>
+
+                                <span style="margin-left:0.5rem;padding:0.25rem 1rem;border-radius:2rem;background:#d1ecf1;color:#0c5460;">
+                                    <i class="fas fa-flask"></i>
+                                    Trial Active
+                                </span>
+
+                            <?php else: ?>
+
+                                <span style="margin-left: 0.5rem; padding: 0.25rem 1rem; border-radius: 2rem; 
+                                    background: <?= $daysRemaining > 7 ? '#d4edda' : ($daysRemaining > 0 ? '#fff3cd' : '#f8d7da') ?>; 
+                                    color: <?= $daysRemaining > 7 ? '#155724' : ($daysRemaining > 0 ? '#856404' : '#721c24') ?>;">
+                                    
+                                    <i class="fas fa-<?= $daysRemaining > 7 ? 'check-circle' : ($daysRemaining > 0 ? 'exclamation-triangle' : 'times-circle') ?>"></i>
+                                    <?= $daysRemaining > 7 ? 'Active' : ($daysRemaining > 0 ? 'Expiring Soon' : 'Expired') ?>
+                                </span>
+
+                            <?php endif; ?>
+
                         </div>
+
                         <div style="text-align: right;">
-                            <div><strong>Next Billing Date:</strong></div>
+                            <div>
+                                <strong><?= $isTrial ? 'Trial Ends:' : 'Next Billing Date:' ?></strong>
+                            </div>
+
                             <div style="font-size: 1.2rem; font-weight: 700; background: var(--gradient-1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
                                 <?= date('F j, Y', strtotime($subscriptionEndDate)) ?>
                             </div>
+
                             <div style="font-size: 0.85rem; color: var(--text-light);">
                                 <?= $formattedEndDate ?>
                             </div>
                         </div>
+
                     </div>
-                    
+
                     <?php if ($daysRemaining !== null && $daysRemaining <= 30): ?>
+
                         <div style="margin-top: 1rem;">
+
                             <div class="progress">
-                                <div class="progress-bar 
-                                    <?= $daysRemaining > 21 ? 'bg-success' : 
-                                       ($daysRemaining > 14 ? 'bg-warning' : 
-                                       ($daysRemaining > 7 ? 'bg-warning' : 'bg-danger')) ?>" 
-                                    style="width: <?= min(100, (30 - $daysRemaining) / 30 * 100) ?>%;">
+
+                                <div class="progress-bar
+                                    <?= $isTrial ? 'bg-info' :
+                                        ($daysRemaining > 21 ? 'bg-success' :
+                                        ($daysRemaining > 14 ? 'bg-warning' :
+                                        ($daysRemaining > 7 ? 'bg-warning' : 'bg-danger'))) ?>"
+
+                                    style="width: <?= $isTrial
+                                        ? min(100, (7 - $daysRemaining) / 7 * 100)
+                                        : min(100, (30 - $daysRemaining) / 30 * 100) ?>%;">
+
                                 </div>
+
                             </div>
-                            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-light); margin-top: 0.5rem;">
-                                <span><i class="fas fa-hourglass-half"></i> <?= $daysRemaining ?> days remaining</span>
-                                <span><i class="fas fa-sync"></i> Renews automatically</span>
+
+                            <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:var(--text-light);margin-top:0.5rem;">
+
+                                <span>
+                                    <i class="fas fa-hourglass-half"></i>
+                                    <?= $daysRemaining ?> day<?= $daysRemaining !== 1 ? 's' : '' ?> remaining
+                                </span>
+
+                                <span>
+                                    <i class="fas fa-sync"></i>
+                                    <?= $isTrial ? 'Billing starts after trial' : 'Renews automatically' ?>
+                                </span>
+
                             </div>
+
                         </div>
+
                     <?php endif; ?>
+
                 <?php else: ?>
+
                     <p style="color: var(--text-light);">
                         <i class="fas fa-info-circle" style="color: var(--info);"></i>
                         Subscription information not available. Your payment may still be processing.
                     </p>
+
                 <?php endif; ?>
+
             <?php elseif ($currentRole === 'free'): ?>
+
                 <div style="color: var(--text-light); display: flex; align-items: center; gap: 0.5rem;">
                     <i class="fas fa-infinity" style="color: var(--success);"></i>
                     Free plan - No expiration date
                 </div>
+
             <?php else: ?>
+
                 <div style="color: var(--text-light); display: flex; align-items: center; gap: 0.5rem;">
                     <i class="fas fa-shield-alt" style="color: var(--primary);"></i>
                     Internal account - No subscription required
                 </div>
-            <?php endif; ?>
-        </div>
 
-        <!-- CANCELLATION WARNING SECTION -->
-        <?php if ($hasActiveSubscription && !empty($subscription) && isset($subscription['cancel_at_period_end']) && $subscription['cancel_at_period_end']): ?>
-        <div class="alert-warning">
-            <div style="flex-shrink: 0;">
-                <i class="fas fa-clock fa-2x"></i>
-            </div>
-            <div style="flex-grow: 1;">
-                <h4><i class="fas fa-exclamation-triangle"></i> Cancellation Scheduled</h4>
-                <p>
-                    Your subscription is scheduled to cancel on <strong><?php echo date('F j, Y', strtotime($subscription['current_period_end'])); ?></strong>.
-                    You will lose access to premium features after this date.
-                </p>
-                <div style="margin-top: 0.75rem;">
-                    <a href="profile.php?tab=cancel-subscription" class="btn" style="background: #856404; color: white; padding: 0.5rem 1rem; border-radius: 2rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
-                        <i class="fas fa-cog"></i> Manage Cancellation
-                    </a>
-                </div>
-            </div>
+            <?php endif; ?>
+
         </div>
-        <?php endif; ?>
 
         <?php if (in_array($currentRole, ['premium', 'admin', 'moderator'])): ?>
             <div class="stat-card" style="display: inline-block; margin-top: 1rem; padding: 1rem 2rem;">

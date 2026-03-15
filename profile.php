@@ -695,7 +695,7 @@ $subStatus = $subscription->getActiveSubscription($user['user_id']);
                 <?php endif; ?>
                 
                 <li class="nav-section-header">Danger Zone</li>
-                <?php if ($subStatus['status'] === 'active' && !$subStatus['cancel_at_period_end']): ?>
+                <?php if (($subStatus['status'] === 'active' || $subStatus['status'] === 'trialing') && !$subStatus['cancel_at_period_end']): ?>
                 <li class="nav-item-profile <?php echo $activeTab === 'cancel-subscription' ? 'active' : ''; ?>">
                     <a href="?tab=cancel-subscription" class="nav-link-profile danger">
                         <i class="fas fa-exclamation-triangle"></i>

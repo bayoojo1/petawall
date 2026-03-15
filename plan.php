@@ -727,7 +727,15 @@ require_once __DIR__ . '/includes/nav-new.php';
                 
                 <?php if ($subscriptionInfo && in_array($currentUserRole, ['basic', 'premium'])): ?>
                     <div class="subscription-status">
-                        <?php if ($daysRemaining !== null && $daysRemaining > 0): ?>
+                        <?php if ($subscriptionInfo['status'] === 'trialing'): ?>
+                        <span class="status-badge active">
+                        <i class="fas fa-flask"></i>
+                        Trial - <?= $daysRemaining ?> day<?= $daysRemaining !== 1 ? 's' : '' ?> remaining
+                        </span>
+                        <small class="text-muted">
+                        Trial ends <?= date('M j, Y', strtotime($subscriptionEndDate)) ?>
+                        </small>
+                        <?php elseif ($daysRemaining !== null && $daysRemaining > 0): ?>
                             <span class="status-badge active">
                                 <i class="fas fa-calendar-check"></i>
                                 Active - Renews in <?= $daysRemaining ?> day<?= $daysRemaining !== 1 ? 's' : '' ?>

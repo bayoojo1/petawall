@@ -198,8 +198,41 @@ class StripeManager {
             }
 
             if (!$userId) {
+
+                // Try resolving via checkout session
+                $stmt = $this->db->prepare("
+                    SELECT user_id, plan
+                    FROM stripe_checkout_sessions
+                    WHERE stripe_session_id = ?
+                    LIMIT 1
+                ");
+
+                $stmt->execute([$subscription->latest_invoice]);
+
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($row) {
+                    $userId = $row['user_id'];
+                    $plan   = $row['plan'];
+                }
+            }
+
+            if (!$userId) {
                 error_log("Unable to resolve user for subscription: " . $subscription->id);
                 return;
+            }
+
+            // Mark trial as used if subscription is trialing
+            if ($subscription->status === 'trialing') {
+
+                $stmt = $this->db->prepare("
+                    UPDATE users
+                    SET trial_used = 1
+                    WHERE user_id = ?
+                    AND trial_used = 0
+                ");
+
+                $stmt->execute([$userId]);
             }
 
             if (empty($subscription->items->data)) {
@@ -346,9 +379,22 @@ class StripeManager {
     ========================================================== */
 
     private function handleCheckoutSessionCompleted($session) {
+        if (empty($session->subscription)) {
+            return;
+        }
 
-        if (!empty($session->subscription)) {
-            $this->syncSubscriptionFromStripe($session->subscription);
+        try {
+
+            $subscription = \Stripe\Subscription::retrieve([
+                'id' => $session->subscription,
+                'expand' => ['items.data.price']
+            ]);
+
+            $this->syncSubscriptionFromStripe($subscription);
+
+        } catch (\Exception $e) {
+
+            error_log("Stripe subscription retrieve error: " . $e->getMessage());
         }
     }
 
@@ -438,7 +484,7 @@ class StripeManager {
             SELECT * FROM user_subscriptions
             WHERE user_id = ?
             AND status IN ('active','trialing','past_due')
-            ORDER BY current_period_end DESC
+            ORDER BY id DESC
             LIMIT 1
         ");
 
@@ -459,7 +505,7 @@ class StripeManager {
         $stmt = $this->db->prepare("
             SELECT status FROM user_subscriptions
             WHERE user_id = ?
-            ORDER BY current_period_end DESC
+            ORDER BY id DESC
             LIMIT 1
         ");
 
@@ -478,7 +524,7 @@ class StripeManager {
         $stmt = $this->db->prepare("
             SELECT plan FROM user_subscriptions
             WHERE user_id = ?
-            ORDER BY current_period_end DESC
+            ORDER BY id DESC
             LIMIT 1
         ");
 
@@ -491,9 +537,10 @@ class StripeManager {
     public function getDaysRemaining($userId)
     {
         $stmt = $this->db->prepare("
-            SELECT current_period_end, status FROM user_subscriptions
+            SELECT current_period_end, status
+            FROM user_subscriptions
             WHERE user_id = ?
-            ORDER BY current_period_end DESC
+            ORDER BY id DESC
             LIMIT 1
         ");
 
@@ -504,14 +551,17 @@ class StripeManager {
             return null;
         }
 
-        if (!in_array($subscription['status'], ['active', 'trialing', 'past_due'])) {
+        $status = $subscription['status'];
+
+        // Allow trialing subscriptions
+        if (!in_array($status, ['active','trialing','past_due'])) {
             return 0;
         }
 
         $endDate = new DateTime($subscription['current_period_end']);
         $now = new DateTime();
 
-        if ($endDate < $now) {
+        if ($endDate <= $now) {
             return 0;
         }
 
@@ -521,9 +571,10 @@ class StripeManager {
     public function formatEndDate($userId)
     {
         $stmt = $this->db->prepare("
-            SELECT current_period_end, status FROM user_subscriptions
+            SELECT current_period_end, status
+            FROM user_subscriptions
             WHERE user_id = ?
-            ORDER BY current_period_end DESC
+            ORDER BY id DESC
             LIMIT 1
         ");
 
@@ -534,8 +585,16 @@ class StripeManager {
             return 'No active subscription';
         }
 
+        $status = $subscription['status'];
         $endDate = new DateTime($subscription['current_period_end']);
         $now = new DateTime();
+
+        if ($status === 'trialing') {
+
+            $days = $now->diff($endDate)->days;
+
+            return 'Trial ends in ' . $days . ' day' . ($days !== 1 ? 's' : '');
+        }
 
         if ($endDate < $now) {
             return 'Expired on ' . $endDate->format('M j, Y');
@@ -585,7 +644,41 @@ class StripeManager {
             throw new Exception("Invalid plan selected");
         }
 
-        // Create Stripe session
+        /*
+        -------------------------------------------------------
+        CHECK IF USER ALREADY USED TRIAL
+        -------------------------------------------------------
+        */
+
+        $stmt = $this->db->prepare("SELECT trial_used FROM users WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        $trialUsed = (bool)$stmt->fetchColumn();
+
+        /*
+        -------------------------------------------------------
+        BUILD SUBSCRIPTION DATA
+        -------------------------------------------------------
+        */
+
+        $subscriptionData = [
+            'metadata' => [
+                'checkout_token' => $checkoutToken,
+                'user_id' => $userId,
+                'plan' => $planName
+            ]
+        ];
+
+        // Only apply trial if not already used
+        if (!$trialUsed) {
+            $subscriptionData['trial_period_days'] = 7;
+        }
+
+        /*
+        -------------------------------------------------------
+        CREATE STRIPE CHECKOUT SESSION
+        -------------------------------------------------------
+        */
+
         $session = \Stripe\Checkout\Session::create([
             'mode' => 'subscription',
 
@@ -599,6 +692,9 @@ class StripeManager {
 
             'customer' => $this->getOrCreateStripeCustomer($userId),
 
+            // Require payment method even for trial
+            'payment_method_collection' => 'always',
+
             'client_reference_id' => $checkoutToken,
 
             'metadata' => [
@@ -607,16 +703,15 @@ class StripeManager {
                 'plan' => $planName
             ],
 
-            'subscription_data' => [
-                'metadata' => [
-                    'checkout_token' => $checkoutToken,
-                    'user_id' => $userId,
-                    'plan' => $planName
-                ]
-            ]
+            'subscription_data' => $subscriptionData
         ]);
 
-        // INSERT AFTER STRIPE SESSION CREATED
+        /*
+        -------------------------------------------------------
+        STORE CHECKOUT SESSION
+        -------------------------------------------------------
+        */
+
         $stmt = $this->db->prepare("
             INSERT INTO stripe_checkout_sessions
             (checkout_token, user_id, plan, stripe_session_id, status, created_at)
